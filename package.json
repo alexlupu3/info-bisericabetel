@@ -1,0 +1,28 @@
+{
+  "name": "info-bisericabetel",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "pnpm --filter pwa dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:api": "pnpm --filter api dev",
+    "build": "pnpm --filter pwa build",
+    "build:admin": "pnpm --filter admin build",
+    "build:api": "pnpm --filter api build",
+    "build:all": "pnpm -r build",
+    "test": "cypress run",
+    "test:open": "cypress open",
+    "lint": "pnpm -r lint",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:pwa": "bash scripts/deploy-pwa.sh",
+    "deploy:admin": "bash scripts/deploy-admin.sh",
+    "deploy:api": "bash scripts/deploy-api.sh"
+  },
+  "devDependencies": {
+    "cypress": "^13.17.0",
+    "typescript": "^5.7.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["cypress", "esbuild", "sharp"]
+  }
+}

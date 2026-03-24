@@ -1,0 +1,33 @@
+{
+  "name": "@betel/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "seed-admin": "tsx src/scripts/seed-admin.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:sharp && rm -rf dist/migrations && cp -r src/db/migrations dist/migrations && echo '{\"type\":\"commonjs\",\"dependencies\":{\"sharp\":\"^0.32.6\"}}' > dist/package.json",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@betel/shared": "workspace:*",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/multipart": "^9.4.0",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.1",
+    "fastify": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "postgres": "^3.4.8",
+    "sharp": "^0.32.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.6",
+    "esbuild": "^0.27.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

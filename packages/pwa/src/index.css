@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Betel custom fonts ──────────────────────────────────────── */
+@font-face {
+  font-family: 'Franie-SLight';
+  src: url('/fonts/Franie-SLight.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Franie-SBold';
+  src: url('/fonts/Franie-SBold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Franie-CondensedXLight-Italic';
+  src: url('/fonts/Franie-CondensedXLightItalic.woff') format('woff');
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ── Betel design tokens ─────────────────────────────────────── */
+:root {
+  --accent: #ffffff;
+  --bg: #eeeeee;
+  --surface: #ffffff;
+  --border: #dddddd;
+  --text: #111111;
+  --muted: #666666;
+}
+
+/* Dark mode via system preference (no manual override) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000;
+    --surface: #111111;
+    --border: #222222;
+    --text: #f5f5f5;
+    --muted: #888888;
+  }
+}
+
+/* Dark mode explicitly set by user */
+[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #111111;
+  --border: #222222;
+  --text: #f5f5f5;
+  --muted: #888888;
+}
+
+/* Light mode explicitly set by user (ensures system-dark can be overridden) */
+[data-theme="light"] {
+  --bg: #eeeeee;
+  --surface: #ffffff;
+  --border: #dddddd;
+  --text: #111111;
+  --muted: #666666;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: 'Franie-SLight', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+}
+
+/* ── Betel logo (white SVG, inverted in light mode) ─────────── */
+.betel-logo {
+  display: inline-block;
+  height: 4rem;
+  width: auto;
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .betel-logo {
+    filter: none;
+  }
+}
+
+[data-theme="dark"] .betel-logo {
+  filter: none;
+}
+
+[data-theme="light"] .betel-logo {
+  filter: invert(1);
+}
+
+/* ── Betel signature title ───────────────────────────────────── */
+.betel-title-bold {
+  font-family: 'Franie-SBold', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.betel-title-condensed {
+  font-family: 'Franie-CondensedXLight-Italic', 'Arial Narrow', sans-serif;
+  font-weight: 200;
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+
+
+/* ── Prose (markdown content) ───────────────────────────────── */
+.prose-betel {
+  font-family: Lato, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.prose-betel > * + * { margin-top: 0.75em; }
+
+.prose-betel h1,
+.prose-betel h2,
+.prose-betel h3,
+.prose-betel h4 {
+  font-family: 'Franie-SBold', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+  margin-top: 1.4em;
+  margin-bottom: 0.3em;
+}
+.prose-betel h1 { font-size: 1.5rem; }
+.prose-betel h2 { font-size: 1.25rem; }
+.prose-betel h3 { font-size: 1.05rem; }
+.prose-betel h4 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.prose-betel strong { font-weight: 700; color: var(--text); }
+.prose-betel em { font-style: italic; }
+
+.prose-betel a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+.prose-betel a:hover { color: var(--accent); }
+
+.prose-betel ul,
+.prose-betel ol {
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+.prose-betel ul { list-style: disc; }
+.prose-betel ol { list-style: decimal; }
+.prose-betel li > p { margin: 0; }
+
+.prose-betel blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: 0.9em;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.prose-betel code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.82em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+  color: var(--text);
+}
+.prose-betel pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.85em 1em;
+  overflow-x: auto;
+  border-radius: 2px;
+}
+.prose-betel pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.82em;
+}
+
+.prose-betel hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+
+.prose-betel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82em;
+}
+.prose-betel th,
+.prose-betel td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.prose-betel th {
+  color: var(--text);
+  font-weight: 700;
+  background: var(--surface);
+}
+
+/* ── Scrollbar (subtle) ──────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}

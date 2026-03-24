@@ -7,9 +7,10 @@
   - Four content types: Card, Richtext, Poster, Embedded YouTube Video
   - Groups (Cards and Posters), drag-and-drop ordering, site scoping
   - Auto-expiry, draft/published/archived publishing states
-  - Admin tool: content management, site management, media library, preview mode, audit log
-  - Admin accounts: super-admin provisioning flow, forced password change on first login, password reset
-  - Analytics dashboard: site visits, link clicks, by location, lifetime + daily views
+  - Admin tool: content management, site management, ~~media library~~ **[done — 2026-03-17]**, preview mode, audit log
+  - Admin accounts: super-admin provisioning flow, forced password change on first login, ~~password reset~~ **[done — 2026-03-21]** (super-admin resets admin passwords via UI; temp password shown once for out-of-band delivery)
+  - **Admin email notifications (planned — no release date):** temporary passwords delivered by email on account creation (FR-030); self-service forgot-password / reset-password flow with time-limited email links (FR-031). Requires Resend integration and one-time DNS setup (SPF/DKIM). See `docs/architecture/integrations.md`.
+  - ~~Analytics dashboard: site visits, link clicks, by location, lifetime + daily views~~ **[done — 2026-03-19]**
   - Per-site QR code / deep links
 - **Risks:**
   - Sunday morning traffic spike requires scalable architecture from day one

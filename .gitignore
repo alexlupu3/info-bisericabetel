@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.env
+.env.local
+*.local
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+.DS_Store
+*.pem
+
+# Deploy/infra scripts (contain server-specific topology)
+scripts/
+
+# Agent memory (internal tooling state)
+.claude/agent-memory/
+
+# Database dumps and ad-hoc backups
+*.dump
+*.sql
+# Keep migration SQL
+!packages/api/src/db/migrations/
+
+# Uploaded media files
+uploads/

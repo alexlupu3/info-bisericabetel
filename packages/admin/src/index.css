@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #ff6200;
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-2: #1a1a1a;
+  --border: #222222;
+  --text: #f5f5f5;
+  --muted: #888888;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* ── Betel custom fonts ──────────────────────────────────────── */
+@font-face {
+  font-family: 'Franie-SLight';
+  src: url('/fonts/Franie-SLight.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Franie-SBold';
+  src: url('/fonts/Franie-SBold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Franie-CondensedXLight-Italic';
+  src: url('/fonts/Franie-CondensedXLightItalic.woff') format('woff');
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+
+body {
+  font-family: 'Franie-SLight', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+/* ── Betel signature title ───────────────────────────────────── */
+.betel-title-bold {
+  font-family: 'Franie-SBold', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.betel-title-condensed {
+  font-family: 'Franie-CondensedXLight-Italic', 'Arial Narrow', sans-serif;
+  font-weight: 200;
+  font-style: italic;
+  letter-spacing: 0.04em;
+}

@@ -30,6 +30,13 @@
 ## Database
 - Relational database via schema-driven ORM or connector (PostgreSQL or MySQL preferred, others supported).
 - Schema defined in code; migrations managed explicitly.
+- A `media` table tracks all uploaded image files (id, url, filename, original_name, size, mime_type, created_at). It is the authoritative record of uploads; usage detection is done by querying JSONB fields on `content_items` rather than via foreign keys (see ADR-003).
+- An `analytics_events` table records all site visit and link click events (id, event_type, site_slug, item_id, url, occurred_at). Indexed on (event_type, occurred_at) and (site_slug, occurred_at) for efficient aggregation queries. Events are written asynchronously — the ingest endpoint responds 204 immediately.
+
+## File Storage
+- Uploaded images are written to a local `uploads/` directory on the server.
+- Image URLs are immutable after upload — changing a URL would silently break all `content_items` that reference it.
+- Files without a corresponding `media` row are orphans (possible only in the narrow window between a successful disk write and a failed DB insert).
 
 ## Key Risks
 - Risk: unclear distinction between site-specific and church-wide content could confuse users

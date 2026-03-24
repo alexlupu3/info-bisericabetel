@@ -22,20 +22,24 @@
 - Purpose: communicate information in free-form formatted text (e.g. announcements, instructions)
 - Fields:
   - Content (Markdown) `*`
-  - Expiration date — item is automatically hidden after this date if provided
+  - Start date — stored in `data.startDate`; item is hidden before this date if provided
+  - End date — stored in `data.endDate`; item is hidden after this date if provided (requires start date to be set first)
 
 ### Poster
 - Purpose: display a visual announcement or promotional image with an optional link
 - Fields:
   - Image `*`
   - Link (URL)
-  - Expiration date — item is automatically hidden after this date if provided
+  - Start date — stored in `data.startDate`; item is hidden before this date if provided
+  - End date — stored in `data.endDate`; item is hidden after this date if provided (requires start date to be set first)
+  - Name (admin-only) — a human-readable label used in the media library to identify which content item is using an image. Stored in `data.name`. Never shown on the public hub. Optional; falls back to the item's UUID if absent.
 
 ### Embedded YouTube Video
 - Purpose: embed a video directly in the hub
 - Fields:
   - Video link (YouTube URL) `*`
-  - Expiration date — item is automatically hidden after this date if provided
+  - Start date — stored in `data.startDate`; item is hidden before this date if provided
+  - End date — stored in `data.endDate`; item is hidden after this date if provided (requires start date to be set first)
 
 ## Groups
 - Cards and Posters can be collected into a **Group** for display purposes.
@@ -54,25 +58,49 @@
 - **Ownership:** managed by any admin; changes are audit-logged
 
 ## Expiration Behavior
-- All four content types support automatic expiry.
-- **Richtext, Poster, Embedded YouTube Video:** expiry is controlled by an explicit optional expiration date field.
-- **Card:** expiry is derived from its date fields using this priority order:
-  1. If an end date is set → end date is the expiry
-  2. If only a start date is set → start date is the expiry
-  3. If no dates are set → the card is treated as permanent (no expiry)
-- When an item's expiry date has passed, it is automatically hidden from the public view.
-- Expired items remain visible in the admin tool and can be re-published or permanently deleted.
+- All four content types support automatic expiry via two independent mechanisms:
+
+### JSONB Date Fields (unified — all types)
+All content types support optional `startDate` and `endDate` fields stored in the JSONB `data` column. These fields were previously exclusive to Card; migration `0005_migrate_card_date.sql` promoted the legacy `data.date` field on existing cards to `data.startDate`.
+
+The public API applies date filtering uniformly across all types using this priority order:
+1. If an `endDate` is set → item is hidden after `endDate`
+2. If only a `startDate` is set → item is hidden after `startDate`
+3. If no JSONB dates are set → no date-based filtering from this mechanism
+
+The admin past-item badge (`isItemPast()`) follows the same priority: `endDate` → `startDate`.
+
+The admin form applies progressive disclosure: the end date input is hidden until a start date is provided.
+
+### `expiresAt` Column (independent mechanism)
+The `expiresAt` column on `content_items` is a separate, independent expiry mechanism. It is not replaced by the JSONB date fields. Both mechanisms apply independently:
+- The API filters out items where `expiresAt` has passed (existing `gt(contentItems.expiresAt, now)` filter).
+- The API also filters via the JSONB date range logic described above.
+- For past-item detection in the admin: JSONB dates take precedence over `expiresAt`.
+
+When any applicable expiry condition is met, the item is automatically hidden from the public view. Expired items remain visible in the admin tool and can be re-published or permanently deleted.
 
 ## Image Handling
 - Images are uploaded directly to the server — no external URL references.
-- A dedicated image management service (media library) is required so admins can browse and reuse previously uploaded images instead of re-uploading duplicates.
-- Cards (thumbnail) and Posters (image) both use this shared image library.
+- Every upload is recorded in the `media` table (`url`, `filename`, `original_name`, `size`, `mime_type`, `created_at`).
+- Allowed formats: JPEG, PNG, GIF, WebP. Maximum file size: 10 MB.
+- Image URLs are **immutable after upload**. Changing a URL after the fact would silently break all content items that reference it.
+- Cards (via `data.thumbnail`) and Posters (via `data.imageUrl`) both reference images by their stored URL.
+- The admin Media page provides a gallery view, filter by usage (all / in use / not in use), per-image usage info (which content item uses it), and a delete action for unused images.
+- Usage detection: `GET /admin/media` and `DELETE /admin/media/:id` query `content_items` where `data->>'imageUrl' = url` OR `data->>'thumbnail' = url`. If a future content type stores images under a different JSONB field name, this query must be extended (see ADR-003).
+- Delete is blocked server-side (HTTP 409) for any image currently referenced by a content item.
 
 ## Ordering and Site Scoping — Relationship
 - **Order is global and admin-defined.** Site scoping only controls visibility (show/hide), never the order items appear.
 - Items always appear in their admin-defined position. If an item is hidden for a given site, the remaining items close the gap but retain their relative order.
 - Example: items ordered A → B → C where B is hidden for site BETA → site BETA sees A → C (not C → A).
 - Admins manage a single unified ordered list. There is no per-site ordering.
+
+## Compound Site Scope — Group Scope Takes Precedence
+- When a group is scoped to specific sites, the **entire group container** (header + all items it contains) is hidden for sites outside the group's scope.
+- Individual item site assignments within the group are irrelevant when the group itself is not visible for a given site.
+- This means group scope is evaluated first; item scope is only evaluated for items that belong to ungrouped sections or to groups that are visible for the current site.
+- Rationale: a group's site assignment communicates the intent that this collection of content is relevant only to certain locations. Allowing individual items within a scoped group to "leak" through to other sites would contradict that intent and confuse both admins and members.
 
 ## Extensibility Note
 The content type system must be designed to allow new types to be added in future without requiring data migrations or codebase restructuring for existing types.
