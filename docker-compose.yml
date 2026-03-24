@@ -1,0 +1,81 @@
+# ─── Docker Compose — info.bisericabetel ─────────────────────────────────────
+#
+# Quick start:
+#   cp example.env .env          # fill in JWT_SECRET, DB_PASSWORD, CORS_ORIGIN
+#   docker compose up -d --build
+#
+# The bundled PostgreSQL service is optional.
+# To use an external database, remove the `db` service and set DATABASE_URL in .env.
+#
+# Required env vars (add to .env):
+#   DB_PASSWORD    — PostgreSQL password (used by the bundled `db` service)
+#   JWT_SECRET     — min 32 chars, used to sign JWT tokens
+#   CORS_ORIGIN    — the public URL of the frontend, e.g. https://example.com
+#
+# Optional:
+#   DATABASE_URL   — override to point to an external database
+#   RESEND_API_KEY — email sending (future feature)
+#   EMAIL_FROM     — sender address for emails
+#   PORT           — host port Nginx listens on (default: 80)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: info_bisericabetel
+      POSTGRES_USER: betel
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betel -d info_bisericabetel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3100
+      DATABASE_URL: ${DATABASE_URL:-postgresql://betel:${DB_PASSWORD}@db:5432/info_bisericabetel}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      UPLOADS_DIR: /uploads
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+    volumes:
+      - uploads:/uploads
+    networks:
+      - internal
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+    depends_on:
+      - api
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  internal:
+    driver: bridge

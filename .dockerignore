@@ -1,0 +1,30 @@
+# Dependencies — reinstalled inside the image
+node_modules
+packages/*/node_modules
+
+# Build outputs — rebuilt inside the image
+dist
+packages/*/dist
+
+# Git history
+.git
+.gitignore
+
+# Local env files (secrets must not enter the image)
+.env
+.env.*
+!example.env
+
+# Dev/test/docs artifacts
+cypress
+docs
+memory
+*.md
+!README.md
+
+# macOS
+.DS_Store
+
+# Editor configs
+.vscode
+.idea

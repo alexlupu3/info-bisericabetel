@@ -112,5 +112,28 @@ Each deploy command builds the package(s) locally, rsyncs `dist/` to the server 
 
 ---
 
+## Docker
+
+A `Dockerfile` (multi-stage) and `docker-compose.yml` are included for running the full stack in containers.
+
+```bash
+cp example.env .env        # fill in DB_PASSWORD, JWT_SECRET, CORS_ORIGIN
+docker compose up -d --build
+```
+
+This starts three services: `db` (PostgreSQL 16), `api` (Fastify), and `nginx` (serves PWA + Admin, proxies `/api/`).
+
+### CapRover
+
+A `captain-definition` file is included at the repo root so the app can be deployed directly to a [CapRover](https://caprover.com) instance.
+
+Two adjustments are needed when deploying on CapRover:
+
+**1. Database** — CapRover has a one-click PostgreSQL app in its marketplace. If you provision the database there, remove the `db` service from `docker-compose.yml` and set `DATABASE_URL` as an environment variable in the CapRover app dashboard pointing to the CapRover-managed instance.
+
+**2. Port mapping** — CapRover manages its own Nginx reverse proxy, so the `ports` directive on the `nginx` service in `docker-compose.yml` will conflict with it. Remove the `ports` entry and instead set the **Container HTTP Port** to `80` in the CapRover app settings — CapRover will route external traffic through its own load balancer.
+
+---
+
 ## Working Rule
 Important decisions should not live only in chat. Record durable decisions in `docs/decisions/` and active context in `memory/`.
