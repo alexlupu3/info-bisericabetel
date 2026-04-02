@@ -65,6 +65,8 @@ services:
       context: .
       target: nginx
     restart: unless-stopped
+    environment:
+      API_HOST: api
     ports:
       - "${PORT:-80}:80"
     depends_on:

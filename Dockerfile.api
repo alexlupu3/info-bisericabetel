@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+# CapRover app: betel-api (or whatever the API app is named in CapRover)
+
+# ─── Stage 1: base ─────────────────────────────────────────────────────────────
+FROM node:24-slim AS base
+RUN npm install -g pnpm@10
+
+# ─── Stage 2: deps ─────────────────────────────────────────────────────────────
+FROM base AS deps
+WORKDIR /app
+
+# All workspace manifests are needed for pnpm to resolve the workspace graph.
+# Only api and its transitive deps (shared) will be installed via --filter.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/api/package.json    ./packages/api/
+COPY packages/pwa/package.json    ./packages/pwa/
+COPY packages/admin/package.json  ./packages/admin/
+
+RUN pnpm install --frozen-lockfile --filter @betel/api...
+
+# ─── Stage 3: builder ──────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY packages/shared ./packages/shared
+COPY packages/api    ./packages/api
+
+RUN pnpm --filter @betel/api build
+
+# ─── Stage 4: production image ─────────────────────────────────────────────────
+FROM node:24-slim
+WORKDIR /app
+
+COPY --from=builder /app/packages/api/dist ./dist
+
+RUN cd dist && npm install --omit=dev
+
+EXPOSE 3100
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=3100
+
+CMD ["node", "dist/index.js"]

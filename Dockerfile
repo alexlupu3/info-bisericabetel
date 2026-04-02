@@ -47,7 +47,12 @@ CMD ["node", "dist/index.js"]
 # Nginx image that serves the PWA and Admin SPAs and proxies /api/ to the API.
 FROM nginx:alpine AS nginx
 
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# nginx.conf uses ${API_HOST} — the image runs envsubst on *.template files at startup.
+# docker-compose sets API_HOST=api (the compose service name).
+# CapRover sets API_HOST=srv-captain--<api-app-name> via the app's env vars.
+COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
+
+ENV API_HOST=api
 
 # PWA static files  →  served at /
 COPY --from=builder /app/packages/pwa/dist   /var/www/pwa

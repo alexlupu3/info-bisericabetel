@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1
+# CapRover app: betel-frontend (or whatever the frontend app is named in CapRover)
+#
+# Required CapRover env var:
+#   API_HOST — Docker Swarm service name of the API app, e.g. srv-captain--betel-api
+
+# ─── Stage 1: base ─────────────────────────────────────────────────────────────
+FROM node:24-slim AS base
+RUN npm install -g pnpm@10
+
+# ─── Stage 2: deps ─────────────────────────────────────────────────────────────
+FROM base AS deps
+WORKDIR /app
+
+# All workspace manifests are needed for pnpm to resolve the workspace graph.
+# Only pwa/admin and their transitive deps (shared) will be installed via --filter.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/api/package.json    ./packages/api/
+COPY packages/pwa/package.json    ./packages/pwa/
+COPY packages/admin/package.json  ./packages/admin/
+
+RUN pnpm install --frozen-lockfile --filter @betel/pwa... --filter @betel/admin...
+
+# ─── Stage 3: builder ──────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY packages/shared ./packages/shared
+COPY packages/pwa    ./packages/pwa
+COPY packages/admin  ./packages/admin
+
+RUN pnpm --filter @betel/pwa build && pnpm --filter @betel/admin build
+
+# ─── Stage 4: nginx ────────────────────────────────────────────────────────────
+# nginx.conf uses ${API_HOST} — the image runs envsubst on *.template files at startup.
+# Set API_HOST to the Docker Swarm service name of the API app in CapRover env vars,
+# e.g. srv-captain--betel-api
+FROM nginx:alpine
+
+COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
+
+# PWA static files  →  served at /
+COPY --from=builder /app/packages/pwa/dist   /var/www/pwa
+# Admin static files →  served at /admin/
+COPY --from=builder /app/packages/admin/dist /var/www/admin
