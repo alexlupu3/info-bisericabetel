@@ -24,7 +24,7 @@ describe('Admin — users (super-admin only)', () => {
   beforeEach(() => {
     loginAsSuperAdmin()
     cy.visit(ADMIN_URL, {
-      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
   })

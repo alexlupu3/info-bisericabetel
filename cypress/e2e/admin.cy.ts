@@ -66,7 +66,7 @@ describe('Admin — content management', () => {
     // Pre-seed localStorage with token so we skip the login form
     cy.visit(ADMIN_URL, {
       onBeforeLoad(win) {
-        win.localStorage.setItem('betel-admin-token', mockToken)
+        win.sessionStorage.setItem('betel-admin-token', mockToken)
       },
     })
     cy.wait('@me')

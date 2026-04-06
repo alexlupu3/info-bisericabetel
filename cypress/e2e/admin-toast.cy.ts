@@ -11,7 +11,7 @@ function setup() {
   cy.intercept('GET', '/api/admin/content', { items: [] })
   cy.intercept('GET', '/api/admin/groups', { groups: [] })
   cy.intercept('GET', '/api/sites', { sites: mockSites })
-  cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+  cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
   cy.wait('@me')
 }
 

@@ -18,7 +18,7 @@ describe('Admin — mobile hamburger menu', () => {
     loginAsAdmin()
     cy.viewport(375, 812) // iPhone-sized viewport
     cy.visit(ADMIN_URL, {
-      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
   })
