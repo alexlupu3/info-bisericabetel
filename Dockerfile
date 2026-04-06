@@ -13,8 +13,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json    ./packages/api/
-COPY packages/pwa/package.json    ./packages/pwa/
-COPY packages/admin/package.json  ./packages/admin/
+COPY packages/app/package.json    ./packages/app/
 
 RUN pnpm install --frozen-lockfile
 
@@ -54,7 +53,5 @@ COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
 
 ENV API_HOST=api
 
-# PWA static files  →  served at /
-COPY --from=builder /app/packages/pwa/dist   /var/www/pwa
-# Admin static files →  served at /admin/
-COPY --from=builder /app/packages/admin/dist /var/www/admin
+# App static files → served at /  (public hub at /, admin at /admin/)
+COPY --from=builder /app/packages/app/dist /var/www/app

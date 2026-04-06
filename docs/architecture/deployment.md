@@ -20,8 +20,9 @@
 
 - **No Docker:** the backend API runs as a native systemd service. Nginx reverse-proxies to it.
 - **PostgreSQL 16 available:** primary database engine.
-- **Public PWA:** build output served statically by Nginx.
-- **Admin tool:** separate build, served from a distinct path or subdomain. Must not share JS/CSS bundles with the public PWA.
+- **Unified frontend package:** `packages/app` builds a single Vite output that serves both the public PWA (at `/`) and the admin tool (at `/admin/*`). Build artifact is written to `packages/app/dist/` and served from `/var/www/app` on the server.
+- **Nginx:** a single `location /` block serves `/var/www/app`. There are no separate location blocks for the public PWA and admin tool.
+- **Admin dev server:** the admin tool is no longer a separate dev server. `pnpm dev` starts a single Vite dev server at `http://localhost:5173`; both the public PWA (`/`) and admin (`/admin`) are available there.
 - **Backend API:** runs as a native systemd service; Nginx reverse-proxies to it.
 
 ## Environments

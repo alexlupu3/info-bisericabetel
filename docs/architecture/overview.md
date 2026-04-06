@@ -20,8 +20,10 @@
 - Must work on any standard server without proprietary dependencies.
 
 ## Frontend
-- **Public hub:** PWA (Progressive Web App) — installable on mobile, fast loading, optimized for QR code / direct link entry. No authentication required.
-- **Admin tool:** separate web application with its own entry point, login screen, and independent JS/CSS build bundles. Mobile-friendly but not a PWA. Whether it is served from a separate subdomain or a distinct route (e.g. `/admin`) is an implementation decision — whichever is easier to maintain long-term. It must not share build artifacts with the public PWA.
+- **Unified package (`packages/app`):** a single React application serving both the public PWA and the admin tool. The public hub is a PWA (Progressive Web App) — installable on mobile, fast loading, optimized for QR code / direct link entry. No authentication required. The admin tool is reached at `/admin/*` and is lazy-loaded via `React.lazy` so public users never download admin JS.
+- **Code splitting:** `packages/app` is built as a single Vite project but produces a separate lazy chunk for `AdminApp`. This replaces the former constraint requiring separate build artifacts — bundle isolation is now enforced at runtime via dynamic import rather than at the package level. See ADR-005.
+- **Admin theme scoping:** admin routes are wrapped in a `<div className="admin-theme">` which sets admin-specific CSS custom properties (dark theme, orange accent) independently of the public PWA design token system. This prevents style leakage between the two surfaces.
+- **PWA service worker:** `navigateFallbackDenylist: [/^\/admin/]` is preserved in the Vite PWA plugin config so the service worker does not intercept admin routes and PWA installability is unaffected.
 - **Style guide skill:** a `frontend-design` Claude Code skill is present in the project and contains the church's style guide. It must be used when building any public-facing UI to ensure brand consistency.
 
 ## Backend

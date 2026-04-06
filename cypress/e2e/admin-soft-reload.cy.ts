@@ -9,7 +9,7 @@
  * Fix: Added navigateFallbackDenylist: [/^\/admin/] to the workbox config
  * so the SW lets /admin/* navigations pass through to the network.
  */
-const ADMIN_URL = 'http://localhost:5174/admin/'
+const ADMIN_URL = '/admin/'
 const mockUser = { id: 'u1', email: 'admin@betel.ro', role: 'admin', mustChangePassword: false }
 const mockToken = 'mock-jwt-token'
 const mockSites = [{ slug: 'centru', name: 'Centru', accent: '#3b82f6' }]

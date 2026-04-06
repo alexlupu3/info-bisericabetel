@@ -1,7 +1,7 @@
 /**
  * Content reordering — drag-and-drop handles
  */
-const ADMIN_URL = 'http://localhost:5174/admin/'
+const ADMIN_URL = '/admin/'
 const mockUser = { id: 'u1', email: 'admin@betel.ro', role: 'admin', mustChangePassword: false }
 const mockToken = 'mock-jwt-token'
 

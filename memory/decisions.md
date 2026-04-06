@@ -37,3 +37,8 @@ Use this file for recent decisions that need quick visibility. Promote durable d
   Decision: The PWA hero header now displays the Betel symbol logo (`/icons/favicon-dark.svg`) above the page title, a subtitle with the app's purpose ("Rămâi la curent cu programul și activitățile bisericii Betel"), and a subtle muted link to `https://bisericabetel.com`.
   Why: Improves visual identity and gives first-time visitors immediate context about what the app is and who runs it.
   How: Logo is a white SVG rendered as an `<img>` with CSS class `.betel-logo`. `filter: invert(1)` is applied in light mode; no filter in dark mode. Both system preference and explicit `[data-theme]` overrides are handled in `index.css`.
+
+- Date: 2026-04-06
+  Decision: Merged `packages/pwa` and `packages/admin` into a single `packages/app` package. Admin routes (`/admin/*`) are lazy-loaded via `React.lazy` producing a separate Vite chunk. Public users never download admin JS. Admin surface is scoped via `.admin-theme` CSS class. Single Vite dev server on port 5173.
+  Why: Both packages shared an identical stack (React, TypeScript, Vite, TanStack Query, React Router) and maintained two separate build pipelines, deploy stages, and Nginx location blocks with no real isolation benefit. The original "must not share build artifacts" constraint is now satisfied at runtime by lazy loading rather than by physical package separation.
+  See: ADR-005 for full options analysis and implementation notes.

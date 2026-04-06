@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
@@ -15,19 +14,15 @@ import LogsPage from './pages/LogsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SetupPage from './pages/SetupPage'
 
-const queryClient = new QueryClient()
-
-export default function App() {
+export default function AdminApp() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <div className="admin-theme">
       <AuthProvider>
         <ToastProvider>
-          <BrowserRouter basename="/admin">
-            <Shell />
-          </BrowserRouter>
+          <Shell />
         </ToastProvider>
       </AuthProvider>
-    </QueryClientProvider>
+    </div>
   )
 }
 
@@ -40,7 +35,7 @@ function Shell() {
   </div>
 
   if (!user) return <Routes>
-    <Route path="/setup" element={<SetupPage onDone={() => {}} />} />
+    <Route path="setup" element={<SetupPage onDone={() => {}} />} />
     <Route path="*" element={<LoginPage />} />
   </Routes>
 
@@ -61,17 +56,17 @@ function Shell() {
             <span className="betel-title-condensed">ADMIN</span>
           </span>
           <div className="hidden md:flex items-center gap-6">
-            <NavLink to="/content" className={navLinkClass}>Conținut</NavLink>
+            <NavLink to="content" className={navLinkClass}>Conținut</NavLink>
             {user.role === 'super-admin' && (
-              <NavLink to="/locations" className={navLinkClass}>Locații</NavLink>
+              <NavLink to="locations" className={navLinkClass}>Locații</NavLink>
             )}
-            <NavLink to="/media" className={navLinkClass}>Media</NavLink>
-            <NavLink to="/analytics" className={navLinkClass}>Statistici</NavLink>
+            <NavLink to="media" className={navLinkClass}>Media</NavLink>
+            <NavLink to="analytics" className={navLinkClass}>Statistici</NavLink>
             {user.role === 'super-admin' && (
-              <NavLink to="/users" className={navLinkClass}>Utilizatori</NavLink>
+              <NavLink to="users" className={navLinkClass}>Utilizatori</NavLink>
             )}
             {user.role === 'super-admin' && (
-              <NavLink to="/logs" className={navLinkClass}>Jurnale</NavLink>
+              <NavLink to="logs" className={navLinkClass}>Jurnale</NavLink>
             )}
           </div>
         </div>
@@ -95,17 +90,17 @@ function Shell() {
           data-testid="mobile-menu"
           className="md:hidden bg-[var(--bg)] border-b border-[var(--border)] px-5 py-3 flex flex-col gap-4"
         >
-          <NavLink to="/content" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Conținut</NavLink>
+          <NavLink to="content" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Conținut</NavLink>
           {user.role === 'super-admin' && (
-            <NavLink to="/locations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Locații</NavLink>
+            <NavLink to="locations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Locații</NavLink>
           )}
-          <NavLink to="/media" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Media</NavLink>
-          <NavLink to="/analytics" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Statistici</NavLink>
+          <NavLink to="media" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Media</NavLink>
+          <NavLink to="analytics" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Statistici</NavLink>
           {user.role === 'super-admin' && (
-            <NavLink to="/users" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Utilizatori</NavLink>
+            <NavLink to="users" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Utilizatori</NavLink>
           )}
           {user.role === 'super-admin' && (
-            <NavLink to="/logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Jurnale</NavLink>
+            <NavLink to="logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Jurnale</NavLink>
           )}
           <button onClick={() => { setMobileMenuOpen(false); logout() }}
             className="text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors text-left">
@@ -115,21 +110,21 @@ function Shell() {
       )}
       <div className="flex-1 overflow-auto">
         <Routes>
-          <Route path="/" element={<Navigate to="/content" replace />} />
-          <Route path="/content" element={<ContentPage />} />
-          <Route path="/groups" element={<GroupsPage />} />
+          <Route index element={<Navigate to="content" replace />} />
+          <Route path="content" element={<ContentPage />} />
+          <Route path="groups" element={<GroupsPage />} />
           {user.role === 'super-admin' && (
-            <Route path="/locations" element={<LocationsPage />} />
+            <Route path="locations" element={<LocationsPage />} />
           )}
-          <Route path="/media" element={<MediaPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="media" element={<MediaPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
           {user.role === 'super-admin' && (
-            <Route path="/users" element={<UsersPage />} />
+            <Route path="users" element={<UsersPage />} />
           )}
           {user.role === 'super-admin' && (
-            <Route path="/logs" element={<LogsPage />} />
+            <Route path="logs" element={<LogsPage />} />
           )}
-          <Route path="*" element={<Navigate to="/content" replace />} />
+          <Route path="*" element={<Navigate to="content" replace />} />
         </Routes>
       </div>
     </div>

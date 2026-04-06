@@ -11,8 +11,7 @@ This repository is the root for a production-ready application and its supportin
 
 ## Packages
 - `packages/api/` — Fastify backend; handles content, admin, media, and location routes.
-- `packages/admin/` — React SPA for admin operations (content management, media library, site/location settings).
-- `packages/pwa/` — Public-facing Progressive Web App served to church members.
+- `packages/app/` — Unified React application: public PWA (at `/`) and admin tool (at `/admin/*`) in a single Vite build. Admin JS is code-split via `React.lazy` so public users never download it.
 
 ## Key Admin Routes
 - `/` (Content) — create, edit, order content items and groups
@@ -37,15 +36,14 @@ pnpm install
 ## Development
 
 ```bash
-# Public PWA (http://localhost:5173)
+# PWA + Admin (http://localhost:5173)
 pnpm dev
 
 # API server (http://localhost:3000)
 pnpm dev:api
-
-# Admin SPA (http://localhost:5174)
-pnpm --filter admin dev
 ```
+
+Both the public PWA (`/`) and admin tool (`/admin`) are served from the same Vite dev server on port 5173.
 
 Copy `.env.example` (if present) to `packages/api/.env` and fill in the required values before starting the API.
 
@@ -54,13 +52,12 @@ Copy `.env.example` (if present) to `packages/api/.env` and fill in the required
 ## Build
 
 ```bash
-# Build everything (pwa + admin + api)
+# Build everything (app + api)
 pnpm build:all
 
 # Or build individually
-pnpm build          # PWA only  → packages/pwa/dist/
-pnpm build:admin    # Admin     → packages/admin/dist/
-pnpm build:api      # API       → packages/api/dist/
+pnpm build          # PWA + Admin → packages/app/dist/
+pnpm build:api      # API         → packages/api/dist/
 ```
 
 ---
@@ -103,9 +100,8 @@ pnpm deploy
 
 | Command | What it does |
 |---|---|
-| `pnpm deploy` | Build + deploy all packages |
-| `pnpm deploy:pwa` | Build + deploy PWA only |
-| `pnpm deploy:admin` | Build + deploy Admin SPA only |
+| `pnpm deploy` | Build + deploy all packages (app + api) |
+| `pnpm deploy:app` | Build + deploy unified PWA + Admin only |
 | `pnpm deploy:api` | Build + deploy API + restart service |
 
 Each deploy command builds the package(s) locally, rsyncs `dist/` to the server staging area, and restarts the relevant service. Migrations run automatically on API startup — no manual step needed.

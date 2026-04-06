@@ -1,7 +1,7 @@
 /**
  * One-time super-admin setup flow
  */
-const ADMIN_URL = 'http://localhost:5174/admin/'
+const ADMIN_URL = '/admin/'
 const mockSites = [{ slug: 'centru', name: 'Centru', accent: '#3b82f6' }]
 
 describe('Admin — initial setup', () => {

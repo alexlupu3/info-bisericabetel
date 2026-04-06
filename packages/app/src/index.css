@@ -25,7 +25,7 @@
   font-display: swap;
 }
 
-/* ── Betel design tokens ─────────────────────────────────────── */
+/* ── Betel design tokens (public hub) ────────────────────────── */
 :root {
   --accent: #ffffff;
   --bg: #eeeeee;
@@ -35,7 +35,7 @@
   --muted: #666666;
 }
 
-/* Dark mode via system preference (no manual override) */
+/* Dark mode via system preference */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000;
@@ -55,13 +55,27 @@
   --muted: #888888;
 }
 
-/* Light mode explicitly set by user (ensures system-dark can be overridden) */
+/* Light mode explicitly set by user */
 [data-theme="light"] {
   --bg: #eeeeee;
   --surface: #ffffff;
   --border: #dddddd;
   --text: #111111;
   --muted: #666666;
+}
+
+/* ── Admin theme (applied to the admin subtree wrapper) ──────── */
+.admin-theme {
+  --accent: #ff6200;
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-2: #1a1a1a;
+  --border: #222222;
+  --text: #f5f5f5;
+  --muted: #888888;
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100%;
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
@@ -117,7 +131,6 @@ body {
   font-style: italic;
   letter-spacing: 0.04em;
 }
-
 
 /* ── Prose (markdown content) ───────────────────────────────── */
 .prose-betel {

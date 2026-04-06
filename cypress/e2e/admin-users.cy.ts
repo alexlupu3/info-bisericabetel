@@ -1,7 +1,7 @@
 /**
  * Increment 5 — Super-admin user management
  */
-const ADMIN_URL = 'http://localhost:5174/admin/'
+const ADMIN_URL = '/admin/'
 
 const mockSuperAdmin = { id: 'u1', email: 'superadmin@betel.ro', role: 'super-admin', mustChangePassword: false }
 const mockToken = 'mock-jwt-token'
