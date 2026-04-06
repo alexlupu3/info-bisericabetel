@@ -3,7 +3,7 @@
 ## Known Constraints
 - **No vendor lock-in:** must not depend on any specific cloud provider, managed PaaS, or proprietary service. The full stack must be self-hostable on a standard Linux VPS.
 - **Database portability:** must support PostgreSQL and MySQL at minimum via an ORM/connector. No raw SQL tied to a single engine dialect.
-- **VPS hosting:** deploys to cloudlab — Ubuntu 24.04 LTS, Nginx reverse proxy, PostgreSQL 16 available, no Docker. Backend must run as a native systemd service. See `deployment.md` for full details.
+- **VPS hosting via CapRover:** production runs as a single Docker container deployed to a CapRover instance on a VPS. CapRover manages TLS, its own reverse proxy, and container lifecycle. The Fastify API process serves both the frontend SPA and API routes — no separate nginx container is needed. See `deployment.md` for full details.
 - **No hardcoded configuration:** site list, content types, and admin accounts are all data — never hardcoded in the codebase.
 
 ## Implementation Guardrails

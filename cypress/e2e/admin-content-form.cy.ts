@@ -1,7 +1,7 @@
 /**
  * Increment 5 — Complete content form: type-specific fields, sites, expiry, edit
  */
-const ADMIN_URL = 'http://localhost:5173/admin/'
+const ADMIN_URL = '/admin/'
 const mockUser = { id: 'u1', email: 'admin@betel.ro', role: 'admin', mustChangePassword: false }
 const mockToken = 'mock-jwt-token'
 const mockSites = [

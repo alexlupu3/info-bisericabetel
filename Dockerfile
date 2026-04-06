@@ -1,15 +1,15 @@
 # syntax=docker/dockerfile:1
+# Single-container build: Fastify API serves the frontend SPA and uploaded media.
+# Deploy this as one CapRover app — no separate nginx container needed.
 
 # ─── Stage 1: base ─────────────────────────────────────────────────────────────
 FROM node:24-slim AS base
 RUN npm install -g pnpm@10
 
 # ─── Stage 2: deps ─────────────────────────────────────────────────────────────
-# Install all workspace dependencies with the lockfile frozen for reproducibility.
 FROM base AS deps
 WORKDIR /app
 
-# Copy workspace manifests first to maximize layer caching
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json    ./packages/api/
@@ -17,21 +17,32 @@ COPY packages/app/package.json    ./packages/app/
 
 RUN pnpm install --frozen-lockfile
 
-# ─── Stage 3: builder ──────────────────────────────────────────────────────────
-# Build all packages: API (esbuild → CJS), PWA and Admin (Vite → static)
-FROM deps AS builder
-COPY . .
-RUN pnpm build:all
+# ─── Stage 3: app builder ──────────────────────────────────────────────────────
+FROM deps AS app-builder
+COPY tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/app    ./packages/app
 
-# ─── Stage 4: api ──────────────────────────────────────────────────────────────
-# Lean production image for the Fastify API.
-# The API build externalises `sharp` and writes a minimal dist/package.json so
-# that `npm install` here fetches the correct native binary for this platform.
-FROM node:24-slim AS api
+RUN pnpm --filter @betel/app build
+
+# ─── Stage 4: api builder ──────────────────────────────────────────────────────
+FROM deps AS api-builder
+COPY packages/shared ./packages/shared
+COPY packages/api    ./packages/api
+
+RUN pnpm --filter @betel/api build
+
+# ─── Stage 5: production image ─────────────────────────────────────────────────
+FROM node:24-slim
 WORKDIR /app
 
-COPY --from=builder /app/packages/api/dist ./dist
+# Copy the bundled API
+COPY --from=api-builder /app/packages/api/dist ./dist
 
+# Copy the frontend build into the API's public dir (served at /)
+COPY --from=app-builder /app/packages/app/dist ./dist/public
+
+# Install production-only deps declared in dist/package.json (e.g. sharp)
 RUN cd dist && npm install --omit=dev
 
 EXPOSE 3100
@@ -41,17 +52,3 @@ ENV NODE_ENV=production \
     PORT=3100
 
 CMD ["node", "dist/index.js"]
-
-# ─── Stage 5: nginx ────────────────────────────────────────────────────────────
-# Nginx image that serves the PWA and Admin SPAs and proxies /api/ to the API.
-FROM nginx:alpine AS nginx
-
-# nginx.conf uses ${API_HOST} — the image runs envsubst on *.template files at startup.
-# docker-compose sets API_HOST=api (the compose service name).
-# CapRover sets API_HOST=srv-captain--<api-app-name> via the app's env vars.
-COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
-
-ENV API_HOST=api
-
-# App static files → served at /  (public hub at /, admin at /admin/)
-COPY --from=builder /app/packages/app/dist /var/www/app

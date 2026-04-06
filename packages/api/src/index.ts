@@ -1,7 +1,9 @@
+import path from 'path'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
 import { sitesRoutes } from './routes/sites.js'
 import { contentRoutes } from './routes/content.js'
 import { authRoutes } from './routes/auth.js'
@@ -21,6 +23,9 @@ const HOST = process.env.HOST ?? '127.0.0.1'
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required')
 
+const UPLOADS_DIR = process.env.UPLOADS_DIR ?? path.join(process.cwd(), '..', 'uploads')
+const PUBLIC_DIR = path.join(__dirname, 'public')
+
 async function start() {
   await runMigrations()
 
@@ -29,6 +34,19 @@ async function start() {
   await app.register(cors, { origin: true })
   await app.register(jwt, { secret: JWT_SECRET })
   await app.register(multipart)
+
+  // Serve uploaded media files at /uploads/ — also decorates reply.sendFile()
+  await app.register(fastifyStatic, {
+    root: UPLOADS_DIR,
+    prefix: '/uploads/',
+  })
+
+  // Serve frontend SPA static files
+  await app.register(fastifyStatic, {
+    root: PUBLIC_DIR,
+    wildcard: false,
+    decorateReply: false, // already decorated by the uploads plugin above
+  })
 
   // Expose authenticate decorator used by route preHandlers
   app.decorate('authenticate', async function (req: any, reply: any) {
@@ -45,18 +63,27 @@ async function start() {
     timestamp: new Date().toISOString(),
   }))
 
-  await app.register(sitesRoutes)
-  await app.register(contentRoutes)
-  await app.register(authRoutes)
-  await app.register(adminContentRoutes)
-  await app.register(adminGroupsRoutes)
-  await app.register(adminMediaRoutes)
-  await app.register(adminUsersRoutes)
-  await app.register(adminSitesRoutes)
-  await app.register(adminLogsRoutes)
-  await app.register(adminAnalyticsRoutes)
-  await app.register(eventsRoutes)
-  await app.register(setupRoutes)
+  // All API routes are registered under the /api prefix
+  await app.register(sitesRoutes, { prefix: '/api' })
+  await app.register(contentRoutes, { prefix: '/api' })
+  await app.register(authRoutes, { prefix: '/api' })
+  await app.register(adminContentRoutes, { prefix: '/api' })
+  await app.register(adminGroupsRoutes, { prefix: '/api' })
+  await app.register(adminMediaRoutes, { prefix: '/api' })
+  await app.register(adminUsersRoutes, { prefix: '/api' })
+  await app.register(adminSitesRoutes, { prefix: '/api' })
+  await app.register(adminLogsRoutes, { prefix: '/api' })
+  await app.register(adminAnalyticsRoutes, { prefix: '/api' })
+  await app.register(eventsRoutes, { prefix: '/api' })
+  await app.register(setupRoutes, { prefix: '/api' })
+
+  // SPA fallback: serve index.html for any unmatched non-API route
+  app.setNotFoundHandler((req, reply) => {
+    if (req.url.startsWith('/api')) {
+      return reply.code(404).send({ error: 'Not Found' })
+    }
+    return reply.sendFile('index.html', PUBLIC_DIR)
+  })
 
   await app.listen({ port: PORT, host: HOST })
 }

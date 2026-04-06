@@ -1,7 +1,7 @@
 # ─── Docker Compose — info.bisericabetel ─────────────────────────────────────
 #
 # Quick start:
-#   cp example.env .env          # fill in JWT_SECRET, DB_PASSWORD, CORS_ORIGIN
+#   cp example.env .env          # fill in JWT_SECRET, DB_PASSWORD
 #   docker compose up -d --build
 #
 # The bundled PostgreSQL service is optional.
@@ -10,13 +10,13 @@
 # Required env vars (add to .env):
 #   DB_PASSWORD    — PostgreSQL password (used by the bundled `db` service)
 #   JWT_SECRET     — min 32 chars, used to sign JWT tokens
-#   CORS_ORIGIN    — the public URL of the frontend, e.g. https://example.com
 #
 # Optional:
 #   DATABASE_URL   — override to point to an external database
+#   UPLOADS_DIR    — path inside the container for uploaded media (default: /uploads)
+#   PORT           — host port the app listens on (default: 80)
 #   RESEND_API_KEY — email sending (future feature)
 #   EMAIL_FROM     — sender address for emails
-#   PORT           — host port Nginx listens on (default: 80)
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -37,10 +37,9 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  app:
     build:
       context: .
-      target: api
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -49,30 +48,17 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://betel:${DB_PASSWORD}@db:5432/info_bisericabetel}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       UPLOADS_DIR: /uploads
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
     volumes:
       - uploads:/uploads
+    ports:
+      - "${PORT:-80}:3100"
     networks:
       - internal
     depends_on:
       db:
         condition: service_healthy
-
-  nginx:
-    build:
-      context: .
-      target: nginx
-    restart: unless-stopped
-    environment:
-      API_HOST: api
-    ports:
-      - "${PORT:-80}:80"
-    depends_on:
-      - api
-    networks:
-      - internal
 
 volumes:
   pgdata:

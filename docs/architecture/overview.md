@@ -16,8 +16,8 @@
 - **Extensibility:** new content types and new admin features must be addable in isolation without touching unrelated parts of the system.
 
 ## Hosting Direction
-- Target: VPS (Linux). See `deployment.md` for environment-specific details.
-- Must work on any standard server without proprietary dependencies.
+- Target: VPS running CapRover. Production is a single Docker container; CapRover manages TLS and its reverse proxy in front of the container.
+- Must remain self-hostable without proprietary cloud dependencies. See `deployment.md` for environment-specific details.
 
 ## Frontend
 - **Unified package (`packages/app`):** a single React application serving both the public PWA and the admin tool. The public hub is a PWA (Progressive Web App) — installable on mobile, fast loading, optimized for QR code / direct link entry. No authentication required. The admin tool is reached at `/admin/*` and is lazy-loaded via `React.lazy` so public users never download admin JS.
@@ -27,7 +27,8 @@
 - **Style guide skill:** a `frontend-design` Claude Code skill is present in the project and contains the church's style guide. It must be used when building any public-facing UI to ensure brand consistency.
 
 ## Backend
-- No language or framework preference. Must be portable, run well on standard servers, and integrate cleanly with a relational database via an ORM/connector layer.
+- Fastify (Node.js). In production, the Fastify process is the only runtime: it serves the frontend SPA from `dist/public/`, uploaded media from the `UPLOADS_DIR` volume, and all API routes under the `/api` prefix. A `setNotFoundHandler` SPA fallback returns `index.html` for unmatched non-`/api` routes. No nginx layer at runtime.
+- Must be portable and integrate cleanly with a relational database via an ORM/connector layer.
 
 ## Database
 - Relational database via schema-driven ORM or connector (PostgreSQL or MySQL preferred, others supported).

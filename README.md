@@ -108,26 +108,37 @@ Each deploy command builds the package(s) locally, rsyncs `dist/` to the server 
 
 ---
 
-## Docker
+## Docker (local / compose)
 
-A `Dockerfile` (multi-stage) and `docker-compose.yml` are included for running the full stack in containers.
+A `Dockerfile` (multi-stage) and `docker-compose.yml` are included for running the full stack in containers locally.
 
 ```bash
-cp example.env .env        # fill in DB_PASSWORD, JWT_SECRET, CORS_ORIGIN
+cp example.env .env        # fill in DB_PASSWORD, JWT_SECRET, UPLOADS_DIR
 docker compose up -d --build
 ```
 
-This starts three services: `db` (PostgreSQL 16), `api` (Fastify), and `nginx` (serves PWA + Admin, proxies `/api/`).
+This starts two services: `db` (PostgreSQL 16) and `app` (Fastify — serves both the frontend SPA and API routes). No separate nginx container is needed; the Fastify process handles everything.
 
-### CapRover
+### CapRover (production)
 
-A `captain-definition` file is included at the repo root so the app can be deployed directly to a [CapRover](https://caprover.com) instance.
+A `captain-definition` file is included at the repo root so the app can be deployed directly to a [CapRover](https://caprover.com) instance as a **single app**.
 
-Two adjustments are needed when deploying on CapRover:
+**Setup steps:**
 
-**1. Database** — CapRover has a one-click PostgreSQL app in its marketplace. If you provision the database there, remove the `db` service from `docker-compose.yml` and set `DATABASE_URL` as an environment variable in the CapRover app dashboard pointing to the CapRover-managed instance.
+**1. Database** — provision PostgreSQL via CapRover's one-click marketplace (or use any external PostgreSQL instance). Set `DATABASE_URL` as an environment variable in the CapRover app dashboard.
 
-**2. Port mapping** — CapRover manages its own Nginx reverse proxy, so the `ports` directive on the `nginx` service in `docker-compose.yml` will conflict with it. Remove the `ports` entry and instead set the **Container HTTP Port** to `80` in the CapRover app settings — CapRover will route external traffic through its own load balancer.
+**2. Environment variables** — set the following in the CapRover app dashboard:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Min 32 chars — signs JWT tokens |
+| `UPLOADS_DIR` | Absolute path for media storage inside the container (e.g. `/uploads`) |
+| `NODE_ENV` | `production` |
+
+**3. Container HTTP Port** — set to `3100` in the CapRover app settings. CapRover routes external HTTPS traffic through its own load balancer to this port.
+
+**4. Persistent volume** — mount a persistent volume at the path you set for `UPLOADS_DIR` so uploaded media survives container redeploys.
 
 ---
 
