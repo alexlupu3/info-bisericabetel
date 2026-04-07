@@ -45,8 +45,11 @@ COPY --from=app-builder /app/packages/app/dist ./dist/public
 # Install production-only deps declared in dist/package.json (e.g. sharp)
 RUN cd dist && npm install --omit=dev
 
+RUN mkdir -p /app/uploads
+
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=80
+    PORT=80 \
+    UPLOADS_DIR=/app/uploads
 
 CMD ["node", "dist/index.js"]
