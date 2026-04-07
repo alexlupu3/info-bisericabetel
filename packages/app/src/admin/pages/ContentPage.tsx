@@ -1204,7 +1204,7 @@ function ImagePicker({ label, value, onChange, testId }: {
       fd.append('file', file)
       const res = await fetch('/api/admin/media', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('betel-admin-token')}` },
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('betel-admin-token')}` },
         body: fd,
       })
       if (!res.ok) {
