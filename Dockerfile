@@ -45,10 +45,8 @@ COPY --from=app-builder /app/packages/app/dist ./dist/public
 # Install production-only deps declared in dist/package.json (e.g. sharp)
 RUN cd dist && npm install --omit=dev
 
-EXPOSE 3100
-
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=3100
+    PORT=80
 
 CMD ["node", "dist/index.js"]
