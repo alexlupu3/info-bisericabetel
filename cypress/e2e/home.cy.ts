@@ -107,3 +107,5 @@ describe('Home page', () => {
     cy.get('[data-testid="content-error"]').should('be.visible')
   })
 })
+
+export {}

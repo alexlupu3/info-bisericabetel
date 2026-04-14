@@ -190,3 +190,5 @@ describe('Group block', () => {
     cy.contains('Slujbă de seară').should('be.visible')
   })
 })
+
+export {}

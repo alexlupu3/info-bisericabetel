@@ -72,17 +72,6 @@ describe('Site label — all-sites view', () => {
       cy.get('[data-testid="site-label"]').should('be.visible').and('contain', 'Est')
     })
 
-    it('shows multiple sites on the label when item is scoped to multiple sites', () => {
-      mockContent([{
-        ...base, id: 'c2', type: 'card',
-        sites: ['manastur', 'centru'],
-        data: { title: 'Card mai multe locații' },
-      }])
-      cy.visit('/')
-      cy.get('[data-testid="site-label"]').should('be.visible')
-        .and('contain', 'Mănăștur')
-        .and('contain', 'Centru')
-    })
   })
 
   describe('does not show label for non-scoped items', () => {
@@ -94,6 +83,17 @@ describe('Site label — all-sites view', () => {
       }])
       cy.visit('/')
       cy.contains('Card global').should('be.visible')
+      cy.get('[data-testid="site-label"]').should('not.exist')
+    })
+
+    it('does not show site label when item is scoped to multiple sites', () => {
+      mockContent([{
+        ...base, id: 'c2', type: 'card',
+        sites: ['manastur', 'centru'],
+        data: { title: 'Card mai multe locații' },
+      }])
+      cy.visit('/')
+      cy.contains('Card mai multe locații').should('be.visible')
       cy.get('[data-testid="site-label"]').should('not.exist')
     })
   })
@@ -139,3 +139,5 @@ describe('Site label — all-sites view', () => {
     })
   })
 })
+
+export {}

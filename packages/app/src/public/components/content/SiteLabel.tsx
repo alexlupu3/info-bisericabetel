@@ -6,15 +6,15 @@ interface Props {
 }
 
 /**
- * Renders a small italic label with the site name(s) using their accent color.
+ * Renders a small italic label with the site name using its accent color.
  * Only renders when:
  *  - The user is viewing "all sites" (showInAllSites is true)
- *  - The item is scoped to specific sites (sites array is non-empty)
+ *  - The item is scoped to exactly one site (sites array has length 1)
  */
 export default function SiteLabel({ sites, showInAllSites }: Props) {
   const allSites = useSites()
 
-  if (!showInAllSites || sites.length === 0) return null
+  if (!showInAllSites || sites.length !== 1) return null
 
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5 -mt-1 mb-3" data-testid="site-label">
