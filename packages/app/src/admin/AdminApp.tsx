@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -22,6 +22,14 @@ export default function AdminApp() {
           <Shell />
         </ToastProvider>
       </AuthProvider>
+    </div>
+  )
+}
+
+function PageContainer({ children }: { children: ReactNode }) {
+  return (
+    <div className="max-w-[900px] mx-auto w-full">
+      {children}
     </div>
   )
 }
@@ -111,15 +119,15 @@ function Shell() {
       <div className="flex-1 overflow-auto">
         <Routes>
           <Route index element={<Navigate to="content" replace />} />
-          <Route path="content" element={<ContentPage />} />
-          <Route path="groups" element={<GroupsPage />} />
+          <Route path="content" element={<PageContainer><ContentPage /></PageContainer>} />
+          <Route path="groups" element={<PageContainer><GroupsPage /></PageContainer>} />
           {user.role === 'super-admin' && (
-            <Route path="locations" element={<LocationsPage />} />
+            <Route path="locations" element={<PageContainer><LocationsPage /></PageContainer>} />
           )}
-          <Route path="media" element={<MediaPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="media" element={<PageContainer><MediaPage /></PageContainer>} />
+          <Route path="analytics" element={<PageContainer><AnalyticsPage /></PageContainer>} />
           {user.role === 'super-admin' && (
-            <Route path="users" element={<UsersPage />} />
+            <Route path="users" element={<PageContainer><UsersPage /></PageContainer>} />
           )}
           {user.role === 'super-admin' && (
             <Route path="logs" element={<LogsPage />} />
