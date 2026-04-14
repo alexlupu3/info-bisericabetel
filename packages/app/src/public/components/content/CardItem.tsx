@@ -13,6 +13,14 @@ type CardData = {
   cta?: string
 }
 
+function ExternalLinkIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M3 13L13 3M13 3H6M13 3V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 export default function CardItem({
   item,
   accent,
@@ -31,7 +39,7 @@ export default function CardItem({
 
   if (variant === 'horizontal') {
     const article = (
-      <article className={`border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col sm:flex-row sm:items-start${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
+      <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col sm:flex-row sm:items-start${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
         {d.thumbnail && (
           <div className="aspect-[16/9] sm:w-1/2 overflow-hidden bg-[var(--surface)] flex-shrink-0">
             <img
@@ -62,6 +70,11 @@ export default function CardItem({
             </span>
           )}
         </div>
+        {d.link && !d.cta && (
+          <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
+            <ExternalLinkIcon />
+          </span>
+        )}
       </article>
     )
 
@@ -83,7 +96,7 @@ export default function CardItem({
   }
 
   const article = (
-    <article className={`border border-[var(--border)] bg-[var(--surface)] overflow-hidden${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
+    <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
       {d.thumbnail && (
         <div className="aspect-[16/9] overflow-hidden bg-[var(--surface)]">
           <img
@@ -112,6 +125,11 @@ export default function CardItem({
           </span>
         )}
       </div>
+      {d.link && !d.cta && (
+        <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
+          <ExternalLinkIcon />
+        </span>
+      )}
     </article>
   )
 
