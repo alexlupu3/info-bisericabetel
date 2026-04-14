@@ -56,9 +56,9 @@ export default function CardItem({
               </p>
             )}
           </div>
-          {d.link && (
+          {d.link && d.cta && (
             <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
-              {d.cta ?? 'Află mai mult'}
+              {d.cta}
             </span>
           )}
         </div>
@@ -106,9 +106,9 @@ export default function CardItem({
             {d.description}
           </p>
         )}
-        {d.link && (
+        {d.link && d.cta && (
           <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
-            {d.cta ?? 'Află mai mult'}
+            {d.cta}
           </span>
         )}
       </div>
