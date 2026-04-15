@@ -15,8 +15,9 @@
   - Thumbnail (image)
   - Start date
   - End date
-  - Link (URL)
+  - Link (URL) — stored in `data.link`; the default/fallback link used when no per-site override applies
   - Call to action text
+  - Site link overrides — stored in `data.siteLinks: Record<string, string>`; optional map of site slug → URL that overrides the default link for a specific site view. Resolved client-side at render time (see Link Resolution Rule below).
 
 ### Richtext
 - Purpose: communicate information in free-form formatted text (e.g. announcements, instructions)
@@ -29,7 +30,8 @@
 - Purpose: display a visual announcement or promotional image with an optional link
 - Fields:
   - Image `*`
-  - Link (URL)
+  - Link (URL) — stored in `data.link`; the default/fallback link used when no per-site override applies
+  - Site link overrides — stored in `data.siteLinks: Record<string, string>`; optional map of site slug → URL that overrides the default link for a specific site view. Resolved client-side at render time (see Link Resolution Rule below).
   - Start date — stored in `data.startDate`; item is hidden before this date if provided
   - End date — stored in `data.endDate`; item is hidden after this date if provided (requires start date to be set first)
   - Name (admin-only) — a human-readable label used in the media library to identify which content item is using an image. Stored in `data.name`. Never shown on the public hub. Optional; falls back to the item's UUID if absent.
@@ -40,6 +42,20 @@
   - Video link (YouTube URL) `*`
   - Start date — stored in `data.startDate`; item is hidden before this date if provided
   - End date — stored in `data.endDate`; item is hidden after this date if provided (requires start date to be set first)
+
+## Link Resolution Rule (Cards and Posters)
+
+When a Card or Poster has both a default link (`data.link`) and site-specific overrides (`data.siteLinks`), the resolved link is determined at render time on the client:
+
+```
+resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
+```
+
+- **Site-specific view** — if a siteLinks entry exists for the active site slug, that URL is used; otherwise the default link is used.
+- **All-sites view** (`activeSite = null`) — always uses the default link; per-site overrides are ignored.
+- **Override granularity** — only the link URL is overridable per site; CTA text and all other fields remain shared across all views.
+- **Backward compatibility** — `data.siteLinks` is optional. Existing items with only `data.link` are unaffected; the JSONB column absorbs the new field without a schema migration.
+- **Admin UX** — a collapsible "Link-uri per locație" section appears below the link input (only when a default link is set). It shows one URL input per relevant site (filtered by the item's site scope, or all sites if unscoped). Empty overrides are omitted from the saved payload.
 
 ## Groups
 - Cards and Posters can be collected into a **Group** for display purposes.

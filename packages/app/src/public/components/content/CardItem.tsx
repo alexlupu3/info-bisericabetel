@@ -11,6 +11,7 @@ type CardData = {
   endDate?: string
   link?: string
   cta?: string
+  siteLinks?: Record<string, string>
 }
 
 function ExternalLinkIcon() {
@@ -35,11 +36,12 @@ export default function CardItem({
   showSiteLabel?: boolean
 }) {
   const d = item.data as CardData
+  const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
   const dateStr = formatDateRange(d.startDate ?? d.date, d.endDate)
 
   if (variant === 'horizontal') {
     const article = (
-      <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col sm:flex-row sm:items-start${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
+      <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col sm:flex-row sm:items-start${resolvedLink ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
         {d.thumbnail && (
           <div className="aspect-[16/9] sm:w-1/2 overflow-hidden bg-[var(--surface)] flex-shrink-0">
             <img
@@ -64,13 +66,13 @@ export default function CardItem({
               </p>
             )}
           </div>
-          {d.link && d.cta && (
+          {resolvedLink && d.cta && (
             <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
               {d.cta}
             </span>
           )}
         </div>
-        {d.link && !d.cta && (
+        {resolvedLink && !d.cta && (
           <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
             <ExternalLinkIcon />
           </span>
@@ -78,13 +80,13 @@ export default function CardItem({
       </article>
     )
 
-    if (d.link) {
+    if (resolvedLink) {
       return (
         <a
-          href={d.link}
+          href={resolvedLink}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => track('link_click', activeSite, item.id, d.link)}
+          onClick={() => track('link_click', activeSite, item.id, resolvedLink)}
           className="group block cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
         >
           {article}
@@ -96,7 +98,7 @@ export default function CardItem({
   }
 
   const article = (
-    <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden${d.link ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
+    <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden${resolvedLink ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
       {d.thumbnail && (
         <div className="aspect-[16/9] overflow-hidden bg-[var(--surface)]">
           <img
@@ -119,13 +121,13 @@ export default function CardItem({
             {d.description}
           </p>
         )}
-        {d.link && d.cta && (
+        {resolvedLink && d.cta && (
           <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
             {d.cta}
           </span>
         )}
       </div>
-      {d.link && !d.cta && (
+      {resolvedLink && !d.cta && (
         <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
           <ExternalLinkIcon />
         </span>
@@ -133,13 +135,13 @@ export default function CardItem({
     </article>
   )
 
-  if (d.link) {
+  if (resolvedLink) {
     return (
       <a
-        href={d.link}
+        href={resolvedLink}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => track('link_click', activeSite, item.id, d.link)}
+        onClick={() => track('link_click', activeSite, item.id, resolvedLink)}
         className="group block cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
       >
         {article}

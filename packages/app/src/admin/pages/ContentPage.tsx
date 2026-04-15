@@ -1088,10 +1088,11 @@ type FormData = {
   type: string; sites: string[]; expiresAt: string; groupId: string
   title: string; body: string; description: string; date: string; endDate: string; link: string; cta: string; imageUrl: string; url: string
   name: string; thumbnail: string
+  siteLinks: Record<string, string>
 }
 
 function itemToForm(item?: ContentItem | null): FormData {
-  const d = (item?.data ?? {}) as Record<string, string>
+  const d = (item?.data ?? {}) as Record<string, any>
   return {
     type:        item?.type ?? 'card',
     sites:       item?.sites ?? [],
@@ -1108,11 +1109,14 @@ function itemToForm(item?: ContentItem | null): FormData {
     url:         d.url        ?? '',
     name:        d.name       ?? '',
     thumbnail:   d.thumbnail  ?? '',
+    siteLinks:   d.siteLinks ?? {},
   }
 }
 
 function formToPayload(f: FormData) {
-  const data: Record<string, string> = {}
+  const data: Record<string, any> = {}
+  // Filter out empty siteLinks entries
+  const siteLinks = Object.fromEntries(Object.entries(f.siteLinks).filter(([, v]) => v))
   if (f.type === 'richtext') {
     if (f.title) data.title = f.title
     data.body = f.body
@@ -1122,10 +1126,12 @@ function formToPayload(f: FormData) {
     if (f.link)        data.link        = f.link
     if (f.cta)         data.cta         = f.cta
     if (f.thumbnail)   data.thumbnail   = f.thumbnail
+    if (Object.keys(siteLinks).length) data.siteLinks = siteLinks
   } else if (f.type === 'poster') {
     data.imageUrl = f.imageUrl
     if (f.name) data.name = f.name
     if (f.link) data.link = f.link
+    if (Object.keys(siteLinks).length) data.siteLinks = siteLinks
   } else if (f.type === 'video') {
     data.url = f.url
     if (f.title) data.title = f.title
@@ -1288,6 +1294,62 @@ function ImagePicker({ label, value, onChange, testId }: {
   )
 }
 
+// ── Site link overrides ────────────────────────────────────────────────────────
+
+function SiteLinkOverrides({ form, set, availableSites }: {
+  form: FormData
+  set: (patch: Partial<FormData>) => void
+  availableSites: Site[]
+}) {
+  if (!form.link) return null
+
+  const relevantSites = form.sites.length > 0
+    ? availableSites.filter(s => form.sites.includes(s.slug))
+    : availableSites
+
+  if (relevantSites.length === 0) return null
+
+  const hasOverrides = relevantSites.some(s => form.siteLinks[s.slug])
+  const [expanded, setExpanded] = useState(hasOverrides)
+
+  const setSiteLink = (slug: string, url: string) =>
+    set({ siteLinks: { ...form.siteLinks, [slug]: url } })
+
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="site-link-overrides-toggle"
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center gap-1 text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+      >
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        Link-uri per locație
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-2 pl-4 border-l-2 border-[var(--border)]">
+          {relevantSites.map(s => (
+            <div key={s.slug} className="flex items-center gap-2">
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: s.accent }}
+              />
+              <label className="text-xs font-content text-[var(--muted)] w-20 flex-shrink-0">{s.name}</label>
+              <input
+                data-testid={`site-link-input-${s.slug}`}
+                value={form.siteLinks[s.slug] ?? ''}
+                onChange={e => setSiteLink(s.slug, e.target.value)}
+                placeholder="Folosește link-ul implicit"
+                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-sm font-content"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Content form ───────────────────────────────────────────────────────────────
 
 function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
@@ -1382,6 +1444,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
           </div>
         </div>
+        <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
       </>)}
 
       {form.type === 'poster' && (<>
@@ -1403,6 +1466,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
           <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
             className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
         </div>
+        <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
       </>)}
 
       {form.type === 'video' && (<>
