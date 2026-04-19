@@ -142,14 +142,14 @@ describe('Admin — publish/archive via context menu', () => {
     cy.get('[data-testid="toast"]').should('be.visible').and('contain', 'Publicat')
   })
 
-  it('context menu does not show "Arhivează" for draft items', () => {
+  it('context menu does not show "Ascunde" for draft items', () => {
     setup([draftItem])
 
     cy.get('[data-testid="item-menu-trigger-item-ctx-1"]').click()
-    cy.get('[data-testid="item-menu-archive-item-ctx-1"]').should('not.exist')
+    cy.get('[data-testid="item-menu-hide-item-ctx-1"]').should('not.exist')
   })
 
-  it('context menu shows "Arhivează" for published items and clicking it calls the archive API', () => {
+  it('context menu shows "Ascunde" for published items and clicking it calls the archive API', () => {
     setup([publishedItem])
 
     cy.intercept('POST', '/api/admin/content/item-ctx-2/archive', {
@@ -161,9 +161,9 @@ describe('Admin — publish/archive via context menu', () => {
     }).as('contentRefresh')
 
     cy.get('[data-testid="item-menu-trigger-item-ctx-2"]').click()
-    cy.get('[data-testid="item-menu-archive-item-ctx-2"]').should('be.visible').click()
+    cy.get('[data-testid="item-menu-hide-item-ctx-2"]').should('be.visible').click()
     cy.wait('@archive')
-    cy.get('[data-testid="toast"]').should('be.visible').and('contain', 'Arhivat')
+    cy.get('[data-testid="toast"]').should('be.visible').and('contain', 'Ascuns')
   })
 
   it('context menu does not show "Publică" for published items', () => {
@@ -178,7 +178,7 @@ describe('Admin — publish/archive via context menu', () => {
 
     // Open the menu
     cy.get('[data-testid="item-menu-trigger-item-ctx-2"]').click()
-    cy.get('[data-testid="item-menu-archive-item-ctx-2"]').should('be.visible')
+    cy.get('[data-testid="item-menu-hide-item-ctx-2"]').should('be.visible')
 
     // Close by clicking outside
     cy.get('body').click(0, 0)
