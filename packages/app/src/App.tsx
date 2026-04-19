@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { SitesProvider } from './public/context/SitesContext'
+import { LanguageProvider } from './public/context/LanguageContext'
 import HomePage from './public/pages/HomePage'
 
 const AdminApp = lazy(() => import('./admin/AdminApp'))
@@ -10,12 +11,16 @@ export default function App() {
     <Routes>
       <Route path="/" element={
         <SitesProvider>
-          <HomePage />
+          <LanguageProvider>
+            <HomePage />
+          </LanguageProvider>
         </SitesProvider>
       } />
       <Route path="/:siteSlug" element={
         <SitesProvider>
-          <HomePage />
+          <LanguageProvider>
+            <HomePage />
+          </LanguageProvider>
         </SitesProvider>
       } />
       <Route path="/admin/*" element={

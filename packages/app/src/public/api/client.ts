@@ -22,8 +22,13 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   sites: () => get<{ sites: Site[] }>('/api/sites'),
-  content: (site: string | null) =>
-    get<{ site: string | null; items: ContentItem[] }>(
-      site ? `/api/content?site=${site}` : '/api/content'
-    ),
+  content: (site: string | null, locale?: string) => {
+    const params = new URLSearchParams()
+    if (site) params.set('site', site)
+    if (locale && locale !== 'ro') params.set('locale', locale)
+    const qs = params.toString()
+    return get<{ site: string | null; items: ContentItem[] }>(
+      `/api/content${qs ? `?${qs}` : ''}`
+    )
+  },
 }
