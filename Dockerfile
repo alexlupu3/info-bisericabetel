@@ -15,6 +15,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json    ./packages/api/
 COPY packages/app/package.json    ./packages/app/
 
+ENV CYPRESS_INSTALL_BINARY=0
 RUN pnpm install --frozen-lockfile
 
 # ─── Stage 3: app builder ──────────────────────────────────────────────────────
