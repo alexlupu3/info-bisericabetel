@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, integer, timestamp, jsonb, boolean, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, uuid, integer, timestamp, jsonb, boolean, index, primaryKey, unique } from 'drizzle-orm/pg-core'
 
 export const sites = pgTable('sites', {
   slug:      text('slug').primaryKey(),
@@ -76,3 +76,43 @@ export const contentItems = pgTable('content_items', {
   createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+export const languages = pgTable('languages', {
+  code:      text('code').primaryKey(),
+  name:      text('name').notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  enabled:   boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const uiTranslations = pgTable('ui_translations', {
+  locale:    text('locale').notNull().references(() => languages.code, { onDelete: 'cascade' }),
+  key:       text('key').notNull(),
+  value:     text('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => [
+  primaryKey({ columns: [t.locale, t.key] }),
+])
+
+export const contentTranslations = pgTable('content_translations', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  contentItemId: uuid('content_item_id').notNull().references(() => contentItems.id, { onDelete: 'cascade' }),
+  locale:        text('locale').notNull().references(() => languages.code, { onDelete: 'cascade' }),
+  data:          jsonb('data').notNull().default({}),
+  createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => [
+  unique().on(t.contentItemId, t.locale),
+  index('content_translations_item_idx').on(t.contentItemId),
+])
+
+export const groupTranslations = pgTable('group_translations', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  groupId:   uuid('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  locale:    text('locale').notNull().references(() => languages.code, { onDelete: 'cascade' }),
+  title:     text('title').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => [
+  unique().on(t.groupId, t.locale),
+])
