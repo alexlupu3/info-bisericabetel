@@ -283,4 +283,28 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       }
     }
   )
+
+  app.get<{ Params: { itemId: string } }>(
+    '/admin/analytics/items/:itemId/daily', { preHandler: auth }, async (req) => {
+      const rows = await sql<{ day: string; clicks: number }>`
+        SELECT
+          (occurred_at AT TIME ZONE 'UTC')::date AS day,
+          COUNT(*)::int AS clicks
+        FROM analytics_events
+        WHERE event_type = 'link_click'
+          AND item_id = ${req.params.itemId}
+          AND occurred_at >= NOW() - INTERVAL '90 days'
+        GROUP BY day
+        ORDER BY day ASC
+      `
+
+      return {
+        itemId: req.params.itemId,
+        daily: rows.map(r => ({
+          date: r.day.toString().slice(0, 10),
+          clicks: Number(r.clicks),
+        })),
+      }
+    }
+  )
 }
