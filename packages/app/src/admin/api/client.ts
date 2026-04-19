@@ -157,10 +157,11 @@ export const api = {
   analytics: {
     lifetime: () => get<LifetimeAnalytics>('/api/admin/analytics/lifetime'),
     daily:    (days = 30) => get<DailyAnalytics>(`/api/admin/analytics/daily?days=${days}`),
-    items:    () => get<ItemAnalytics>('/api/admin/analytics/items'),
-    overview: (period: Period = 'week') =>
-      get<OverviewData>(`/api/admin/analytics/overview?period=${period}`),
-    itemDaily: (itemId: string) =>
-      get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily`),
+    items:    (site?: string) =>
+      get<ItemAnalytics>(`/api/admin/analytics/items${site ? `?site=${site}` : ''}`),
+    overview: (period: Period = 'week', site?: string) =>
+      get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}`),
+    itemDaily: (itemId: string, site?: string) =>
+      get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
   },
 }

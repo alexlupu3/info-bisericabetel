@@ -35,10 +35,11 @@ The rebuild introduces a controlled, lightweight dependency (Recharts in `packag
 
 | Endpoint | Description |
 |---|---|
-| `GET /admin/analytics/overview?period=day\|week\|month` | Returns current-period and previous-period aggregates for views and clicks, plus per-day breakdowns for both periods |
-| `GET /admin/analytics/items/:itemId/daily` | Returns daily click counts for a specific item over the last 90 days |
+| `GET /admin/analytics/overview?period=day\|week\|month[&site=slug]` | Returns current-period and previous-period aggregates for views and clicks, plus per-day breakdowns for both periods. Optional `site` param scopes results to a single site. |
+| `GET /admin/analytics/items[?site=slug]` | Returns content items ranked by total link clicks. Optional `site` param scopes to a single site. |
+| `GET /admin/analytics/items/:itemId/daily[?site=slug]` | Returns daily click counts for a specific item over the last 90 days. Optional `site` param scopes to a single site. |
 
-Legacy endpoints (`/lifetime`, `/daily`, `/items`) are preserved unchanged.
+Legacy endpoints (`/lifetime`, `/daily`) are preserved unchanged. `/items` was already listed above — it now additionally accepts the `site` query parameter.
 
 ### Database
 
@@ -46,16 +47,17 @@ Migration `0006_analytics_item_idx.sql` adds a partial index on `(item_id, occur
 
 ### Frontend component structure
 
-`packages/app/src/admin/components/analytics/` (6 files):
+`packages/app/src/admin/components/analytics/` (7 files):
 
 - **StatCard** — displays a metric total with a ± % change badge; clicking the card toggles the active metric on the trend chart.
 - **TrendChart** — dual-line Recharts `LineChart` comparing current period (orange solid) vs. previous period (gray dashed).
 - **PeriodSelector** — day / week / month toggle that drives the data fetch.
+- **SiteFilter** — dropdown for selecting a site slug; default value is empty string, which the page translates to `undefined` when calling the API (meaning "all sites / Toate"). Fetches available sites from `GET /api/sites` via react-query.
 - **ContentTable** — table of content items sorted by total clicks; clicking a row triggers the item drill-down.
-- **ItemDailyModal** — modal overlay with a Recharts bar chart of daily clicks for the selected item (last 90 days).
+- **ItemDailyModal** — modal overlay with a Recharts bar chart of daily clicks for the selected item (last 90 days); accepts an optional `site` prop that is forwarded to the API.
 - **index.ts** — barrel export.
 
-`AnalyticsPage.tsx` was rewritten to compose these components. All data fetching is co-located in the page component; sub-components are purely presentational.
+`AnalyticsPage.tsx` owns a `site` state string (empty = all sites). Both `SiteFilter` and `PeriodSelector` render in the page header. The `site` value is included in all react-query keys so queries re-run automatically on site change. All data fetching is co-located in the page component; sub-components are purely presentational.
 
 ### Dependency
 

@@ -13,6 +13,7 @@ import { api } from '../../api/client'
 interface Props {
   itemId: string
   itemTitle: string
+  site?: string
   onClose: () => void
 }
 
@@ -51,10 +52,10 @@ function formatDate(iso: string): string {
   return `${day} ${month}`
 }
 
-export default function ItemDailyModal({ itemId, itemTitle, onClose }: Props) {
+export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Props) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin-analytics-item-daily', itemId],
-    queryFn: () => api.analytics.itemDaily(itemId),
+    queryKey: ['admin-analytics-item-daily', itemId, site],
+    queryFn: () => api.analytics.itemDaily(itemId, site),
   })
 
   return (

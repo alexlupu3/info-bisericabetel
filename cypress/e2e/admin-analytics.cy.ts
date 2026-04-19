@@ -3,6 +3,7 @@ const mockUser = { id: 'u1', email: 'admin@betel.ro', role: 'admin', mustChangeP
 const mockToken = 'mock-jwt-token'
 const mockSites = [
   { slug: 'centru', name: 'Centru', accent: '#3b82f6' },
+  { slug: 'nord', name: 'Nord', accent: '#10b981' },
 ]
 
 function loginAndGo(path: string) {
@@ -60,8 +61,8 @@ const mockItemDaily = {
 describe('Admin — Analytics dashboard', () => {
   beforeEach(() => {
     cy.intercept('GET', '/api/admin/analytics/overview*', mockOverview).as('overview')
-    cy.intercept('GET', '/api/admin/analytics/items', mockItems).as('items')
-    cy.intercept('GET', '/api/admin/analytics/items/*/daily', mockItemDaily).as('itemDaily')
+    cy.intercept({ method: 'GET', pathname: '/api/admin/analytics/items' }, mockItems).as('items')
+    cy.intercept('GET', '/api/admin/analytics/items/*/daily*', mockItemDaily).as('itemDaily')
     loginAndGo('analytics')
   })
 
@@ -100,6 +101,20 @@ describe('Admin — Analytics dashboard', () => {
     cy.wait('@itemDaily')
     cy.get('[data-testid="item-daily-modal"]').should('be.visible')
     cy.get('[data-testid="item-daily-modal"]').should('contain', 'Program Duminică')
+  })
+
+  it('filters analytics by site', () => {
+    cy.wait(['@overview', '@items'])
+    cy.get('[data-testid="site-filter"]').should('be.visible')
+    cy.get('[data-testid="site-filter"]').should('have.value', '')
+
+    // Select a specific site — triggers refetch
+    cy.get('[data-testid="site-filter"]').select('centru')
+    cy.wait('@overview')
+    cy.get('[data-testid="site-filter"]').should('have.value', 'centru')
+
+    // Stat cards should still render with mocked data
+    cy.get('[data-testid="stat-card-vizualizri"]').should('contain', '275')
   })
 
   it('closes item detail modal by clicking backdrop', () => {

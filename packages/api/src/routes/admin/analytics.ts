@@ -85,7 +85,9 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   )
 
-  app.get('/admin/analytics/items', { preHandler: auth }, async () => {
+  app.get<{ Querystring: { site?: string } }>(
+    '/admin/analytics/items', { preHandler: auth }, async (req) => {
+    const site = req.query.site || undefined
     const rows = await sql<{
       item_id: string | null
       type: string | null
@@ -101,6 +103,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       LEFT JOIN content_items ci ON ci.id = ae.item_id
       WHERE ae.event_type = 'link_click'
         AND ae.item_id IS NOT NULL
+        ${site ? sql`AND ae.site_slug = ${site}` : sql``}
       GROUP BY ae.item_id, ci.type, ci.data->>'title'
       ORDER BY clicks DESC
     `
@@ -115,9 +118,10 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   })
 
-  app.get<{ Querystring: { period?: string } }>(
+  app.get<{ Querystring: { period?: string; site?: string } }>(
     '/admin/analytics/overview', { preHandler: auth }, async (req, reply) => {
       const period = req.query.period ?? 'week'
+      const site = req.query.site || undefined
 
       if (period !== 'day' && period !== 'week' && period !== 'month') {
         return reply.code(400).send({ error: 'Invalid period. Must be day, week, or month.' })
@@ -144,6 +148,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
             COUNT(*)::int AS count
           FROM analytics_events
           WHERE occurred_at >= (CURRENT_DATE AT TIME ZONE 'UTC') - INTERVAL '1 day'
+            ${site ? sql`AND site_slug = ${site}` : sql``}
           GROUP BY day, hour, event_type
           ORDER BY day ASC, hour ASC
         `
@@ -214,6 +219,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           COUNT(*)::int AS count
         FROM analytics_events
         WHERE occurred_at >= NOW() - (${totalDays} || ' days')::interval
+          ${site ? sql`AND site_slug = ${site}` : sql``}
         GROUP BY day, event_type
         ORDER BY day ASC
       `
@@ -284,8 +290,9 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   )
 
-  app.get<{ Params: { itemId: string } }>(
+  app.get<{ Params: { itemId: string }; Querystring: { site?: string } }>(
     '/admin/analytics/items/:itemId/daily', { preHandler: auth }, async (req) => {
+      const site = req.query.site || undefined
       const rows = await sql<{ day: string; clicks: number }>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
@@ -294,6 +301,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         WHERE event_type = 'link_click'
           AND item_id = ${req.params.itemId}
           AND occurred_at >= NOW() - INTERVAL '90 days'
+          ${site ? sql`AND site_slug = ${site}` : sql``}
         GROUP BY day
         ORDER BY day ASC
       `

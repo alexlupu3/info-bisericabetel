@@ -42,6 +42,7 @@ Add one section per important domain entity.
 - Lifecycle: created via the public `POST /events` ingest endpoint; never updated or deleted; read via aggregation endpoints accessible to all admins
 - Validation rules: event_type must be one of the two defined values; site_slug is required; item_id and url are optional and only relevant for `link_click` events
 - Notes: write is fire-and-forget — the API responds 204 before the DB write completes. The PWA deduplicates `site_visit` events within a 30-minute window using `localStorage` keys (`betel-track-visit-{site}`). Events are never deleted; reporting is done entirely by aggregation. See FR-024 and FR-025.
+- Site filtering: the `analytics_events` table has a composite index on `(site_slug, occurred_at)` which makes per-site queries efficient. All three analytics aggregation endpoints (`/overview`, `/items`, `/items/:itemId/daily`) accept an optional `?site=slug` query parameter; omitting it returns cross-site totals. The admin dashboard exposes this as the `SiteFilter` dropdown (default: "Toate").
 
 ### Media
 - Purpose: represent an uploaded image file tracked by the system for reuse and lifecycle management

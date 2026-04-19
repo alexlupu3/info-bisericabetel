@@ -1,21 +1,24 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type Period } from '../api/client'
-import { PeriodSelector, StatCard, TrendChart, ItemsTable, ItemDailyModal } from '../components/analytics'
+import { PeriodSelector, SiteFilter, StatCard, TrendChart, ItemsTable, ItemDailyModal } from '../components/analytics'
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('week')
+  const [site, setSite] = useState('')
   const [activeMetric, setActiveMetric] = useState<'views' | 'clicks'>('views')
   const [selectedItem, setSelectedItem] = useState<{ id: string; title: string } | null>(null)
 
+  const siteParam = site || undefined
+
   const overview = useQuery({
-    queryKey: ['admin-analytics-overview', period],
-    queryFn: () => api.analytics.overview(period),
+    queryKey: ['admin-analytics-overview', period, site],
+    queryFn: () => api.analytics.overview(period, siteParam),
   })
 
   const items = useQuery({
-    queryKey: ['admin-analytics-items'],
-    queryFn: () => api.analytics.items(),
+    queryKey: ['admin-analytics-items', site],
+    queryFn: () => api.analytics.items(siteParam),
   })
 
   return (
@@ -23,7 +26,10 @@ export default function AnalyticsPage() {
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold">Statistici</h1>
-        <PeriodSelector value={period} onChange={setPeriod} />
+        <div className="flex gap-4 items-center">
+          <SiteFilter value={site} onChange={setSite} />
+          <PeriodSelector value={period} onChange={setPeriod} />
+        </div>
       </div>
 
       {/* Loading / Error for overview */}
@@ -76,6 +82,7 @@ export default function AnalyticsPage() {
         <ItemDailyModal
           itemId={selectedItem.id}
           itemTitle={selectedItem.title}
+          site={siteParam}
           onClose={() => setSelectedItem(null)}
         />
       )}
