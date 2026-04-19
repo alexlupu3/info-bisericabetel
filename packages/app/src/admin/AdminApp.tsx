@@ -12,6 +12,7 @@ import LocationsPage from './pages/LocationsPage'
 import MediaPage from './pages/MediaPage'
 import LogsPage from './pages/LogsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import ArchivePage from './pages/ArchivePage'
 import SetupPage from './pages/SetupPage'
 
 export default function AdminApp() {
@@ -69,6 +70,7 @@ function Shell() {
               <NavLink to="locations" className={navLinkClass}>Locații</NavLink>
             )}
             <NavLink to="media" className={navLinkClass}>Media</NavLink>
+            <NavLink to="archive" className={navLinkClass}>Arhivă</NavLink>
             <NavLink to="analytics" className={navLinkClass}>Statistici</NavLink>
             {user.role === 'super-admin' && (
               <NavLink to="users" className={navLinkClass}>Utilizatori</NavLink>
@@ -103,6 +105,7 @@ function Shell() {
             <NavLink to="locations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Locații</NavLink>
           )}
           <NavLink to="media" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Media</NavLink>
+          <NavLink to="archive" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Arhivă</NavLink>
           <NavLink to="analytics" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Statistici</NavLink>
           {user.role === 'super-admin' && (
             <NavLink to="users" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Utilizatori</NavLink>
@@ -125,6 +128,7 @@ function Shell() {
             <Route path="locations" element={<PageContainer><LocationsPage /></PageContainer>} />
           )}
           <Route path="media" element={<PageContainer><MediaPage /></PageContainer>} />
+          <Route path="archive" element={<PageContainer><ArchivePage /></PageContainer>} />
           <Route path="analytics" element={<PageContainer><AnalyticsPage /></PageContainer>} />
           {user.role === 'super-admin' && (
             <Route path="users" element={<PageContainer><UsersPage /></PageContainer>} />

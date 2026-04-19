@@ -121,6 +121,9 @@ export const api = {
       put<{ items: ContentItem[]; groups: Group[] }>('/api/admin/content/root-order', { order }),
     publish: (id: string) => post<ContentItem>(`/api/admin/content/${id}/publish`, {}),
     archive: (id: string) => post<ContentItem>(`/api/admin/content/${id}/archive`, {}),
+    listDeleted: () => get<{ items: ContentItem[] }>('/api/admin/content/deleted'),
+    restore: (id: string) => post<ContentItem>(`/api/admin/content/${id}/restore`, {}),
+    removePermanent: (id: string) => del<void>(`/api/admin/content/${id}/permanent`),
   },
   groups: {
     list:    () => get<{ groups: Group[] }>('/api/admin/groups'),

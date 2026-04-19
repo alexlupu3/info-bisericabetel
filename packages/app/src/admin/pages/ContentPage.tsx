@@ -267,7 +267,7 @@ export default function ContentPage() {
 
   const deleteMut      = useMutation({ mutationFn: api.content.remove,      onSuccess: () => { invalidate(); toast('Element șters') } })
   const publishMut     = useMutation({ mutationFn: api.content.publish,     onSuccess: () => { invalidate(); toast('Publicat') } })
-  const archiveMut     = useMutation({ mutationFn: api.content.archive,     onSuccess: () => { invalidate(); toast('Arhivat') } })
+  const archiveMut     = useMutation({ mutationFn: api.content.archive,     onSuccess: () => { invalidate(); toast('Ascuns') } })
 
   const togglePublishMut = useMutation({
     mutationFn: ({ id, currentState }: { id: string; currentState: string }) =>
@@ -304,13 +304,7 @@ export default function ContentPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup actualizat') },
   })
   const deleteGroupMut = useMutation({
-    mutationFn: async (groupId: string) => {
-      const entry = rootEntriesRef.current.find(e => e.kind === 'group' && e.id === groupId) as GroupEntry | undefined
-      if (entry?.items.length) {
-        await Promise.all(entry.items.map(i => api.content.update(i.id, { groupId: null })))
-      }
-      await api.groups.remove(groupId)
-    },
+    mutationFn: (groupId: string) => api.groups.remove(groupId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-groups'] })
       qc.invalidateQueries({ queryKey: ['admin-content'] })
@@ -558,7 +552,7 @@ export default function ContentPage() {
                       onEdit={() => { setCreating(false); setEditing(entry.item) }}
                       onPublish={() => publishMut.mutate(entry.item.id)}
                       onArchive={() => archiveMut.mutate(entry.item.id)}
-                      onDelete={() => { if (confirm('Ștergi acest element?')) deleteMut.mutate(entry.item.id) }}
+                      onDelete={() => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(entry.item.id) }}
                       onTogglePublish={() => togglePublishMut.mutate({ id: entry.item.id, currentState: entry.item.state })}
                     />
                     {editing?.id === entry.item.id && (
@@ -583,10 +577,10 @@ export default function ContentPage() {
                     onEditGroup={(id, patch) => updateGroupMut.mutate({ id, patch })}
                     onPublish={id => publishMut.mutate(id)}
                     onArchive={id => archiveMut.mutate(id)}
-                    onDelete={id => { if (confirm('Ștergi acest element?')) deleteMut.mutate(id) }}
+                    onDelete={id => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(id) }}
                     onTogglePublish={(id, currentState) => togglePublishMut.mutate({ id, currentState })}
                     onDeleteGroup={() => {
-                      if (confirm(`Ștergi grupul "${entry.title}"? Elementele vor rămâne fără grup.`))
+                      if (confirm(`Ștergi grupul "${entry.title}"? Elementele din grup vor fi mutate în arhivă.`))
                         deleteGroupMut.mutate(entry.id)
                     }}
                     onAddContent={() => { setEditing(null); setCreating(false); setCreatingInGroup(entry.id) }}
@@ -816,11 +810,11 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, itemS
           )}
           {itemState === 'published' && (
             <button
-              data-testid={`item-menu-archive-${itemId}`}
+              data-testid={`item-menu-hide-${itemId}`}
               onClick={() => { setOpen(false); onArchive() }}
               className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-yellow-400 transition-colors"
             >
-              Arhivează
+              Ascunde
             </button>
           )}
           <button
@@ -927,7 +921,8 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
   const stateColor = item.state === 'published' ? 'text-green-400'
-    : item.state === 'archived' ? 'text-[var(--muted)]' : 'text-yellow-400'
+    : item.state === 'archived' ? 'text-[var(--muted)]'
+    : item.state === 'deleted' ? 'text-red-400' : 'text-yellow-400'
   const past = isItemPast(item)
 
   return (
@@ -994,7 +989,8 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
 
 function ContentRowOverlay({ item }: { item: ContentItem }) {
   const stateColor = item.state === 'published' ? 'text-green-400'
-    : item.state === 'archived' ? 'text-[var(--muted)]' : 'text-yellow-400'
+    : item.state === 'archived' ? 'text-[var(--muted)]'
+    : item.state === 'deleted' ? 'text-red-400' : 'text-yellow-400'
   return (
     <li className="flex items-center gap-4 border border-[var(--accent)] bg-[var(--surface)] px-4 py-3 opacity-90 list-none">
       <span className="flex-shrink-0 text-[var(--muted)] p-1"><GripVertical size={16} /></span>

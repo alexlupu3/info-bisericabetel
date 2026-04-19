@@ -5,7 +5,7 @@ export interface Site {
 }
 
 export type ContentType = 'card' | 'richtext' | 'poster' | 'video'
-export type PublishState = 'draft' | 'published' | 'archived'
+export type PublishState = 'draft' | 'published' | 'archived' | 'deleted'
 
 export interface ContentItem {
   id: string

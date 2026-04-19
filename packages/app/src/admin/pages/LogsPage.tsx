@@ -39,11 +39,14 @@ function DetailCell({ detail }: { detail: Record<string, unknown> }) {
 
 function ActionBadge({ action }: { action: string }) {
   const colorMap: Record<string, string> = {
-    'content.create':  'text-green-400',
-    'content.update':  'text-blue-400',
-    'content.delete':  'text-red-400',
-    'content.publish': 'text-yellow-400',
-    'content.archive': 'text-orange-400',
+    'content.create':           'text-green-400',
+    'content.update':           'text-blue-400',
+    'content.delete':           'text-red-400',
+    'content.publish':          'text-yellow-400',
+    'content.archive':          'text-orange-400',
+    'content.restore':          'text-cyan-400',
+    'content.permanent-delete': 'text-red-600',
+    'group.delete':             'text-red-400',
   }
   const color = colorMap[action] ?? 'text-[var(--muted)]'
   return (

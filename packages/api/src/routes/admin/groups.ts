@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, asc } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { groups } from '../../db/schema.js'
+import { groups, contentItems } from '../../db/schema.js'
+import { logAudit } from '../../db/audit.js'
 
 function adminOnly(req: any, reply: any, done: any) {
   const role = (req.user as any)?.role
@@ -60,7 +61,13 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>(
     '/admin/groups/:id', { preHandler: auth }, async (req, reply) => {
+      // Soft-delete all child content items before removing the group
+      await db.update(contentItems)
+        .set({ state: 'deleted', groupId: null, updatedAt: new Date() })
+        .where(eq(contentItems.groupId, req.params.id))
       await db.delete(groups).where(eq(groups.id, req.params.id))
+      const actor = req.user as any
+      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'group.delete', entityId: req.params.id })
       return reply.code(204).send()
     }
   )

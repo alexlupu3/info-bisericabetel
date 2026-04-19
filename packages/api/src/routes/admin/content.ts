@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, asc, and, sql } from 'drizzle-orm'
+import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { contentItems, groups } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
@@ -26,9 +26,19 @@ function adminOnly(req: any, reply: any, done: any) {
 export async function adminContentRoutes(app: FastifyInstance) {
   const auth = [app.authenticate, adminOnly]
 
-  // List all items (all states) for the admin
+  // List all items (excluding soft-deleted) for the admin
   app.get('/admin/content', { preHandler: auth }, async () => {
-    const items = await db.select().from(contentItems).orderBy(asc(contentItems.orderPosition))
+    const items = await db.select().from(contentItems)
+      .where(ne(contentItems.state, 'deleted'))
+      .orderBy(asc(contentItems.orderPosition))
+    return { items }
+  })
+
+  // List soft-deleted items for the archive page
+  app.get('/admin/content/deleted', { preHandler: auth }, async () => {
+    const items = await db.select().from(contentItems)
+      .where(eq(contentItems.state, 'deleted'))
+      .orderBy(asc(contentItems.updatedAt))
     return { items }
   })
 
@@ -87,13 +97,38 @@ export async function adminContentRoutes(app: FastifyInstance) {
     }
   )
 
-  // Delete
+  // Soft-delete (move to archive)
   app.delete<{ Params: { id: string } }>('/admin/content/:id', { preHandler: auth }, async (req, reply) => {
+    const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
+    if (!item) return reply.code(404).send({ error: 'Not found' })
+    await db.update(contentItems)
+      .set({ state: 'deleted', updatedAt: new Date() })
+      .where(eq(contentItems.id, req.params.id))
+    const actor = req.user as any
+    await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.delete', entityId: req.params.id })
+    return reply.code(204).send()
+  })
+
+  // Restore from archive
+  app.post<{ Params: { id: string } }>('/admin/content/:id/restore', { preHandler: auth }, async (req, reply) => {
+    const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
+    if (!item) return reply.code(404).send({ error: 'Not found' })
+    const [updated] = await db.update(contentItems)
+      .set({ state: 'draft', groupId: null, updatedAt: new Date() })
+      .where(eq(contentItems.id, req.params.id))
+      .returning()
+    const actor = req.user as any
+    await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.restore', entityId: req.params.id })
+    return updated
+  })
+
+  // Permanent delete (from archive)
+  app.delete<{ Params: { id: string } }>('/admin/content/:id/permanent', { preHandler: auth }, async (req, reply) => {
     const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
     if (!item) return reply.code(404).send({ error: 'Not found' })
     await db.delete(contentItems).where(eq(contentItems.id, req.params.id))
     const actor = req.user as any
-    await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.delete', entityId: req.params.id })
+    await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.permanent-delete', entityId: req.params.id })
     return reply.code(204).send()
   })
 
@@ -110,7 +145,9 @@ export async function adminContentRoutes(app: FastifyInstance) {
       }
     })
 
-    const items = await db.select().from(contentItems).orderBy(asc(contentItems.orderPosition))
+    const items = await db.select().from(contentItems)
+      .where(ne(contentItems.state, 'deleted'))
+      .orderBy(asc(contentItems.orderPosition))
     return { items }
   })
 
@@ -137,7 +174,9 @@ export async function adminContentRoutes(app: FastifyInstance) {
       })
 
       const [items, allGroups] = await Promise.all([
-        db.select().from(contentItems).orderBy(asc(contentItems.orderPosition)),
+        db.select().from(contentItems)
+          .where(ne(contentItems.state, 'deleted'))
+          .orderBy(asc(contentItems.orderPosition)),
         db.select().from(groups).orderBy(asc(groups.orderPosition)),
       ])
       return { items, groups: allGroups }
