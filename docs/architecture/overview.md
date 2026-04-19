@@ -34,7 +34,7 @@
 - Relational database via schema-driven ORM or connector (PostgreSQL or MySQL preferred, others supported).
 - Schema defined in code; migrations managed explicitly.
 - A `media` table tracks all uploaded image files (id, url, filename, original_name, size, mime_type, created_at). It is the authoritative record of uploads; usage detection is done by querying JSONB fields on `content_items` rather than via foreign keys (see ADR-003).
-- An `analytics_events` table records all site visit and link click events (id, event_type, site_slug, item_id, url, occurred_at). Indexed on (event_type, occurred_at) and (site_slug, occurred_at) for efficient aggregation queries. Events are written asynchronously — the ingest endpoint responds 204 immediately.
+- An `analytics_events` table records all site visit and link click events (id, event_type, site_slug, item_id, url, occurred_at). Indexed on `(event_type, occurred_at)` and `(site_slug, occurred_at)` for efficient aggregation queries, and a partial index on `(item_id, occurred_at)` (migration `0006_analytics_item_idx.sql`) for per-item daily-clicks queries. Events are written asynchronously — the ingest endpoint responds 204 immediately.
 
 ## File Storage
 - Uploaded images are written to a local `uploads/` directory on the server.

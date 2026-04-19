@@ -17,7 +17,7 @@ This repository is the root for a production-ready application and its supportin
 - `/` (Content) — create, edit, order content items and groups
 - `/media` — browse uploaded images, view usage, delete unused files
 - `/locations` — manage site settings
-- `/analytics` — site visit and link click analytics (lifetime totals + daily breakdown, accessible to all admins)
+- `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), stat cards with % change vs. prior period, dual-line trend chart, and a per-item daily-clicks modal; accessible to all admins
 
 ## Prerequisites
 
