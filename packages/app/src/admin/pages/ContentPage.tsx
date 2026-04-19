@@ -1346,6 +1346,26 @@ function SiteLinkOverrides({ form, set, availableSites }: {
   )
 }
 
+// ── Translatable fields per content type ──────────────────────────────────────
+
+const TRANSLATABLE_FIELDS: Record<string, Array<{ key: string; label: string; multiline?: boolean }>> = {
+  card: [
+    { key: 'title', label: 'Titlu' },
+    { key: 'description', label: 'Descriere', multiline: true },
+    { key: 'cta', label: 'Text buton' },
+  ],
+  richtext: [
+    { key: 'title', label: 'Titlu' },
+    { key: 'body', label: 'Conținut', multiline: true },
+  ],
+  poster: [
+    { key: 'name', label: 'Nume' },
+  ],
+  video: [
+    { key: 'title', label: 'Titlu' },
+  ],
+}
+
 // ── Content form ───────────────────────────────────────────────────────────────
 
 function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
@@ -1360,168 +1380,314 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Translation mode state
+  const [transLocale, setTransLocale] = useState('')  // '' = editing original
+  const [transForm, setTransForm] = useState<Record<string, string>>({})
+
+  // Fetch available languages (non-default, enabled)
+  const { data: langData } = useQuery({
+    queryKey: ['admin-languages'],
+    queryFn: () => api.languages.list(),
+    staleTime: 60_000,
+  })
+
+  // Fetch existing translations for this item
+  const qc = useQueryClient()
+  const { data: existingTranslations } = useQuery({
+    queryKey: ['content-translations', item?.id],
+    queryFn: () => api.content.listTranslations(item!.id),
+    enabled: !!item,
+  })
+
+  const nonDefaultLanguages = (langData?.languages ?? []).filter(l => !l.isDefault && l.enabled)
+  const isEdit = !!item
+  const isTranslating = isEdit && transLocale !== ''
+
+  // Populate transForm when locale changes
+  useEffect(() => {
+    if (!transLocale || !existingTranslations) {
+      setTransForm({})
+      return
+    }
+    const existing = existingTranslations.translations.find(t => t.locale === transLocale)
+    if (existing) {
+      const data = existing.data as Record<string, string>
+      const fields = TRANSLATABLE_FIELDS[form.type] ?? []
+      const populated: Record<string, string> = {}
+      for (const f of fields) {
+        populated[f.key] = data[f.key] ?? ''
+      }
+      setTransForm(populated)
+    } else {
+      const fields = TRANSLATABLE_FIELDS[form.type] ?? []
+      const empty: Record<string, string> = {}
+      for (const f of fields) {
+        empty[f.key] = ''
+      }
+      setTransForm(empty)
+    }
+  }, [transLocale, existingTranslations, form.type])
+
   const set = (patch: Partial<FormData>) => setForm(f => ({ ...f, ...patch }))
   const toggleSite = (slug: string) =>
     set({ sites: form.sites.includes(slug) ? form.sites.filter(s => s !== slug) : [...form.sites, slug] })
 
+  const setTrans = (key: string, value: string) =>
+    setTransForm(prev => ({ ...prev, [key]: value }))
+
   const submit = async () => {
     setBusy(true); setError('')
     try {
-      const payload = formToPayload(form)
-      if (item) { await api.content.update(item.id, payload); toast('Salvat') }
-      else       { await api.content.create(payload); toast('Element creat') }
+      if (isTranslating) {
+        // Filter out empty values
+        const data = Object.fromEntries(Object.entries(transForm).filter(([, v]) => v))
+        await api.content.upsertTranslation(item!.id, transLocale, data)
+        qc.invalidateQueries({ queryKey: ['content-translations', item!.id] })
+        toast('Traducere salvată')
+      } else {
+        const payload = formToPayload(form)
+        if (item) { await api.content.update(item.id, payload); toast('Salvat') }
+        else       { await api.content.create(payload); toast('Element creat') }
+      }
       onSaved()
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 
-  const isEdit = !!item
+  // Get the original Romanian value for a field (used as placeholder in translation mode)
+  const getOriginalValue = (key: string): string => {
+    const d = (item?.data ?? {}) as Record<string, string>
+    return d[key] ?? ''
+  }
 
   return (
     <div className="border border-[var(--border)] p-4 mb-6 space-y-4"
          data-testid={isEdit ? 'edit-form' : 'create-form'}>
       <span className="text-sm font-bold uppercase tracking-widest">{isEdit ? 'Editează' : 'Conținut nou'}</span>
+
+      {/* Language selector — only in edit mode and when non-default languages exist */}
+      {isEdit && nonDefaultLanguages.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Limbă</label>
+            <select
+              value={transLocale}
+              onChange={e => setTransLocale(e.target.value)}
+              data-testid="translation-locale-select"
+              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
+              <option value="">Română (original)</option>
+              {nonDefaultLanguages.map(l => (
+                <option key={l.code} value={l.code}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Translation status badges */}
+          {existingTranslations && existingTranslations.translations.length > 0 && (
+            <div className="flex items-center gap-1.5 pt-4">
+              <span className="text-xs text-[var(--muted)] font-content">Traduceri:</span>
+              {existingTranslations.translations.map(t => (
+                <span
+                  key={t.locale}
+                  className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-content rounded ${
+                    t.locale === transLocale
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]'
+                  }`}>
+                  {t.locale}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {error && <p className="text-red-400 text-sm font-content">{error}</p>}
 
-      {!isEdit && (
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Tip</label>
-          <select value={form.type} onChange={e => set({ type: e.target.value })}
-            data-testid="create-type-select"
-            className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
-            {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+      {/* Translation mode — show only translatable text fields */}
+      {isTranslating ? (
+        <div className="space-y-4">
+          {(TRANSLATABLE_FIELDS[form.type] ?? []).map(field => (
+            <div key={field.key}>
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">
+                {field.label}
+              </label>
+              {field.multiline ? (
+                <textarea
+                  value={transForm[field.key] ?? ''}
+                  onChange={e => setTrans(field.key, e.target.value)}
+                  placeholder={getOriginalValue(field.key)}
+                  rows={field.key === 'body' ? 5 : 3}
+                  data-testid={`trans-${field.key}-input`}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content placeholder:text-[var(--muted)]/40" />
+              ) : (
+                <input
+                  value={transForm[field.key] ?? ''}
+                  onChange={e => setTrans(field.key, e.target.value)}
+                  placeholder={getOriginalValue(field.key)}
+                  data-testid={`trans-${field.key}-input`}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content placeholder:text-[var(--muted)]/40" />
+              )}
+            </div>
+          ))}
         </div>
-      )}
-
-      {(form.type === 'richtext' || form.type === 'card') && (
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">
-            Titlu{form.type === 'card' ? ' *' : ' (opțional)'}
-          </label>
-          <input value={form.title} onChange={e => set({ title: e.target.value })}
-            data-testid="create-title-input"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-      )}
-
-      {form.type === 'richtext' && (
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Conținut Markdown *</label>
-          <textarea value={form.body} onChange={e => set({ body: e.target.value })}
-            data-testid="create-body-input" rows={5}
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-      )}
-
-      {form.type === 'card' && (<>
-        <ImagePicker
-          label="Miniatură (opțional)"
-          value={form.thumbnail}
-          onChange={url => set({ thumbnail: url })}
-          testId="create-thumbnail-input"
-        />
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Descriere</label>
-          <textarea value={form.description} onChange={e => set({ description: e.target.value })}
-            data-testid="create-description-input" rows={3}
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link CTA</label>
-            <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
-              data-testid="create-link-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+      ) : (<>
+        {/* Original form — unchanged */}
+        {!isEdit && (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Tip</label>
+            <select value={form.type} onChange={e => set({ type: e.target.value })}
+              data-testid="create-type-select"
+              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
+              {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Text buton (opțional)</label>
-            <input value={form.cta} onChange={e => set({ cta: e.target.value })} placeholder="ex: Înregistrează-te"
-              data-testid="create-cta-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-          </div>
-        </div>
-        <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
-      </>)}
+        )}
 
-      {form.type === 'poster' && (<>
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Nume (admin)</label>
-          <input value={form.name} onChange={e => set({ name: e.target.value })}
-            placeholder="ex: Poster Paște 2025"
-            data-testid="create-poster-name-input"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-        <ImagePicker
-          label="Imagine *"
-          value={form.imageUrl}
-          onChange={url => set({ imageUrl: url })}
-          testId="create-image-url-input"
-        />
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link (opțional)</label>
-          <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-        <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
-      </>)}
-
-      {form.type === 'video' && (<>
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">URL YouTube *</label>
-          <input value={form.url} onChange={e => set({ url: e.target.value })}
-            placeholder="https://youtu.be/... sau ID"
-            data-testid="create-url-input"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu (opțional)</label>
-          <input value={form.title} onChange={e => set({ title: e.target.value })}
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-      </>)}
-
-      {/* Shared date fields — available for all content types */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Dată (opțional)</label>
-          <input type="date" value={form.date} onChange={e => set({ date: e.target.value, endDate: e.target.value ? form.endDate : '' })}
-            data-testid="create-date-input"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
-        </div>
-        {form.date && (
-          <div className="flex-1">
-            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Până la (opțional)</label>
-            <input type="date" value={form.endDate} min={form.date} onChange={e => set({ endDate: e.target.value })}
-              data-testid="create-end-date-input"
+        {(form.type === 'richtext' || form.type === 'card') && (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">
+              Titlu{form.type === 'card' ? ' *' : ' (opțional)'}
+            </label>
+            <input value={form.title} onChange={e => set({ title: e.target.value })}
+              data-testid="create-title-input"
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
           </div>
         )}
-      </div>
 
-      <div>
-        <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
-          Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
-        </label>
-        <div className="flex gap-4">
-          {availableSites.map(s => (
-            <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={form.sites.includes(s.slug)}
-                onChange={() => toggleSite(s.slug)}
-                data-testid={`site-check-${s.slug}`}
-                className="accent-[var(--accent)]" />
-              <span className="text-xs font-content">{s.name}</span>
-            </label>
-          ))}
+        {form.type === 'richtext' && (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Conținut Markdown *</label>
+            <textarea value={form.body} onChange={e => set({ body: e.target.value })}
+              data-testid="create-body-input" rows={5}
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+        )}
+
+        {form.type === 'card' && (<>
+          <ImagePicker
+            label="Miniatură (opțional)"
+            value={form.thumbnail}
+            onChange={url => set({ thumbnail: url })}
+            testId="create-thumbnail-input"
+          />
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Descriere</label>
+            <textarea value={form.description} onChange={e => set({ description: e.target.value })}
+              data-testid="create-description-input" rows={3}
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link CTA</label>
+              <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
+                data-testid="create-link-input"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Text buton (opțional)</label>
+              <input value={form.cta} onChange={e => set({ cta: e.target.value })} placeholder="ex: Înregistrează-te"
+                data-testid="create-cta-input"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+            </div>
+          </div>
+          <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
+        </>)}
+
+        {form.type === 'poster' && (<>
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Nume (admin)</label>
+            <input value={form.name} onChange={e => set({ name: e.target.value })}
+              placeholder="ex: Poster Paște 2025"
+              data-testid="create-poster-name-input"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+          <ImagePicker
+            label="Imagine *"
+            value={form.imageUrl}
+            onChange={url => set({ imageUrl: url })}
+            testId="create-image-url-input"
+          />
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link (opțional)</label>
+            <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+          <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
+        </>)}
+
+        {form.type === 'video' && (<>
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">URL YouTube *</label>
+            <input value={form.url} onChange={e => set({ url: e.target.value })}
+              placeholder="https://youtu.be/... sau ID"
+              data-testid="create-url-input"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu (opțional)</label>
+            <input value={form.title} onChange={e => set({ title: e.target.value })}
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+        </>)}
+
+        {/* Shared date fields — available for all content types */}
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Dată (opțional)</label>
+            <input type="date" value={form.date} onChange={e => set({ date: e.target.value, endDate: e.target.value ? form.endDate : '' })}
+              data-testid="create-date-input"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          </div>
+          {form.date && (
+            <div className="flex-1">
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Până la (opțional)</label>
+              <input type="date" value={form.endDate} min={form.date} onChange={e => set({ endDate: e.target.value })}
+                data-testid="create-end-date-input"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+            </div>
+          )}
         </div>
-      </div>
+
+        <div>
+          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
+            Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
+          </label>
+          <div className="flex gap-4">
+            {availableSites.map(s => (
+              <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={form.sites.includes(s.slug)}
+                  onChange={() => toggleSite(s.slug)}
+                  data-testid={`site-check-${s.slug}`}
+                  className="accent-[var(--accent)]" />
+                <span className="text-xs font-content">{s.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </>)}
 
       <div className="flex gap-3 pt-1">
         <button onClick={submit} disabled={busy}
           data-testid="create-submit-btn"
           className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
                      hover:border-[var(--accent)] transition-colors disabled:opacity-40">
-          {busy ? 'Se salvează…' : isEdit ? 'Salvează' : 'Creează'}
+          {busy ? 'Se salvează…' : isTranslating ? 'Salvează traducerea' : isEdit ? 'Salvează' : 'Creează'}
         </button>
+        {isTranslating && existingTranslations?.translations.some(t => t.locale === transLocale) && (
+          <button type="button" onClick={async () => {
+            if (!confirm('Sigur vrei să ștergi această traducere?')) return
+            setBusy(true)
+            try {
+              await api.content.removeTranslation(item!.id, transLocale)
+              qc.invalidateQueries({ queryKey: ['content-translations', item!.id] })
+              toast('Traducere ștearsă')
+              onSaved()
+            } catch (e: any) { setError(e.message) } finally { setBusy(false) }
+          }}
+          disabled={busy}
+          className="px-4 py-2 text-xs tracking-widest uppercase font-content text-red-400 hover:text-red-300 transition-colors disabled:opacity-40">
+            Șterge traducerea
+          </button>
+        )}
         <button onClick={onClose}
           className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">
           Anulează

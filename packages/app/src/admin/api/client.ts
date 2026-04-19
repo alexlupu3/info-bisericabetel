@@ -49,6 +49,11 @@ export interface ContentItem {
   createdAt: string; updatedAt: string
 }
 
+export interface Language {
+  code: string; name: string; enabled: boolean; isDefault: boolean
+  createdAt: string; updatedAt: string
+}
+
 export interface MediaUsedBy {
   id: string; type: string; name: string
 }
@@ -63,6 +68,16 @@ export interface AuditLogEntry {
   id: string; userId: string | null; userEmail: string
   action: string; entityType: string; entityId: string | null
   detail: Record<string, unknown>; createdAt: string
+}
+
+export interface TranslationKey {
+  key: string; values: Record<string, string>
+}
+
+export interface ContentTranslation {
+  id: string; contentItemId: string; locale: string
+  data: Record<string, unknown>
+  createdAt: string; updatedAt: string
 }
 
 export interface LifetimeAnalytics {
@@ -124,6 +139,12 @@ export const api = {
     listDeleted: () => get<{ items: ContentItem[] }>('/api/admin/content/deleted'),
     restore: (id: string) => post<ContentItem>(`/api/admin/content/${id}/restore`, {}),
     removePermanent: (id: string) => del<void>(`/api/admin/content/${id}/permanent`),
+    listTranslations: (id: string) =>
+      get<{ translations: ContentTranslation[] }>(`/api/admin/content/${id}/translations`),
+    upsertTranslation: (id: string, locale: string, data: Record<string, unknown>) =>
+      put<ContentTranslation>(`/api/admin/content/${id}/translations/${locale}`, { data }),
+    removeTranslation: (id: string, locale: string) =>
+      del<void>(`/api/admin/content/${id}/translations/${locale}`),
   },
   groups: {
     list:    () => get<{ groups: Group[] }>('/api/admin/groups'),
@@ -133,6 +154,10 @@ export const api = {
       patch<Group>(`/api/admin/groups/${id}`, body),
     reorder: (order: string[]) => put<{ ok: boolean }>('/api/admin/groups/order', { order }),
     remove:  (id: string) => del<void>(`/api/admin/groups/${id}`),
+    upsertTranslation: (id: string, locale: string, title: string) =>
+      put<unknown>(`/api/admin/groups/${id}/translations/${locale}`, { title }),
+    removeTranslation: (id: string, locale: string) =>
+      del<void>(`/api/admin/groups/${id}/translations/${locale}`),
   },
   sites: {
     list:   () => get<{ sites: Site[] }>('/api/sites'),
@@ -166,5 +191,18 @@ export const api = {
       get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}`),
     itemDaily: (itemId: string, site?: string) =>
       get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
+  },
+  languages: {
+    list:   () => get<{ languages: Language[] }>('/api/admin/languages'),
+    create: (code: string, name: string) =>
+      post<Language>('/api/admin/languages', { code, name }),
+    update: (code: string, body: { name?: string; enabled?: boolean }) =>
+      patch<Language>(`/api/admin/languages/${code}`, body),
+    remove: (code: string) => del<void>(`/api/admin/languages/${code}`),
+  },
+  translations: {
+    list:     () => get<{ keys: TranslationKey[] }>('/api/admin/translations'),
+    bulkSave: (translations: Array<{ locale: string; key: string; value: string }>) =>
+      put<{ ok: boolean }>('/api/admin/translations', { translations }),
   },
 }
