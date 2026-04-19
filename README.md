@@ -15,6 +15,7 @@ This repository is the root for a production-ready application and its supportin
 
 ## Key Admin Routes
 - `/` (Content) — create, edit, order content items and groups
+- `/archive` — view soft-deleted content items; restore to draft or permanently delete
 - `/media` — browse uploaded images, view usage, delete unused files
 - `/locations` — manage site settings
 - `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal, and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins

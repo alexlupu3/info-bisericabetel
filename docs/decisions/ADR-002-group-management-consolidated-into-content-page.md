@@ -19,7 +19,7 @@ The Content page already handled drag-and-drop reordering of items. Adding group
 ### Option B: Consolidate group management into the Content page (chosen)
 - Groups appear as visual container sections directly on the Content page
 - "+ Grup nou" button creates a group inline (title only required)
-- "Șterge grup" button on each group header deletes that group (items auto-migrate to ungrouped)
+- "Șterge grup" button on each group header deletes that group; child items are soft-deleted (state → `deleted`, groupId cleared) and recoverable from `/admin/archive`
 - Multi-container drag and drop allows moving items between groups without any extra navigation
 - The content create/edit form retains a group dropdown as a convenience field
 - The `/groups` route still exists but is no longer linked in the navigation
@@ -31,7 +31,7 @@ Group management is fully integrated into the Content page. The "Grupuri" nav li
 - Admins never need to leave the Content page to create, delete, or populate groups — all group lifecycle actions are inline.
 - The content page now owns multi-container drag-and-drop: items can move within a group (reorder), from one group to another, or between the ungrouped section and any group.
 - Persistence is split by scope: root-level structure is saved through `api.content.reorderRoot`, while per-group item order is saved through `api.content.reorder`. When an item crosses container boundaries, `api.content.update` also patches its `groupId`, and source/target groups may each receive a per-group reorder call if they still contain items.
-- When a group is deleted, its items are moved to ungrouped (groupId set to null) before the group record is removed, preventing orphaned items.
+- When a group is deleted, its child items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group record is hard-deleted. Items are not lost — they are recoverable from `/admin/archive`. This behavior changed from the original implementation (which migrated items to ungrouped) with the addition of the soft-delete feature (migration `0007_soft_delete.sql`, 2026-04-19).
 - A `DragOverlay` renders a visual ghost of the dragged item during the operation for a clear affordance.
 - Local state (`ContainerData[]`) tracks items per container and is synced from the server on load. `containersRef` (useRef) mirrors this state to avoid stale closure issues in drag event handlers. `dragOriginRef` tracks which container a drag started in so cross-container moves can be detected correctly when `onDragOver` already performs an optimistic update.
 - The `/groups` route is a documented dead end. It should either be removed in a future cleanup or repurposed. See open questions.
@@ -47,6 +47,7 @@ Group management is fully integrated into the Content page. The "Grupuri" nav li
 - 2026-03-16: ADR written; group creation (title only), deletion, and multi-container drag-and-drop implemented.
 - 2026-03-17: Added expand-panel group editing, site-scope checkboxes in creation form, and API-driven site list.
 - 2026-03-18: Added per-group collapse/expand toggle and a "toggle all groups" button in the page header (see Consequences below).
+- 2026-04-19: Group delete behavior updated — child items are now soft-deleted (state → `deleted`) instead of being migrated to ungrouped. Recoverable from `/admin/archive`.
 
 ## Date
 2026-03-16

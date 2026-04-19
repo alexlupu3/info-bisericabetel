@@ -23,15 +23,24 @@ Add one section per important domain entity.
 - Purpose: represent a unit of information shown in the hub
 - Key attributes: type, site scope, sort order, type-specific fields (see content-model.md)
 - Relationships: may belong to one or more sites, or be church-wide; may belong to a Group
-- Lifecycle: `draft` → `published` → `archived`. Expiry auto-transitions a published item to archived. Archived items are hidden from the default admin content list (accessible via filter) and not shown on the public hub.
+- Lifecycle: four publishing states — `draft`, `published`, `archived`, `deleted`. Full state machine:
+  - `draft` → (publish) → `published` → (hide / "Ascunde") → `archived`
+  - `archived` → (restore via PATCH) → `draft` or `published`
+  - Any non-deleted state → (delete / "Șterge") → `deleted`
+  - `deleted` → (restore / "Restaurează") → `draft` (groupId cleared)
+  - `deleted` → (permanent delete / "Șterge definitiv") → removed from DB
+  - Expiry auto-transitions a published item to `archived`
+  - `archived` items are hidden from the default admin content list but accessible via a filter in the Content page
+  - `deleted` items are not visible in the admin Content page; they appear only in the Archive page (`/admin/archive`)
 - Validation rules: must have a valid content type; mandatory fields per type must be present
 - Date handling: all four content types support optional `startDate` and `endDate` in the JSONB `data` column. Date filtering in the public API and past-item detection in the admin apply uniformly across all types (endDate → startDate priority). The `expiresAt` column is a separate independent expiry mechanism; both are evaluated. See content-model.md — Expiration Behavior for full rules.
+- Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group itself is hard-deleted from the database.
 
 ### Group
 - Purpose: visually collect Cards and/or Posters into a single display unit
 - Key attributes: name/label, site scope, sort order
 - Relationships: contains one or more Cards or Posters; belongs to root level
-- Lifecycle: created, maintained, deleted by admins
+- Lifecycle: created, maintained, deleted by admins. Deletion is a hard delete of the group row; however, all child content items are soft-deleted first (state → `deleted`, groupId cleared) before the group is removed. Groups do not have a soft-delete state of their own.
 - Validation rules: may only contain Cards and Posters; no nested groups allowed
 - Editing: post-creation editing of title and site scope is supported via an expand-panel form on the group header row in the Content admin page. Clicking "Editează" on a group header expands an inline edit panel (pre-filled with current title and sites) with Save and Cancel actions. Saving issues a PATCH /admin/groups/:id request.
 

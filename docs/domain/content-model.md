@@ -67,10 +67,18 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)
 - **Sort order:** controlled by drag and drop; applies at root level and within groups
 - **Locale:** No translation layer. Content is stored and displayed in whatever language it was written. The admin UI is in English. No i18n system is required.
-- **Publishing state:** every content item has one of three states:
+- **Publishing state:** every content item has one of four states:
   - `draft` — created but not yet visible on the public hub
   - `published` — live and visible on the public hub (subject to site scope and expiry)
-  - `archived` — no longer visible on the public hub; auto-transitioned when an item expires, or manually set by an admin. Archived items are hidden from the default admin content list but remain accessible via a filter.
+  - `archived` — no longer visible on the public hub; auto-transitioned when an item expires, or manually set via the "Ascunde" (Hide) action in the admin. Archived items are hidden from the default admin content list but remain accessible via a filter on the Content page.
+  - `deleted` — soft-deleted via the "Șterge" (Delete) action. Not visible anywhere in the admin Content page. Only accessible from the Archive page (`/admin/archive`). From there an admin can either restore the item (returns to `draft`) or permanently hard-delete it. Restoring a soft-deleted item clears its `groupId` since the original group may have been deleted.
+- **State transitions:**
+  - `draft` → `published` (publish action)
+  - `published` → `archived` (hide / "Ascunde" action, or automatic expiry)
+  - `archived` → `draft` or `published` (PATCH restore action on the Content page)
+  - Any non-deleted state → `deleted` ("Șterge" action)
+  - `deleted` → `draft` ("Restaurează" action on `/admin/archive`)
+  - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`)
 - **Ownership:** managed by any admin; changes are audit-logged
 
 ## Expiration Behavior
