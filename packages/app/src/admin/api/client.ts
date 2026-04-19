@@ -79,6 +79,27 @@ export interface ItemAnalytics {
   items: Array<{ itemId: string | null; type: string; title: string; clicks: number }>
 }
 
+export type Period = 'day' | 'week' | 'month'
+
+export interface OverviewSeries {
+  label: string
+  views: number
+  clicks: number
+}
+
+export interface OverviewData {
+  period: Period
+  current: { views: number; clicks: number; series: OverviewSeries[] }
+  previous: { views: number; clicks: number; series: OverviewSeries[] }
+  viewsChange: number
+  clicksChange: number
+}
+
+export interface ItemDaily {
+  itemId: string
+  daily: Array<{ date: string; clicks: number }>
+}
+
 export const api = {
   auth: {
     login:          (email: string, password: string) =>
@@ -137,5 +158,9 @@ export const api = {
     lifetime: () => get<LifetimeAnalytics>('/api/admin/analytics/lifetime'),
     daily:    (days = 30) => get<DailyAnalytics>(`/api/admin/analytics/daily?days=${days}`),
     items:    () => get<ItemAnalytics>('/api/admin/analytics/items'),
+    overview: (period: Period = 'week') =>
+      get<OverviewData>(`/api/admin/analytics/overview?period=${period}`),
+    itemDaily: (itemId: string) =>
+      get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily`),
   },
 }
