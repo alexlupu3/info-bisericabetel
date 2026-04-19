@@ -20,6 +20,7 @@ scripts/
 *.sql
 # Keep migration SQL
 !packages/api/src/db/migrations/
+!packages/api/src/db/migrations/*.sql
 
 # Uploaded media files
 uploads/
