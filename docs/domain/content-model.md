@@ -66,7 +66,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 ## Shared Metadata (all content items and groups)
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)
 - **Sort order:** controlled by drag and drop; applies at root level and within groups
-- **Locale:** No translation layer. Content is stored and displayed in whatever language it was written. The admin UI is in English. No i18n system is required.
+- **Locale:** Content is authored in Romanian (the default locale). Text fields on content items and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Only text fields are translatable — images, links, and dates are shared across all locales. When a translation exists for the active locale, it is served by the API; otherwise Romanian text is used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. See FR-036–FR-041.
 - **Publishing state:** every content item has one of four states:
   - `draft` — created but not yet visible on the public hub
   - `published` — live and visible on the public hub (subject to site scope and expiry)

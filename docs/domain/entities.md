@@ -60,3 +60,34 @@ Add one section per important domain entity.
 - Lifecycle: created on upload via `POST /admin/media`; deleted by admin via `DELETE /admin/media/:id` only when no content items reference it
 - Validation rules: allowed MIME types — JPEG, PNG, GIF, WebP; max file size 10 MB; URL is immutable after creation
 - Notes: usage is detected by querying content_items JSONB fields rather than a foreign key relationship. See ADR-003 for rationale and the maintenance obligation if new content types introduce image fields with different names.
+
+### Language
+- Purpose: represent a supported display language for the public hub
+- Key attributes: id (UUID), code (BCP-47 locale code, e.g. `ro`, `en`), name (display name), is_default (boolean), is_active (boolean)
+- Relationships: referenced by UITranslation, ContentTranslation, and GroupTranslation records
+- Lifecycle: Romanian (`ro`) is seeded as the default language and cannot be deleted. Additional languages are created, enabled, and disabled by a super-admin via the Translations page (`/admin/translations`). An inactive language is no longer served to public users but its translation records are preserved.
+- Validation rules: code must be unique; exactly one language may be default at a time; the default language cannot be deleted or deactivated
+- Notes: added in migration `0008_i18n.sql`
+
+### UITranslation
+- Purpose: store the translated value for a single UI string key in a given non-default language
+- Key attributes: id (UUID), language_id (FK → Language), key (dot-notation translation key, e.g. `nav.viewAll`), value (translated string)
+- Relationships: belongs to a Language; keys correspond 1-to-1 with Romanian source strings managed in the admin Translations editor
+- Lifecycle: created or updated in bulk via `PUT /api/admin/translations` when a super-admin saves the translation editor; never deleted individually (deleted implicitly when the parent language is deleted)
+- Validation rules: (language_id, key) pair must be unique
+- Notes: the Romanian source strings (~10 public UI strings) are stored in code as the canonical reference; only non-default translations live in the database
+
+### ContentTranslation
+- Purpose: store translated text field values for a single content item in a given non-default language
+- Key attributes: id (UUID), content_item_id (FK → Content Item), language_id (FK → Language), field (field name, e.g. `title`, `description`, `content`), value (translated text)
+- Relationships: belongs to a Content Item and a Language
+- Lifecycle: created or updated via `PUT /api/admin/content/:id/translations/:locale`; deleted when the parent content item is deleted or when a language is deleted
+- Validation rules: (content_item_id, language_id, field) triple must be unique; only text fields are translatable (images, links, and dates are excluded)
+- Notes: images, links, and dates on content items are shared across all locales and are never stored as ContentTranslation records
+
+### GroupTranslation
+- Purpose: store the translated name for a content group in a given non-default language
+- Key attributes: id (UUID), group_id (FK → Group), language_id (FK → Language), field (currently always `name`), value (translated group name)
+- Relationships: belongs to a Group and a Language
+- Lifecycle: created or updated via `PUT /api/admin/groups/:id/translations/:locale`; deleted when the parent group or language is deleted
+- Validation rules: (group_id, language_id, field) triple must be unique

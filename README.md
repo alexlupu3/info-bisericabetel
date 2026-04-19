@@ -19,6 +19,7 @@ This repository is the root for a production-ready application and its supportin
 - `/media` — browse uploaded images, view usage, delete unused files
 - `/locations` — manage site settings
 - `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal, and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins
+- `/translations` — super-admin only; manage supported languages and translate all public UI strings; content items also support per-language translation via the content edit form
 
 ## Prerequisites
 

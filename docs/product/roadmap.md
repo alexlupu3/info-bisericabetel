@@ -12,6 +12,7 @@
   - **Admin email notifications (planned — no release date):** temporary passwords delivered by email on account creation (FR-030); self-service forgot-password / reset-password flow with time-limited email links (FR-031). Requires Resend integration and one-time DNS setup (SPF/DKIM). See `docs/architecture/integrations.md`.
   - ~~Analytics dashboard: site visits, link clicks, by location, lifetime + daily views~~ **[done — 2026-03-19]**
   - Per-site QR code / deep links
+  - ~~Internationalization (i18n) — multi-language public hub~~ **[done — 2026-04-19]** Romanian default + English; language switcher in footer; UI string translations and content/group field translations; super-admin Translations page; localStorage-based preference persistence; Romanian fallback when translations are absent; zero query overhead for default locale
 - **Risks:**
   - Sunday morning traffic spike requires scalable architecture from day one
   - Drag-and-drop ordering across groups needs careful UX design on mobile
