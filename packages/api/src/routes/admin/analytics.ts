@@ -114,4 +114,197 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       })),
     }
   })
+
+  app.get<{ Querystring: { period?: string } }>(
+    '/admin/analytics/overview', { preHandler: auth }, async (req, reply) => {
+      const period = req.query.period ?? 'week'
+
+      if (period !== 'day' && period !== 'week' && period !== 'month') {
+        return reply.code(400).send({ error: 'Invalid period. Must be day, week, or month.' })
+      }
+
+      type SeriesEntry = { label: string; views: number; clicks: number }
+
+      const change = (current: number, previous: number) =>
+        previous === 0
+          ? (current > 0 ? 100 : 0)
+          : Math.round(((current - previous) / previous) * 100)
+
+      if (period === 'day') {
+        const rows = await sql<{
+          day: string
+          hour: number
+          event_type: string
+          count: number
+        }>`
+          SELECT
+            (occurred_at AT TIME ZONE 'UTC')::date AS day,
+            EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'UTC')::int AS hour,
+            event_type,
+            COUNT(*)::int AS count
+          FROM analytics_events
+          WHERE occurred_at >= (CURRENT_DATE AT TIME ZONE 'UTC') - INTERVAL '1 day'
+          GROUP BY day, hour, event_type
+          ORDER BY day ASC, hour ASC
+        `
+
+        const today = new Date()
+        const todayStr = today.toISOString().slice(0, 10)
+        const yesterday = new Date(today)
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+        const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+        const currentMap = new Map<number, { views: number; clicks: number }>()
+        const previousMap = new Map<number, { views: number; clicks: number }>()
+
+        for (let h = 0; h < 24; h++) {
+          currentMap.set(h, { views: 0, clicks: 0 })
+          previousMap.set(h, { views: 0, clicks: 0 })
+        }
+
+        for (const row of rows) {
+          const dayStr = row.day.toString().slice(0, 10)
+          const bucket = dayStr === todayStr ? currentMap : previousMap
+          const entry = bucket.get(row.hour)!
+          if (row.event_type === 'site_visit') entry.views += Number(row.count)
+          else if (row.event_type === 'link_click') entry.clicks += Number(row.count)
+        }
+
+        const buildSeries = (map: Map<number, { views: number; clicks: number }>): SeriesEntry[] => {
+          const series: SeriesEntry[] = []
+          for (let h = 0; h < 24; h++) {
+            const entry = map.get(h)!
+            series.push({ label: String(h).padStart(2, '0'), views: entry.views, clicks: entry.clicks })
+          }
+          return series
+        }
+
+        const currentSeries = buildSeries(currentMap)
+        const previousSeries = buildSeries(previousMap)
+
+        const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
+          series.reduce((acc, s) => acc + s[key], 0)
+
+        const currentViews = sum(currentSeries, 'views')
+        const currentClicks = sum(currentSeries, 'clicks')
+        const previousViews = sum(previousSeries, 'views')
+        const previousClicks = sum(previousSeries, 'clicks')
+
+        return {
+          period,
+          current: { views: currentViews, clicks: currentClicks, series: currentSeries },
+          previous: { views: previousViews, clicks: previousClicks, series: previousSeries },
+          viewsChange: change(currentViews, previousViews),
+          clicksChange: change(currentClicks, previousClicks),
+        }
+      }
+
+      // week or month
+      const totalDays = period === 'week' ? 14 : 60
+      const halfDays = totalDays / 2
+
+      const rows = await sql<{
+        day: string
+        event_type: string
+        count: number
+      }>`
+        SELECT
+          (occurred_at AT TIME ZONE 'UTC')::date AS day,
+          event_type,
+          COUNT(*)::int AS count
+        FROM analytics_events
+        WHERE occurred_at >= NOW() - (${totalDays} || ' days')::interval
+        GROUP BY day, event_type
+        ORDER BY day ASC
+      `
+
+      const now = new Date()
+      const cutoff = new Date(now)
+      cutoff.setUTCDate(cutoff.getUTCDate() - halfDays)
+      const cutoffStr = cutoff.toISOString().slice(0, 10)
+
+      // Build date lists for current and previous periods
+      const currentDates: string[] = []
+      const previousDates: string[] = []
+
+      for (let i = 0; i < halfDays; i++) {
+        const d = new Date(now)
+        d.setUTCDate(d.getUTCDate() - i)
+        currentDates.push(d.toISOString().slice(0, 10))
+      }
+      for (let i = halfDays; i < totalDays; i++) {
+        const d = new Date(now)
+        d.setUTCDate(d.getUTCDate() - i)
+        previousDates.push(d.toISOString().slice(0, 10))
+      }
+
+      currentDates.sort()
+      previousDates.sort()
+
+      const currentMap = new Map<string, { views: number; clicks: number }>()
+      const previousMap = new Map<string, { views: number; clicks: number }>()
+
+      for (const date of currentDates) currentMap.set(date, { views: 0, clicks: 0 })
+      for (const date of previousDates) previousMap.set(date, { views: 0, clicks: 0 })
+
+      for (const row of rows) {
+        const dayStr = row.day.toString().slice(0, 10)
+        const bucket = dayStr >= cutoffStr ? currentMap : previousMap
+        const entry = bucket.get(dayStr)
+        if (!entry) continue
+        if (row.event_type === 'site_visit') entry.views += Number(row.count)
+        else if (row.event_type === 'link_click') entry.clicks += Number(row.count)
+      }
+
+      const buildSeries = (map: Map<string, { views: number; clicks: number }>): SeriesEntry[] =>
+        Array.from(map.entries()).map(([label, entry]) => ({
+          label,
+          views: entry.views,
+          clicks: entry.clicks,
+        }))
+
+      const currentSeries = buildSeries(currentMap)
+      const previousSeries = buildSeries(previousMap)
+
+      const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
+        series.reduce((acc, s) => acc + s[key], 0)
+
+      const currentViews = sum(currentSeries, 'views')
+      const currentClicks = sum(currentSeries, 'clicks')
+      const previousViews = sum(previousSeries, 'views')
+      const previousClicks = sum(previousSeries, 'clicks')
+
+      return {
+        period,
+        current: { views: currentViews, clicks: currentClicks, series: currentSeries },
+        previous: { views: previousViews, clicks: previousClicks, series: previousSeries },
+        viewsChange: change(currentViews, previousViews),
+        clicksChange: change(currentClicks, previousClicks),
+      }
+    }
+  )
+
+  app.get<{ Params: { itemId: string } }>(
+    '/admin/analytics/items/:itemId/daily', { preHandler: auth }, async (req) => {
+      const rows = await sql<{ day: string; clicks: number }>`
+        SELECT
+          (occurred_at AT TIME ZONE 'UTC')::date AS day,
+          COUNT(*)::int AS clicks
+        FROM analytics_events
+        WHERE event_type = 'link_click'
+          AND item_id = ${req.params.itemId}
+          AND occurred_at >= NOW() - INTERVAL '90 days'
+        GROUP BY day
+        ORDER BY day ASC
+      `
+
+      return {
+        itemId: req.params.itemId,
+        daily: rows.map(r => ({
+          date: r.day.toString().slice(0, 10),
+          clicks: Number(r.clicks),
+        })),
+      }
+    }
+  )
 }
