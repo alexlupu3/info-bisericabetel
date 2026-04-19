@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { contentItems, groups } from '../../db/schema.js'
+import { contentItems, groups, contentTranslations } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 
 type ItemBody = {
@@ -207,4 +207,53 @@ export async function adminContentRoutes(app: FastifyInstance) {
     await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.archive', entityId: req.params.id })
     return updated
   })
+
+  // ── Content translations ──────────────────────────────────────────────
+
+  // List translations for a content item
+  app.get<{ Params: { id: string } }>(
+    '/admin/content/:id/translations', { preHandler: auth }, async (req, reply) => {
+      const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
+      if (!item) return reply.code(404).send({ error: 'Not found' })
+      const translations = await db.select().from(contentTranslations)
+        .where(eq(contentTranslations.contentItemId, req.params.id))
+      return { translations }
+    }
+  )
+
+  // Upsert content translation
+  app.put<{ Params: { id: string; locale: string }; Body: { data: Record<string, unknown> } }>(
+    '/admin/content/:id/translations/:locale', { preHandler: auth }, async (req, reply) => {
+      const { id, locale } = req.params
+      const { data } = req.body
+      if (!data) return reply.code(400).send({ error: 'data is required' })
+
+      const [item] = await db.select().from(contentItems).where(eq(contentItems.id, id))
+      if (!item) return reply.code(404).send({ error: 'Not found' })
+
+      const [translation] = await db.insert(contentTranslations)
+        .values({ contentItemId: id, locale, data, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: [contentTranslations.contentItemId, contentTranslations.locale],
+          set: { data, updatedAt: new Date() },
+        })
+        .returning()
+
+      const actor = req.user as any
+      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.translation.upsert', entityType: 'translation', entityId: id, detail: { locale } })
+      return translation
+    }
+  )
+
+  // Delete content translation
+  app.delete<{ Params: { id: string; locale: string } }>(
+    '/admin/content/:id/translations/:locale', { preHandler: auth }, async (req, reply) => {
+      const { id, locale } = req.params
+      await db.delete(contentTranslations)
+        .where(and(eq(contentTranslations.contentItemId, id), eq(contentTranslations.locale, locale)))
+      const actor = req.user as any
+      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.translation.delete', entityType: 'translation', entityId: id, detail: { locale } })
+      return reply.code(204).send()
+    }
+  )
 }
