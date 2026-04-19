@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, type Period, type ItemAnalytics } from '../api/client'
+import { api, type Period } from '../api/client'
 import { PeriodSelector, StatCard, TrendChart, ItemsTable, ItemDailyModal } from '../components/analytics'
 
 export default function AnalyticsPage() {
