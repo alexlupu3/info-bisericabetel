@@ -24,6 +24,13 @@ const base = {
 function mockContent(items: object[]) {
   cy.intercept('GET', '/api/sites', SITES_FIXTURE).as('sites')
   cy.intercept('GET', '/api/content*', { site: null, items }).as('content')
+  cy.intercept('GET', '/api/languages', {
+    languages: [
+      { code: 'ro', name: 'Română', isDefault: true, enabled: true },
+      { code: 'en', name: 'English', isDefault: false, enabled: true },
+    ]
+  }).as('languages')
+  cy.intercept('GET', '/api/translations*', { locale: 'ro', translations: {} }).as('translations')
 }
 
 describe('Site label — all-sites view', () => {
@@ -101,6 +108,13 @@ describe('Site label — all-sites view', () => {
   describe('does not show label when viewing a specific site', () => {
     it('hides site label when user is on a site-specific view', () => {
       cy.intercept('GET', '/api/sites', SITES_FIXTURE).as('sites')
+      cy.intercept('GET', '/api/languages', {
+        languages: [
+          { code: 'ro', name: 'Română', isDefault: true, enabled: true },
+          { code: 'en', name: 'English', isDefault: false, enabled: true },
+        ]
+      }).as('languages')
+      cy.intercept('GET', '/api/translations*', { locale: 'ro', translations: {} }).as('translations')
       cy.intercept('GET', '/api/content?site=manastur', {
         site: 'manastur',
         items: [{
