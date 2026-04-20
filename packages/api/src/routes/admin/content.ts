@@ -3,6 +3,7 @@ import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { contentItems, groups, contentTranslations } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
+import { scheduleContentTranslation } from '../../services/ai-translation.js'
 
 type ItemBody = {
   type: string
@@ -63,6 +64,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
     const actor = req.user as any
     await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.create', entityId: item.id, detail: { type } })
+    if (Object.keys(data).length > 0) scheduleContentTranslation(item.id, data)
     return reply.code(201).send(item)
   })
 
@@ -93,6 +95,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
       const actor = req.user as any
       await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.update', entityId: id })
+      if (data !== undefined && Object.keys(data).length > 0) scheduleContentTranslation(id, data)
       return updated
     }
   )

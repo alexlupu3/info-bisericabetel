@@ -3,6 +3,7 @@ import { eq, asc, and } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { groups, contentItems, groupTranslations } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
+import { scheduleGroupTranslation } from '../../services/ai-translation.js'
 
 function adminOnly(req: any, reply: any, done: any) {
   const role = (req.user as any)?.role
@@ -26,6 +27,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
       const { title, sites = [] } = req.body
       if (!title) return reply.code(400).send({ error: 'title is required' })
       const [group] = await db.insert(groups).values({ title, sites }).returning()
+      scheduleGroupTranslation(group.id, title)
       return reply.code(201).send(group)
     }
   )
@@ -40,6 +42,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
         updatedAt: new Date(),
       }).where(eq(groups.id, id)).returning()
       if (!updated) return reply.code(404).send({ error: 'Not found' })
+      if (title !== undefined) scheduleGroupTranslation(id, title)
       return updated
     }
   )
