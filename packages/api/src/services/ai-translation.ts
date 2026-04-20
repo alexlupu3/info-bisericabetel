@@ -62,7 +62,11 @@ async function callOpenRouter(
   return JSON.parse(text)
 }
 
-export async function scheduleContentTranslation(contentItemId: string, data: Record<string, unknown>): Promise<void> {
+export async function scheduleContentTranslation(
+  contentItemId: string,
+  data: Record<string, unknown>,
+  changedKeys?: string[],
+): Promise<void> {
   setImmediate(async () => {
     try {
       const apiKey = buildApiKey()
@@ -73,18 +77,55 @@ export async function scheduleContentTranslation(contentItemId: string, data: Re
       const targetLocales = await getTargetLocales()
       if (targetLocales.length === 0) return
 
-      const translations = await callOpenRouter(apiKey, JSON.stringify(data), targetLocales)
+      if (!changedKeys) {
+        // Create path: translate full data for all locales
+        const translations = await callOpenRouter(apiKey, JSON.stringify(data), targetLocales)
+        for (const { code } of targetLocales) {
+          const translatedData = translations[code]
+          if (!translatedData || typeof translatedData !== 'object') continue
+          await db.insert(contentTranslations)
+            .values({ contentItemId, locale: code, data: translatedData as Record<string, unknown>, updatedAt: new Date() })
+            .onConflictDoUpdate({
+              target: [contentTranslations.contentItemId, contentTranslations.locale],
+              set: { data: translatedData as Record<string, unknown>, updatedAt: new Date() },
+            })
+        }
+      } else {
+        // Update path: only translate changed fields, merge into existing translations
+        const existingTranslations = await db.select()
+          .from(contentTranslations)
+          .where(eq(contentTranslations.contentItemId, contentItemId))
+        const existingByLocale = new Map(existingTranslations.map(t => [t.locale, t]))
 
-      for (const { code } of targetLocales) {
-        const translatedData = translations[code]
-        if (!translatedData || typeof translatedData !== 'object') continue
-        await db.insert(contentTranslations)
-          .values({ contentItemId, locale: code, data: translatedData as Record<string, unknown>, updatedAt: new Date() })
-          .onConflictDoUpdate({
-            target: [contentTranslations.contentItemId, contentTranslations.locale],
-            set: { data: translatedData as Record<string, unknown>, updatedAt: new Date() },
-          })
+        const localesNeedingFull = targetLocales.filter(l => !existingByLocale.has(l.code))
+        const localesNeedingPartial = targetLocales.filter(l => existingByLocale.has(l.code))
+
+        if (localesNeedingPartial.length > 0) {
+          const changedData = Object.fromEntries(changedKeys.map(k => [k, data[k]]))
+          const partialTranslations = await callOpenRouter(apiKey, JSON.stringify(changedData), localesNeedingPartial)
+          for (const { code } of localesNeedingPartial) {
+            const existing = existingByLocale.get(code)!
+            const newFields = partialTranslations[code]
+            if (!newFields || typeof newFields !== 'object') continue
+            const mergedData = { ...existing.data as Record<string, unknown>, ...newFields as Record<string, unknown> }
+            await db.update(contentTranslations)
+              .set({ data: mergedData, updatedAt: new Date() })
+              .where(and(eq(contentTranslations.contentItemId, contentItemId), eq(contentTranslations.locale, code)))
+          }
+        }
+
+        if (localesNeedingFull.length > 0) {
+          const fullTranslations = await callOpenRouter(apiKey, JSON.stringify(data), localesNeedingFull)
+          for (const { code } of localesNeedingFull) {
+            const translatedData = fullTranslations[code]
+            if (!translatedData || typeof translatedData !== 'object') continue
+            await db.insert(contentTranslations)
+              .values({ contentItemId, locale: code, data: translatedData as Record<string, unknown>, updatedAt: new Date() })
+              .onConflictDoNothing()
+          }
+        }
       }
+
       console.info(`[ai-translation] Translated content ${contentItemId} into ${targetLocales.map(l => l.code).join(', ')}`)
     } catch (err) {
       console.error('[ai-translation] Failed to auto-translate content', contentItemId, err)

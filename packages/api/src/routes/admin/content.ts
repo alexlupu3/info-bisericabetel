@@ -95,7 +95,13 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
       const actor = req.user as any
       await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.update', entityId: id })
-      if (data !== undefined && Object.keys(data).length > 0) scheduleContentTranslation(id, data)
+      if (data !== undefined && Object.keys(data).length > 0) {
+        const oldData = (existing.data ?? {}) as Record<string, unknown>
+        const changedKeys = Object.keys(data).filter(
+          k => JSON.stringify(oldData[k]) !== JSON.stringify(data[k])
+        )
+        if (changedKeys.length > 0) scheduleContentTranslation(id, data, changedKeys)
+      }
       return updated
     }
   )
