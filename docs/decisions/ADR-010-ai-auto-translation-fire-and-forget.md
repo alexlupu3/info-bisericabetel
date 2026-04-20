@@ -42,14 +42,14 @@ Implementation is in `packages/api/src/services/ai-translation.ts`:
 - `scheduleContentTranslation(contentItemId, data)` — called after `POST /api/admin/content` and `PATCH /api/admin/content/:id` when `data` is present.
 - `scheduleGroupTranslation(groupId, title)` — called after `POST /api/admin/groups` and `PATCH /api/admin/groups/:id` when `title` is in the update.
 - Both functions use `setImmediate` to defer execution past the current event loop tick (after the HTTP response has been sent).
-- The Anthropic client is initialized on each call from `process.env.ANTHROPIC_API_KEY`; if the key is absent the function logs a warning and returns immediately.
-- Claude Haiku (`claude-haiku-4-5-20251001`) is used for its speed and low cost. Prompt caching (`cache_control: ephemeral`) is applied to the system prompt to reduce token costs on repeated calls.
+- The OpenRouter API key is read from `process.env.OPEN_ROUTER_API_KEY`; if the key is absent the function logs a warning and returns immediately.
+- `anthropic/claude-haiku-4-5` via OpenRouter is used for its speed and low cost. Translation is performed via a standard OpenAI-compatible `/chat/completions` call using native `fetch`.
 - Translations are upserted — a subsequent save with changed content will overwrite the previous AI translation for that locale.
 
 ## Consequences
 - Admin HTTP response times are unaffected by translation latency.
 - All enabled non-default languages receive a translation automatically when content or groups are created or updated.
-- If `ANTHROPIC_API_KEY` is not set (e.g., in development or a cost-constrained deployment), the feature is silently disabled — no error, no changed behavior for existing functionality.
+- If `OPEN_ROUTER_API_KEY` is not set (e.g., in development or a cost-constrained deployment), the feature is silently disabled — no error, no changed behavior for existing functionality.
 - AI translations can be overridden at any time via the existing translation admin UI. A subsequent admin save of the same content item will re-run auto-translation and overwrite only AI-generated rows (because the upsert targets `(contentItemId, locale)` / `(groupId, locale)` — there is no separate "source" flag; manual and AI translations live in the same rows).
 - Failures (Claude API errors, parse errors) are logged to stderr but do not surface to the admin user. Monitoring server logs is the only observability mechanism at this time.
 - If more languages are added later, all existing content will not be retroactively translated — only new creates/updates trigger auto-translation.

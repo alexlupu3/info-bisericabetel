@@ -141,7 +141,7 @@ A `captain-definition` file is included at the repo root so the app can be deplo
 | `JWT_SECRET` | Min 32 chars — signs JWT tokens |
 | `UPLOADS_DIR` | Absolute path for media storage inside the container (e.g. `/uploads`) |
 | `NODE_ENV` | `production` |
-| `ANTHROPIC_API_KEY` | Optional — enables AI auto-translation of content and groups on create/update (Claude Haiku) |
+| `OPEN_ROUTER_API_KEY` | Optional — enables AI auto-translation of content and groups on create/update (Claude Haiku via OpenRouter) |
 
 **3. Container HTTP Port** — set to `3100` in the CapRover app settings. CapRover routes external HTTPS traffic through its own load balancer to this port.
 

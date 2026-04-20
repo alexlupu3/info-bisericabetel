@@ -76,6 +76,30 @@ describe('Admin — Translations page', () => {
     cy.contains('hero.subtitle').should('be.visible')
   })
 
+  it('generates missing UI translations via AI button', () => {
+    loginAsSuperAdmin()
+    cy.intercept('POST', '/api/admin/translations/generate', { generated: 3 }).as('generate')
+    cy.visit('/admin/translations', {
+      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+    })
+    cy.wait('@me')
+    cy.contains('Generează lipsă').click()
+    cy.wait('@generate')
+    cy.contains('3 traduceri generate').should('be.visible')
+  })
+
+  it('shows no-missing toast when AI generation finds nothing to generate', () => {
+    loginAsSuperAdmin()
+    cy.intercept('POST', '/api/admin/translations/generate', { generated: 0 }).as('generate')
+    cy.visit('/admin/translations', {
+      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+    })
+    cy.wait('@me')
+    cy.contains('Generează lipsă').click()
+    cy.wait('@generate')
+    cy.contains('Nu lipsesc traduceri').should('be.visible')
+  })
+
   it('saves edited translations', () => {
     loginAsSuperAdmin()
     cy.intercept('PUT', '/api/admin/translations', { ok: true }).as('saveTranslations')

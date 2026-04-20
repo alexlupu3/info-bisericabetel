@@ -3,16 +3,15 @@
 ## Phase 1 — Launch
 No external service integrations at launch. The system is fully self-contained.
 
-## Anthropic Claude (AI Auto-Translation)
+## OpenRouter (AI Auto-Translation)
 
-Integrated as of 2026-04-20. The API is used for background, fire-and-forget translation of content items and group titles into all enabled non-default languages whenever a create or update is performed via the admin API.
+Integrated as of 2026-04-20 (switched from Anthropic SDK to OpenRouter on 2026-04-20). The API is used for background, fire-and-forget translation of content items and group titles into all enabled non-default languages whenever a create or update is performed via the admin API.
 
 - **Service:** `packages/api/src/services/ai-translation.ts`
-- **Model:** `claude-haiku-4-5-20251001` — chosen for low latency and cost efficiency
+- **Model:** `anthropic/claude-haiku-4-5` via OpenRouter — chosen for low latency and cost efficiency
 - **Trigger points:** `POST /api/admin/content`, `PATCH /api/admin/content/:id`, `POST /api/admin/groups`, `PATCH /api/admin/groups/:id`
 - **Execution model:** `setImmediate` (fire-and-forget) — HTTP response is returned before translation runs; see ADR-010 for the decision rationale
-- **Prompt caching:** system prompt is sent with `cache_control: ephemeral` to reduce repeated token costs
-- **Environment variable:** `ANTHROPIC_API_KEY` (optional; feature is silently disabled when absent)
+- **Environment variable:** `OPEN_ROUTER_API_KEY` (optional; feature is silently disabled when absent)
 - **Failure handling:** errors are logged to stderr; they do not affect admin operations or surface to the user
 
 See [ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md) for the full decision record.

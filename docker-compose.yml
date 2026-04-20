@@ -17,7 +17,7 @@
 #   PORT           — host port the app listens on (default: 80)
 #   RESEND_API_KEY    — email sending (future feature)
 #   EMAIL_FROM        — sender address for emails
-#   ANTHROPIC_API_KEY — enables AI-powered auto-translation (optional)
+#   OPEN_ROUTER_API_KEY — enables AI-powered auto-translation (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -51,7 +51,7 @@ services:
       UPLOADS_DIR: /uploads
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:-}
     volumes:
       - uploads:/uploads
     ports:

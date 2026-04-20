@@ -1,7 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { eq, and, ne } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { languages, contentTranslations, groupTranslations, uiTranslations } from '../db/schema.js'
+
+const OPEN_ROUTER_BASE = 'https://openrouter.ai/api/v1'
+const MODEL = 'anthropic/claude-haiku-4-5'
 
 const SYSTEM_PROMPT = `You are a translation assistant for a Romanian church website called "Biserica Betel".
 Your task is to translate content data from Romanian into other languages.
@@ -20,44 +22,58 @@ async function getTargetLocales(): Promise<Array<{ code: string; name: string }>
   return rows.map(r => ({ code: r.code, name: r.name }))
 }
 
-function buildClient(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return null
-  return new Anthropic({ apiKey: key })
+function buildApiKey(): string | null {
+  return process.env.OPEN_ROUTER_API_KEY ?? null
 }
 
-async function callClaude(
-  client: Anthropic,
+async function callOpenRouter(
+  apiKey: string,
   sourceJson: string,
   targetLocales: Array<{ code: string; name: string }>
 ): Promise<Record<string, unknown>> {
   const localeList = targetLocales.map(l => `- ${l.code}: ${l.name}`).join('\n')
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-    messages: [{
-      role: 'user',
-      content: `Translate the following JSON content from Romanian to the specified languages.\n\nContent (Romanian):\n${sourceJson}\n\nTarget languages:\n${localeList}\n\nReturn a JSON object with one key per language code, each containing the translated version:\n{"${targetLocales[0].code}": { ...translated fields... }, ...}`
-    }],
+  const response = await fetch(`${OPEN_ROUTER_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Translate the following JSON content from Romanian to the specified languages.\n\nContent (Romanian):\n${sourceJson}\n\nTarget languages:\n${localeList}\n\nReturn a JSON object with one key per language code, each containing the translated version:\n{"${targetLocales[0].code}": { ...translated fields... }, ...}`,
+        },
+      ],
+      max_tokens: 4096,
+    }),
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`OpenRouter API error ${response.status}: ${body}`)
+  }
+
+  const json = await response.json() as { choices: Array<{ message: { content: string } }> }
+  const raw = json.choices[0]?.message?.content ?? ''
+  const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
   return JSON.parse(text)
 }
 
 export async function scheduleContentTranslation(contentItemId: string, data: Record<string, unknown>): Promise<void> {
   setImmediate(async () => {
     try {
-      const client = buildClient()
-      if (!client) {
-        console.warn('[ai-translation] ANTHROPIC_API_KEY not set — skipping auto-translation')
+      const apiKey = buildApiKey()
+      if (!apiKey) {
+        console.warn('[ai-translation] OPEN_ROUTER_API_KEY not set — skipping auto-translation')
         return
       }
       const targetLocales = await getTargetLocales()
       if (targetLocales.length === 0) return
 
-      const translations = await callClaude(client, JSON.stringify(data), targetLocales)
+      const translations = await callOpenRouter(apiKey, JSON.stringify(data), targetLocales)
 
       for (const { code } of targetLocales) {
         const translatedData = translations[code]
@@ -77,8 +93,8 @@ export async function scheduleContentTranslation(contentItemId: string, data: Re
 }
 
 export async function generateMissingUiTranslations(knownKeys: Record<string, string>): Promise<number> {
-  const client = buildClient()
-  if (!client) throw new Error('ANTHROPIC_API_KEY not set — cannot generate translations')
+  const apiKey = buildApiKey()
+  if (!apiKey) throw new Error('OPEN_ROUTER_API_KEY not set — cannot generate translations')
 
   const targetLocales = await getTargetLocales()
   if (targetLocales.length === 0) return 0
@@ -99,7 +115,7 @@ export async function generateMissingUiTranslations(knownKeys: Record<string, st
   for (const keys of Object.values(missingByLocale)) keys.forEach(k => allMissingKeys.add(k))
 
   const sourceData = Object.fromEntries([...allMissingKeys].map(k => [k, knownKeys[k]]))
-  const translations = await callClaude(client, JSON.stringify(sourceData), localesWithMissing)
+  const translations = await callOpenRouter(apiKey, JSON.stringify(sourceData), localesWithMissing)
 
   let count = 0
   for (const locale of localesWithMissing) {
@@ -123,15 +139,15 @@ export async function generateMissingUiTranslations(knownKeys: Record<string, st
 export async function scheduleGroupTranslation(groupId: string, title: string): Promise<void> {
   setImmediate(async () => {
     try {
-      const client = buildClient()
-      if (!client) {
-        console.warn('[ai-translation] ANTHROPIC_API_KEY not set — skipping auto-translation')
+      const apiKey = buildApiKey()
+      if (!apiKey) {
+        console.warn('[ai-translation] OPEN_ROUTER_API_KEY not set — skipping auto-translation')
         return
       }
       const targetLocales = await getTargetLocales()
       if (targetLocales.length === 0) return
 
-      const translations = await callClaude(client, JSON.stringify({ title }), targetLocales)
+      const translations = await callOpenRouter(apiKey, JSON.stringify({ title }), targetLocales)
 
       for (const { code } of targetLocales) {
         const translatedData = translations[code]
