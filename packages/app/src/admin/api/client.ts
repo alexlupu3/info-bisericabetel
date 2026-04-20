@@ -204,5 +204,7 @@ export const api = {
     list:     () => get<{ keys: TranslationKey[] }>('/api/admin/translations'),
     bulkSave: (translations: Array<{ locale: string; key: string; value: string }>) =>
       put<{ ok: boolean }>('/api/admin/translations', { translations }),
+    generate: (keys: Record<string, string>) =>
+      post<{ generated: number }>('/api/admin/translations/generate', { keys }),
   },
 }

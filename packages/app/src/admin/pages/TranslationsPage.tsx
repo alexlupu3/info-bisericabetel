@@ -90,6 +90,15 @@ export default function TranslationsPage() {
 
   const hasEdits = Object.keys(edits).length > 0
 
+  const generateMut = useMutation({
+    mutationFn: () => api.translations.generate(KNOWN_KEYS),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['admin-translations'] })
+      toast(data.generated > 0 ? `${data.generated} traduceri generate` : 'Nu lipsesc traduceri')
+    },
+    onError: (err: any) => toast(err.message ?? 'Eroare la generare'),
+  })
+
   const saveMut = useMutation({
     mutationFn: () => {
       const translations = Object.entries(edits).map(([composite, value]) => {
@@ -206,16 +215,28 @@ export default function TranslationsPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Traduceri interfață</h2>
-          {hasEdits && (
-            <button
-              onClick={() => saveMut.mutate()}
-              disabled={saveMut.isPending}
-              className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
-            >
-              {saveMut.isPending ? 'Se salvează...' : 'Salvează'}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {nonDefaultLanguages.length > 0 && (
+              <button
+                onClick={() => generateMut.mutate()}
+                disabled={generateMut.isPending}
+                className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
+                           hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
+              >
+                {generateMut.isPending ? 'Se generează...' : 'Generează lipsă'}
+              </button>
+            )}
+            {hasEdits && (
+              <button
+                onClick={() => saveMut.mutate()}
+                disabled={saveMut.isPending}
+                className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
+                           hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
+              >
+                {saveMut.isPending ? 'Se salvează...' : 'Salvează'}
+              </button>
+            )}
+          </div>
         </div>
 
         {trLoading && (

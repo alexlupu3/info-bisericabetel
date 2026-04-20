@@ -3,6 +3,7 @@ import { eq, asc } from 'drizzle-orm'
 import { db } from '../../db/client.js'
 import { uiTranslations } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
+import { generateMissingUiTranslations } from '../../services/ai-translation.js'
 
 function adminOnly(req: any, reply: any, done: any) {
   const role = (req.user as any)?.role
@@ -93,6 +94,32 @@ export async function adminTranslationsRoutes(app: FastifyInstance) {
       })
 
       return { ok: true }
+    }
+  )
+
+  // Generate missing UI translations via AI
+  app.post<{ Body: { keys: Record<string, string> } }>(
+    '/admin/translations/generate', { preHandler: superAuth }, async (req, reply) => {
+      const { keys } = req.body
+      if (!keys || typeof keys !== 'object') {
+        return reply.code(400).send({ error: 'keys must be an object' })
+      }
+      try {
+        const generated = await generateMissingUiTranslations(keys)
+        const actor = req.user as any
+        if (generated > 0) {
+          await logAudit({
+            userId: actor.sub,
+            userEmail: actor.email ?? '',
+            action: 'translation.ai-generate',
+            entityType: 'translation',
+            detail: { generated },
+          })
+        }
+        return { generated }
+      } catch (err: any) {
+        return reply.code(500).send({ error: err.message ?? 'Generation failed' })
+      }
     }
   )
 }
