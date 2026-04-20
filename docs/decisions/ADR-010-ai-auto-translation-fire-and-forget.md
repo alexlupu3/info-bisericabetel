@@ -15,7 +15,7 @@ In practice, manually entering translations for every new or updated content ite
 
 Key constraints:
 - Admin create/update HTTP endpoints must respond quickly — translation cannot block the request-response cycle.
-- The feature must be safe to disable (i.e., the absence of `ANTHROPIC_API_KEY` must result in a clean no-op, not an error).
+- The feature must be safe to disable (i.e., the absence of `OPEN_ROUTER_API_KEY` must result in a clean no-op, not an error).
 - AI-generated translations are best-effort; manual overrides must not be blocked or clobbered on subsequent saves unless the source content actually changed.
 - Cost must be kept low; the service runs on a budget VPS.
 
