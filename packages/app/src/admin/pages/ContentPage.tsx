@@ -1492,7 +1492,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                       ? 'bg-[var(--accent)] text-white'
                       : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]'
                   }`}>
-                  {t.locale}
+                  {t.locale.toUpperCase()}
                 </span>
               ))}
             </div>
