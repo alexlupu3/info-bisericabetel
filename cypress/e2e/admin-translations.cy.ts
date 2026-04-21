@@ -108,8 +108,8 @@ describe('Admin — Translations page', () => {
     })
     cy.wait('@me')
 
-    // Find the content.error key row and type a translation
-    cy.contains('content.error')
+    // Find the hero.subtitle key row and type a translation
+    cy.contains('hero.subtitle')
       .closest('div.border')
       .find('input')
       .first()

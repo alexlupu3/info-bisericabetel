@@ -23,7 +23,7 @@ This repository is the root for a production-ready application and its supportin
 
 ## AI Auto-Translation
 
-When `ANTHROPIC_API_KEY` is set, the API automatically generates first-pass translations for content items and groups into all enabled non-default languages whenever they are created or updated. Translation runs as a background job (after the HTTP response is returned) using Claude Haiku and does not affect admin response times. AI-generated translations can be reviewed and overridden at any time via `/translations`. If the key is not set the feature is silently disabled — no errors, no changed behavior.
+When `OPEN_ROUTER_API_KEY` is set, the API automatically generates first-pass translations for content items and groups into all enabled non-default languages whenever they are created or updated. Translation runs as a background job (after the HTTP response is returned) using Claude Haiku via OpenRouter and does not affect admin response times. AI-generated translations can be reviewed and overridden at any time via `/translations`. If the key is not set the feature is silently disabled — no errors, no changed behavior.
 
 ## Prerequisites
 
