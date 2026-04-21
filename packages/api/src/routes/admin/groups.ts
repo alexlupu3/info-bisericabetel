@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, asc, and } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { groups, contentItems, groupTranslations } from '../../db/schema.js'
+import { groups, contentItems, groupTranslations, languages } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { scheduleGroupTranslation } from '../../services/ai-translation.js'
 
@@ -86,6 +86,9 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
 
       const [group] = await db.select().from(groups).where(eq(groups.id, id))
       if (!group) return reply.code(404).send({ error: 'Not found' })
+
+      const [lang] = await db.select().from(languages).where(eq(languages.code, locale))
+      if (!lang) return reply.code(400).send({ error: 'invalid locale' })
 
       const [translation] = await db.insert(groupTranslations)
         .values({ groupId: id, locale, title, updatedAt: new Date() })

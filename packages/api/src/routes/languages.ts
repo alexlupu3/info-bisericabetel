@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, asc, desc } from 'drizzle-orm'
+import { eq, asc, desc, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { languages } from '../db/schema.js'
+import { languages, uiTranslations, contentTranslations, groupTranslations } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 
 function adminOnly(req: any, reply: any, done: any) {
@@ -44,10 +44,20 @@ export async function languagesRoutes(app: FastifyInstance) {
   // Create language
   app.post<{ Body: { code: string; name: string } }>(
     '/admin/languages', { preHandler: superAuth }, async (req, reply) => {
-      const { code, name } = req.body
+      const code = (req.body.code ?? '').trim().toLowerCase()
+      const name = (req.body.name ?? '').trim()
       if (!code || !name) return reply.code(400).send({ error: 'code and name are required' })
 
-      const [created] = await db.insert(languages).values({ code, name }).returning()
+      let created: typeof languages.$inferSelect
+      try {
+        ;[created] = await db.insert(languages).values({ code, name }).returning()
+      } catch (err: any) {
+        if (err.code === '23505') {
+          return reply.code(409).send({ error: `Language '${code}' already exists` })
+        }
+        throw err
+      }
+
       const actor = req.user as any
 
       await logAudit({
@@ -101,15 +111,32 @@ export async function languagesRoutes(app: FastifyInstance) {
   )
 
   // Delete language
-  app.delete<{ Params: { code: string } }>(
+  app.delete<{ Params: { code: string }; Querystring: { force?: string } }>(
     '/admin/languages/:code', { preHandler: superAuth }, async (req, reply) => {
       const { code } = req.params
+      const force = req.query.force === 'true'
 
       const [existing] = await db.select().from(languages).where(eq(languages.code, code))
       if (!existing) return reply.code(404).send({ error: 'Language not found' })
 
       if (existing.isDefault) {
         return reply.code(400).send({ error: 'Cannot delete the default language' })
+      }
+
+      if (!force) {
+        const [uiCount] = await db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(uiTranslations).where(eq(uiTranslations.locale, code))
+        const [contentCount] = await db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(contentTranslations).where(eq(contentTranslations.locale, code))
+        const [groupCount] = await db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(groupTranslations).where(eq(groupTranslations.locale, code))
+
+        const total = (uiCount?.count ?? 0) + (contentCount?.count ?? 0) + (groupCount?.count ?? 0)
+        if (total > 0) {
+          return reply.code(400).send({
+            error: `Language '${code}' has ${total} translation(s) referencing it. Pass ?force=true to delete anyway.`,
+          })
+        }
       }
 
       await db.delete(languages).where(eq(languages.code, code))

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { contentItems, groups, contentTranslations } from '../../db/schema.js'
+import { contentItems, groups, contentTranslations, languages } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 
@@ -100,7 +100,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
         const changedKeys = Object.keys(data).filter(
           k => JSON.stringify(oldData[k]) !== JSON.stringify(data[k])
         )
-        if (changedKeys.length > 0) scheduleContentTranslation(id, data, changedKeys)
+        if (changedKeys.length > 0) scheduleContentTranslation(id, updated.data as Record<string, unknown>, changedKeys)
       }
       return updated
     }
@@ -239,6 +239,9 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
       const [item] = await db.select().from(contentItems).where(eq(contentItems.id, id))
       if (!item) return reply.code(404).send({ error: 'Not found' })
+
+      const [lang] = await db.select().from(languages).where(eq(languages.code, locale))
+      if (!lang) return reply.code(400).send({ error: `Locale '${locale}' does not exist` })
 
       const [translation] = await db.insert(contentTranslations)
         .values({ contentItemId: id, locale, data, updatedAt: new Date() })

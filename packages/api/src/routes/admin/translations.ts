@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, inArray } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { uiTranslations } from '../../db/schema.js'
+import { uiTranslations, languages } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { generateMissingUiTranslations } from '../../services/ai-translation.js'
 
@@ -71,6 +71,28 @@ export async function adminTranslationsRoutes(app: FastifyInstance) {
       const { translations } = req.body
       if (!Array.isArray(translations)) {
         return reply.code(400).send({ error: 'translations must be an array' })
+      }
+
+      for (const entry of translations) {
+        if (typeof entry.locale !== 'string' || entry.locale.trim() === '') {
+          return reply.code(400).send({ error: 'Each translation entry must have a non-empty locale' })
+        }
+        if (typeof entry.key !== 'string' || entry.key.trim() === '') {
+          return reply.code(400).send({ error: 'Each translation entry must have a non-empty key' })
+        }
+        if (typeof entry.value !== 'string' || entry.value.trim() === '') {
+          return reply.code(400).send({ error: 'Each translation entry must have a non-empty value' })
+        }
+      }
+
+      const uniqueLocales = [...new Set(translations.map(t => t.locale))]
+      const existingLangs = await db.select({ code: languages.code })
+        .from(languages)
+        .where(inArray(languages.code, uniqueLocales))
+      const existingCodes = new Set(existingLangs.map(l => l.code))
+      const invalidLocales = uniqueLocales.filter(l => !existingCodes.has(l))
+      if (invalidLocales.length > 0) {
+        return reply.code(400).send({ error: `Unknown locale(s): ${invalidLocales.join(', ')}` })
       }
 
       await db.transaction(async tx => {

@@ -3,7 +3,7 @@ import { db } from '../db/client.js'
 import { languages, contentTranslations, groupTranslations, uiTranslations } from '../db/schema.js'
 
 const OPEN_ROUTER_BASE = 'https://openrouter.ai/api/v1'
-const MODEL = 'anthropic/claude-haiku-4-5'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 const SYSTEM_PROMPT = `You are a translation assistant for a Romanian church website called "Biserica Betel".
 Your task is to translate content data from Romanian into other languages.
@@ -32,24 +32,37 @@ async function callOpenRouter(
   targetLocales: Array<{ code: string; name: string }>
 ): Promise<Record<string, unknown>> {
   const localeList = targetLocales.map(l => `- ${l.code}: ${l.name}`).join('\n')
-  const response = await fetch(`${OPEN_ROUTER_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Translate the following JSON content from Romanian to the specified languages.\n\nContent (Romanian):\n${sourceJson}\n\nTarget languages:\n${localeList}\n\nReturn a JSON object with one key per language code, each containing the translated version:\n{"${targetLocales[0].code}": { ...translated fields... }, ...}`,
-        },
-      ],
-      max_tokens: 4096,
-    }),
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 45_000)
+  let response: Response
+  try {
+    response = await fetch(`${OPEN_ROUTER_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `Translate the following JSON content from Romanian to the specified languages.\n\nContent (Romanian):\n${sourceJson}\n\nTarget languages:\n${localeList}\n\nReturn a JSON object with one key per language code, each containing the translated version:\n{"${targetLocales[0].code}": { ...translated fields... }, ...}`,
+          },
+        ],
+        max_tokens: 4096,
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[ai-translation] OpenRouter request timed out after 45s')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     const body = await response.text()
@@ -166,10 +179,11 @@ export async function generateMissingUiTranslations(knownKeys: Record<string, st
     for (const key of missingByLocale[locale.code]) {
       const value = (localeTranslations as Record<string, unknown>)[key]
       if (typeof value !== 'string') continue
-      await db.insert(uiTranslations)
+      const inserted = await db.insert(uiTranslations)
         .values({ locale: locale.code, key, value, updatedAt: new Date() })
         .onConflictDoNothing()
-      count++
+        .returning()
+      if (inserted.length > 0) count++
     }
   }
 
