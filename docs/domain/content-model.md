@@ -66,7 +66,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 ## Shared Metadata (all content items and groups)
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)
 - **Sort order:** controlled by drag and drop; applies at root level and within groups
-- **Locale:** Content is authored in Romanian (the default locale). Text fields on content items and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Only text fields are translatable — images, links, and dates are shared across all locales. When a translation exists for the active locale, it is served by the API; otherwise Romanian text is used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. See FR-036–FR-041.
+- **Locale:** Content is authored in Romanian (the default locale). Text fields on content items and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Links and dates are shared across all locales. Images are also shared across locales for Richtext and Embedded YouTube Video types; however, Poster (`imageUrl`) and Card (`thumbnail`) items can have locale-specific images — admins see image pickers in translation mode for those types and can override the image per locale. When a translation exists for the active locale, it is served by the API; otherwise Romanian values are used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. See FR-036–FR-041.
 - **Publishing state:** every content item has one of four states:
   - `draft` — created but not yet visible on the public hub
   - `published` — live and visible on the public hub (subject to site scope and expiry)
@@ -111,7 +111,7 @@ When any applicable expiry condition is met, the item is automatically hidden fr
 - Image URLs are **immutable after upload**. Changing a URL after the fact would silently break all content items that reference it.
 - Cards (via `data.thumbnail`) and Posters (via `data.imageUrl`) both reference images by their stored URL.
 - The admin Media page provides a gallery view, filter by usage (all / in use / not in use), per-image usage info (which content item uses it), and a delete action for unused images.
-- Usage detection: `GET /admin/media` and `DELETE /admin/media/:id` query `content_items` where `data->>'imageUrl' = url` OR `data->>'thumbnail' = url`. If a future content type stores images under a different JSONB field name, this query must be extended (see ADR-003).
+- Usage detection: `GET /admin/media` and `DELETE /admin/media/:id` scan both `content_items.data` and `content_translations.data` for `imageUrl` and `thumbnail` field matches. This covers both base images and locale-specific image overrides on Poster and Card types. If a future content type stores images under a different JSONB field name, the usage query must be extended (see ADR-003).
 - Delete is blocked server-side (HTTP 409) for any image currently referenced by a content item.
 
 ## Ordering and Site Scoping — Relationship

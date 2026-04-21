@@ -1366,6 +1366,11 @@ const TRANSLATABLE_FIELDS: Record<string, Array<{ key: string; label: string; mu
   ],
 }
 
+const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
+  card:   [{ key: 'thumbnail', label: 'Miniatură (per limbă)' }],
+  poster: [{ key: 'imageUrl', label: 'Imagine (per limbă)' }],
+}
+
 // ── Content form ───────────────────────────────────────────────────────────────
 
 function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
@@ -1409,23 +1414,17 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
       setTransForm({})
       return
     }
+    const allFields = [
+      ...(TRANSLATABLE_FIELDS[form.type] ?? []),
+      ...(LOCALE_IMAGE_FIELDS[form.type] ?? []),
+    ]
     const existing = existingTranslations.translations.find(t => t.locale === transLocale)
-    if (existing) {
-      const data = existing.data as Record<string, string>
-      const fields = TRANSLATABLE_FIELDS[form.type] ?? []
-      const populated: Record<string, string> = {}
-      for (const f of fields) {
-        populated[f.key] = data[f.key] ?? ''
-      }
-      setTransForm(populated)
-    } else {
-      const fields = TRANSLATABLE_FIELDS[form.type] ?? []
-      const empty: Record<string, string> = {}
-      for (const f of fields) {
-        empty[f.key] = ''
-      }
-      setTransForm(empty)
+    const sourceData = (existing?.data ?? {}) as Record<string, string>
+    const populated: Record<string, string> = {}
+    for (const f of allFields) {
+      populated[f.key] = sourceData[f.key] ?? ''
     }
+    setTransForm(populated)
   }, [transLocale, existingTranslations, form.type])
 
   const set = (patch: Partial<FormData>) => setForm(f => ({ ...f, ...patch }))
@@ -1502,7 +1501,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
 
       {error && <p className="text-red-400 text-sm font-content">{error}</p>}
 
-      {/* Translation mode — show only translatable text fields */}
+      {/* Translation mode — show translatable text fields and optional locale-specific images */}
       {isTranslating ? (
         <div className="space-y-4">
           {(TRANSLATABLE_FIELDS[form.type] ?? []).map(field => (
@@ -1527,6 +1526,15 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                   className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content placeholder:text-[var(--muted)]/40" />
               )}
             </div>
+          ))}
+          {(LOCALE_IMAGE_FIELDS[form.type] ?? []).map(field => (
+            <ImagePicker
+              key={field.key}
+              label={field.label}
+              value={transForm[field.key] ?? ''}
+              onChange={url => setTrans(field.key, url)}
+              testId={`trans-${field.key}-input`}
+            />
           ))}
         </div>
       ) : (<>

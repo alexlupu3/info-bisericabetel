@@ -38,7 +38,7 @@ UI string translations (small, ~10 strings) are fetched from the API on language
 
 ## Key Design Rules
 1. **Admin UI stays Romanian.** The admin interface is never translated, regardless of the public locale setting. This avoids scope creep and keeps admin tooling simple for the existing team.
-2. **Only text fields are translatable in content.** Images, links, and dates are shared across all locales. This is intentional — per-locale image or link management would significantly complicate the admin UX with little benefit.
+2. **Links and dates are shared across all locales.** Images are shared across locales for Richtext and Embedded YouTube Video types. For Poster and Card types, images (`imageUrl` and `thumbnail` respectively) are locale-overridable — admins can set a different image per locale via image pickers shown in translation mode. When a locale image is set it is stored in `contentTranslations.data` alongside translated text fields and merged at serve time via `{ ...original.data, ...translatedData }`. Clearing a locale image (setting it to empty string) causes the empty value to be filtered out before saving, so the base image is used as fallback. Rationale: locale-specific event posters and promotional images are a valid use case (e.g. a Romanian-language poster vs. an English-language poster for the same event). The per-locale image UX is scoped to Poster and Card only, keeping the feature narrow and avoiding complexity on types that have no image fields.
 3. **Romanian fallback is always transparent.** If a translation record is missing for any field in a non-default locale, the Romanian value is returned without error or UI indicator visible to the public user.
 4. **Zero overhead for the default locale.** The API does not join translation tables when `locale=ro` (or when no locale param is sent). This preserves existing query performance for the dominant user population.
 5. **Language preference is localStorage only.** Key: `betel-lang`. The public API also accepts a `?locale=` query parameter directly, but no URL-encoding of locale is exposed in the public routing layer.
@@ -47,6 +47,6 @@ UI string translations (small, ~10 strings) are fetched from the API on language
 - QR codes and bookmarks are fully backward-compatible.
 - Adding a new language requires only a super-admin action (no deploy).
 - Translation completeness is the responsibility of super-admins; partial translations fall back silently to Romanian.
-- New content types must explicitly declare which of their fields are translatable (text-only rule must be enforced at the API layer when translation endpoints are extended).
+- New content types must explicitly declare which of their fields are translatable. The AI auto-translation system prompt already excludes `imageUrl` and `thumbnail` from translation so locale image selection remains an explicit admin action, not an AI-generated value.
 - The `languages`, `ui_translations`, `content_translations`, and `group_translations` tables (migration `0008_i18n.sql`) are the authoritative source for all translation data.
 - First-pass translations are automatically generated via OpenRouter (Claude Haiku) when content items or groups are created or updated (if `OPEN_ROUTER_API_KEY` is configured); see [ADR-010](ADR-010-ai-auto-translation-fire-and-forget.md) for the fire-and-forget job decision.

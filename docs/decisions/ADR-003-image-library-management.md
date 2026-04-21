@@ -35,12 +35,17 @@ Constraints enforced at upload:
 - Allowed extensions: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`
 - Maximum file size: 10 MB
 
-### 3. Usage detection uses JSONB field queries on `content_items`
-Usage is determined by querying `content_items` where:
-- `data->>'imageUrl' = <url>` (matches Poster items)
-- `data->>'thumbnail' = <url>` (matches Card items)
+### 3. Usage detection uses JSONB field queries on `content_items` and `content_translations`
+Usage is determined by querying both tables for matching image URL values:
 
-This approach does not require a foreign key relationship between `media` and `content_items`. It relies on the JSONB data contract for each content type. If a new content type introduces images via a different JSONB field name, the usage query in `GET /admin/media` and `DELETE /admin/media/:id` must be updated.
+- `content_items.data->>'imageUrl' = <url>` (matches Poster base images)
+- `content_items.data->>'thumbnail' = <url>` (matches Card base images)
+- `content_translations.data->>'imageUrl' = <url>` (matches locale-specific Poster images)
+- `content_translations.data->>'thumbnail' = <url>` (matches locale-specific Card images)
+
+Both `GET /admin/media` (list + usedBy) and `DELETE /admin/media/:id` (in-use block) apply this expanded scan. This is necessary because Poster and Card items can have locale-specific image overrides stored in `contentTranslations.data`; an image used only by a locale override would otherwise appear as unused and be deletable while still actively referenced.
+
+This approach does not require a foreign key relationship between `media` and `content_items`/`content_translations`. It relies on the JSONB data contract for each content type. If a new content type introduces images via a different JSONB field name, the usage query in both endpoints must be updated.
 
 ### 4. Poster items gain an admin-only `name` field stored in `data.name`
 Posters previously had no human-readable identifier beyond their image. A `name` field is added to the Poster content type, stored in the JSONB `data` column as `data.name`. This field is:
@@ -86,3 +91,4 @@ Usage detection is based on exact URL string matching in JSONB. If a media recor
 
 ## Update History
 - 2026-03-17: ADR written; `media` table, all three API endpoints, and admin SPA route implemented.
+- 2026-04-21: Usage detection contract expanded to also scan `content_translations.data` for `imageUrl` and `thumbnail` fields. Required by the locale-specific images feature for Poster and Card types; without this, locale image overrides stored in translation rows would appear as unused and be deletable while still actively referenced.

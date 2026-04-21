@@ -82,8 +82,8 @@ Add one section per important domain entity.
 - Key attributes: id (UUID), content_item_id (FK → Content Item), locale (FK → Language code), data (JSONB, NOT NULL, default `{}`)
 - Relationships: belongs to a Content Item and a Language
 - Lifecycle: created or updated via `PUT /api/admin/content/:id/translations/:locale`; deleted when the parent content item is deleted or when a language is deleted
-- Validation rules: (content_item_id, locale) pair must be unique; only text fields are translatable (images, links, and dates are excluded)
-- Notes: the `data` column is a JSONB map of field name → translated string (e.g. `{ "title": "...", "description": "...", "content": "..." }`); images, links, and dates on content items are shared across all locales and are never stored in `data`
+- Validation rules: (content_item_id, locale) pair must be unique; links and dates are not translatable and are never stored in translation data
+- Notes: the `data` column is a JSONB map of field name → translated value. For most content types this contains only translated text strings (e.g. `{ "title": "...", "description": "...", "content": "..." }`). For Poster and Card types, image fields (`imageUrl` for Poster, `thumbnail` for Card) may also be stored here as locale-specific image overrides. When a locale image is present it takes precedence over the base image via the standard `{ ...original.data, ...translatedData }` merge; if the admin clears a locale image the empty string is filtered out before saving, causing the base image to be used as fallback. Links and dates are always shared across all locales.
 
 ### GroupTranslation
 - Purpose: store the translated title for a content group in a given non-default language
