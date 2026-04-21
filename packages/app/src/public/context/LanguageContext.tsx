@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Language } from '@betel/shared'
 
@@ -45,21 +45,40 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return localStorage.getItem(LOCALE_KEY) ?? DEFAULT_LOCALE
   })
 
-  const setLocale = useCallback((code: string) => {
-    localStorage.setItem(LOCALE_KEY, code)
-    setLocaleState(code)
-  }, [])
-
   const { data: langData } = useQuery({
     queryKey: ['languages'],
     queryFn: fetchLanguages,
     staleTime: Infinity,
   })
 
+  const supportedCodes = useMemo(
+    () => langData?.languages.map(l => l.code) ?? [],
+    [langData]
+  )
+
+  const setLocale = useCallback((code: string) => {
+    const validated = supportedCodes.length === 0 || supportedCodes.includes(code)
+      ? code
+      : DEFAULT_LOCALE
+    localStorage.setItem(LOCALE_KEY, validated)
+    setLocaleState(validated)
+  }, [supportedCodes])
+
+  // Reconcile stored locale once supported languages are known
+  useEffect(() => {
+    if (supportedCodes.length > 0 && !supportedCodes.includes(locale)) {
+      const fallback = supportedCodes[0] ?? DEFAULT_LOCALE
+      localStorage.setItem(LOCALE_KEY, fallback)
+      setLocaleState(fallback)
+    }
+  }, [supportedCodes, locale])
+
+  const isLocaleSupported = supportedCodes.length === 0 || supportedCodes.includes(locale)
+
   const { data: transData } = useQuery({
     queryKey: ['ui-translations', locale],
     queryFn: () => fetchTranslations(locale),
-    enabled: locale !== DEFAULT_LOCALE,
+    enabled: isLocaleSupported && locale !== DEFAULT_LOCALE,
     staleTime: 5 * 60 * 1000,
   })
 

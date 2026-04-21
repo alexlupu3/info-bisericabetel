@@ -9,4 +9,5 @@ export const UI_KEYS = {
   FOOTER_COPYRIGHT: 'footer.copyright',
   SITES_ALL: 'sites.all',
   SITES_SELECT_LABEL: 'sites.selectLabel',
+  LANGUAGE_SWITCHER_SWITCH_TO: 'languageSwitcher.switchTo',
 } as const

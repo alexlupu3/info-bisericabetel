@@ -6,23 +6,21 @@ import HomePage from './public/pages/HomePage'
 
 const AdminApp = lazy(() => import('./admin/AdminApp'))
 
+function SharedPublicRoute() {
+  return (
+    <SitesProvider>
+      <LanguageProvider>
+        <HomePage />
+      </LanguageProvider>
+    </SitesProvider>
+  )
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={
-        <SitesProvider>
-          <LanguageProvider>
-            <HomePage />
-          </LanguageProvider>
-        </SitesProvider>
-      } />
-      <Route path="/:siteSlug" element={
-        <SitesProvider>
-          <LanguageProvider>
-            <HomePage />
-          </LanguageProvider>
-        </SitesProvider>
-      } />
+      <Route path="/" element={<SharedPublicRoute />} />
+      <Route path="/:siteSlug" element={<SharedPublicRoute />} />
       <Route path="/admin/*" element={
         <Suspense fallback={null}>
           <AdminApp />

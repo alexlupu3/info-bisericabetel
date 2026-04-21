@@ -25,7 +25,9 @@ export default function SiteSwitcher({ activeSite, accent, onSelect }: Props) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const activeLabel = activeSite ? sites.find(s => s.slug === activeSite)?.name : t(UI_KEYS.SITES_ALL, 'Toate locațiile')
+  const activeLabel = activeSite
+    ? (sites.find(s => s.slug === activeSite)?.name ?? t(UI_KEYS.SITES_ALL, 'Toate locațiile'))
+    : t(UI_KEYS.SITES_ALL, 'Toate locațiile')
 
   function handleSelect(slug: string | null) {
     onSelect(slug)

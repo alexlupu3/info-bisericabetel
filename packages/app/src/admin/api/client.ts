@@ -51,7 +51,7 @@ export interface ContentItem {
 
 export interface Language {
   code: string; name: string; enabled: boolean; isDefault: boolean
-  createdAt: string; updatedAt: string
+  createdAt: string
 }
 
 export interface MediaUsedBy {
