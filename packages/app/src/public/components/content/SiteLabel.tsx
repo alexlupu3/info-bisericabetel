@@ -6,7 +6,7 @@ interface Props {
 }
 
 /**
- * Renders a small italic label with the site name using its accent color.
+ * Renders a bold label with the site name using its accent color.
  * Only renders when:
  *  - The user is viewing "all sites" (showInAllSites is true)
  *  - The item is scoped to exactly one site (sites array has length 1)
@@ -24,7 +24,7 @@ export default function SiteLabel({ sites, showInAllSites }: Props) {
         return (
           <span
             key={slug}
-            className="text-xs italic font-content"
+            className="text-sm font-bold font-content"
             style={{ color: site.accent }}
           >
             {site.name}

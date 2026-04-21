@@ -21,8 +21,8 @@ Add one section per important domain entity.
 
 ### Content Item
 - Purpose: represent a unit of information shown in the hub
-- Key attributes: type, site scope, sort order, type-specific fields (see content-model.md)
-- Relationships: may belong to one or more sites, or be church-wide; may belong to a Group
+- Key attributes: type, site scope, sort order, exclusive site, type-specific fields (see content-model.md)
+- Relationships: may belong to one or more sites, or be church-wide; may belong to a Group; may be exclusively scoped to a single site via `exclusive_site`
 - Lifecycle: four publishing states — `draft`, `published`, `archived`, `deleted`. Full state machine:
   - `draft` → (publish) → `published` → (hide / "Ascunde") → `archived`
   - `archived` → (restore via PATCH) → `draft` or `published`
@@ -32,8 +32,9 @@ Add one section per important domain entity.
   - Expiry auto-transitions a published item to `archived`
   - `archived` items are hidden from the default admin content list but accessible via a filter in the Content page
   - `deleted` items are not visible in the admin Content page; they appear only in the Archive page (`/admin/archive`)
-- Validation rules: must have a valid content type; mandatory fields per type must be present
+- Validation rules: must have a valid content type; mandatory fields per type must be present; `exclusive_site` and a non-empty `sites[]` are mutually exclusive — when `exclusive_site` is set, `sites[]` is forced to `[]` server-side
 - Date handling: all four content types support optional `startDate` and `endDate` in the JSONB `data` column. Date filtering in the public API and past-item detection in the admin apply uniformly across all types (endDate → startDate priority). The `expiresAt` column is a separate independent expiry mechanism; both are evaluated. See content-model.md — Expiration Behavior for full rules.
+- Site exclusivity: `exclusive_site TEXT REFERENCES sites(slug)` is nullable. When set, the item is hidden from the all-sites view and visible only when the referenced site is selected. A partial DB index on `exclusive_site WHERE exclusive_site IS NOT NULL` (migration `0008_exclusive_site.sql`) makes site-specific queries efficient. See content-model.md — Exclusive Site Scope and ADR-009.
 - Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group itself is hard-deleted from the database.
 
 ### Group

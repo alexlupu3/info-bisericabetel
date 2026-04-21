@@ -120,6 +120,36 @@ When any applicable expiry condition is met, the item is automatically hidden fr
 - Example: items ordered A → B → C where B is hidden for site BETA → site BETA sees A → C (not C → A).
 - Admins manage a single unified ordered list. There is no per-site ordering.
 
+## Exclusive Site Scope
+
+Content items support two distinct site scoping concepts that must not be conflated:
+
+### `sites[]` — surfacing hint (non-exclusive)
+The `sites` array lists the sites for which an item is *additionally surfaced* in site-specific views. It is a hint, not a gate: items with `sites = []` (the default) appear everywhere, including the all-sites view. Items in `sites[]` also remain visible in the all-sites view. This is the legacy scoping mechanism and remains unchanged.
+
+### `exclusive_site` — hard visibility gate (exclusive)
+The nullable `exclusive_site TEXT REFERENCES sites(slug)` column on `content_items` creates a hard visibility boundary:
+- When `exclusive_site` is set to a site slug, the item **does not appear** in the all-sites view (`GET /api/content` with no `?site=`).
+- The item **only appears** when the content API is called with `?site=<exclusive_site_slug>`.
+- The two mechanisms are mutually exclusive on a single row: when `exclusive_site` is set, the server forces `sites = []`. This prevents conflicting semantics.
+- A partial DB index on `(exclusive_site) WHERE exclusive_site IS NOT NULL` (migration `0008_exclusive_site.sql`) keeps site-specific queries efficient.
+
+### Admin UI
+In the content create/edit form, a "Exclusiv unei locații" (Exclusive to a location) checkbox switches between the two modes:
+- **Unchecked** (default): the existing multi-site checkboxes are shown; any combination of sites can be assigned.
+- **Checked**: the multi-site checkboxes are replaced by a mandatory single-site radio selector. The selected slug is written to `exclusive_site`; `sites` is cleared to `[]` on save.
+
+Exclusive items in the admin content list are visually distinguished by a Lock icon and a ringed circle badge.
+
+### Per-site link overrides in exclusive mode
+The per-site link override UI (see Link Resolution Rule) iterates `sites[]` to decide which site inputs to show. Because `sites = []` in exclusive mode, the override block naturally collapses — no code change was required.
+
+### Groups and exclusive items
+Groups do not have an `exclusive_site` field in this iteration. An exclusive item that belongs to a group is still filtered server-side when `exclusive_site` does not match the requested site. This can result in the group rendering with one fewer item in the all-sites view compared with the site-specific view; this is expected behavior.
+
+### Decision rationale
+See ADR-009 for the rejected alternative (boolean flag + reusing `sites[]` as a single-element array) and the rationale for choosing a dedicated nullable column.
+
 ## Compound Site Scope — Group Scope Takes Precedence
 - When a group is scoped to specific sites, the **entire group container** (header + all items it contains) is hidden for sites outside the group's scope.
 - Individual item site assignments within the group are irrelevant when the group itself is not visible for a given site.

@@ -5,6 +5,7 @@ export interface ContentItem {
   type: 'card' | 'richtext' | 'poster' | 'video'
   state: 'draft' | 'published' | 'archived'
   sites: string[]
+  exclusiveSite: string | null
   orderPosition: number
   groupId: string | null
   groupTitle: string | null

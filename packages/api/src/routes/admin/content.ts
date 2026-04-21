@@ -1,15 +1,24 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { contentItems, groups } from '../../db/schema.js'
+import { contentItems, groups, sites as sitesTable } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 
 type ItemBody = {
   type: string
   sites?: string[]
+  exclusiveSite?: string | null
   groupId?: string | null
   expiresAt?: string | null
   data?: Record<string, unknown>
+}
+
+// Validate that a non-empty exclusiveSite refers to a real site slug.
+async function siteSlugExists(slug: string): Promise<boolean> {
+  const [row] = await db.select({ slug: sitesTable.slug })
+    .from(sitesTable)
+    .where(eq(sitesTable.slug, slug))
+  return !!row
 }
 
 type OrderBody = { order: string[] }
@@ -44,8 +53,18 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
   // Create
   app.post<{ Body: ItemBody }>('/admin/content', { preHandler: auth }, async (req, reply) => {
-    const { type, sites = [], groupId = null, expiresAt = null, data = {} } = req.body
+    const { type, sites = [], exclusiveSite = null, groupId = null, expiresAt = null, data = {} } = req.body
     if (!type) return reply.code(400).send({ error: 'type is required' })
+
+    // Normalise exclusiveSite: empty string → null. When set, validate the slug
+    // and force sites=[] so the two scoping concepts never coexist on one row.
+    const normalizedExclusive = exclusiveSite && exclusiveSite.length > 0 ? exclusiveSite : null
+    if (normalizedExclusive) {
+      if (!(await siteSlugExists(normalizedExclusive))) {
+        return reply.code(400).send({ error: 'invalid exclusiveSite' })
+      }
+    }
+    const finalSites = normalizedExclusive ? [] : sites
 
     // Assign order_position = max + 1
     const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
@@ -53,7 +72,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
     const [item] = await db.insert(contentItems).values({
       type,
-      sites,
+      sites: finalSites,
+      exclusiveSite: normalizedExclusive,
       groupId: groupId ?? null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
       data,
@@ -62,7 +82,13 @@ export async function adminContentRoutes(app: FastifyInstance) {
     }).returning()
 
     const actor = req.user as any
-    await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.create', entityId: item.id, detail: { type } })
+    await logAudit({
+      userId: actor.sub,
+      userEmail: actor.email ?? '',
+      action: 'content.create',
+      entityId: item.id,
+      detail: { type, exclusiveSite: normalizedExclusive },
+    })
     return reply.code(201).send(item)
   })
 
@@ -80,10 +106,40 @@ export async function adminContentRoutes(app: FastifyInstance) {
       const [existing] = await db.select().from(contentItems).where(eq(contentItems.id, id))
       if (!existing) return reply.code(404).send({ error: 'Not found' })
 
-      const { type, sites, groupId, expiresAt, data, state } = req.body
+      const { type, sites, exclusiveSite, groupId, expiresAt, data, state } = req.body
+
+      // Normalise exclusiveSite from the request and decide what the resulting state will be.
+      // Treat empty string as null; only validate when it's actually changing to a non-null value.
+      const exclusiveProvided = exclusiveSite !== undefined
+      const normalizedExclusive = exclusiveProvided
+        ? (exclusiveSite && exclusiveSite.length > 0 ? exclusiveSite : null)
+        : existing.exclusiveSite
+      if (exclusiveProvided && normalizedExclusive) {
+        if (!(await siteSlugExists(normalizedExclusive))) {
+          return reply.code(400).send({ error: 'invalid exclusiveSite' })
+        }
+      }
+
+      // Clearing exclusivity changes visibility scope: an exclusive row has sites=[], which
+      // would otherwise mean "all sites" once exclusiveSite is null. Require the caller to
+      // state the new sites scope explicitly so we never silently widen visibility.
+      const clearingExclusive = exclusiveProvided
+        && normalizedExclusive === null
+        && existing.exclusiveSite !== null
+      if (clearingExclusive && sites === undefined) {
+        return reply.code(400).send({ error: 'sites is required when clearing exclusiveSite' })
+      }
+
+      // If the resulting row will be exclusive, sites[] must be empty regardless of what
+      // the request asked for. Otherwise, honour an explicit sites field if present.
+      const sitesPatch: { sites: string[] } | undefined = normalizedExclusive !== null
+        ? { sites: [] }
+        : (sites !== undefined ? { sites } : undefined)
+
       const [updated] = await db.update(contentItems).set({
         ...(type    !== undefined && { type }),
-        ...(sites   !== undefined && { sites }),
+        ...(sitesPatch ?? {}),
+        ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         ...(groupId !== undefined && { groupId }),
         ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
         ...(data    !== undefined && { data }),
@@ -92,7 +148,13 @@ export async function adminContentRoutes(app: FastifyInstance) {
       }).where(eq(contentItems.id, id)).returning()
 
       const actor = req.user as any
-      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.update', entityId: id })
+      await logAudit({
+        userId: actor.sub,
+        userEmail: actor.email ?? '',
+        action: 'content.update',
+        entityId: id,
+        detail: exclusiveProvided ? { exclusiveSite: normalizedExclusive } : {},
+      })
       return updated
     }
   )
