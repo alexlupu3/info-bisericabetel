@@ -88,7 +88,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     let result = locale === DEFAULT_LOCALE ? fallback : (translations[key] ?? fallback)
     if (vars) {
       for (const [k, v] of Object.entries(vars)) {
-        result = result.replace(`{${k}}`, v)
+        result = result.replaceAll(`{${k}}`, v)
       }
     }
     return result

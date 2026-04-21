@@ -119,8 +119,15 @@ async function callOpenRouter(
   }
   const raw = json.choices[0]?.message?.content ?? ''
   const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+  if (!text) throw new Error('OpenRouter returned empty response content')
+  let translations: Record<string, unknown>
+  try {
+    translations = JSON.parse(text) as Record<string, unknown>
+  } catch {
+    throw new Error(`OpenRouter response is not valid JSON: ${text.slice(0, 200)}`)
+  }
   return {
-    translations: JSON.parse(text),
+    translations,
     usage: json.usage ?? null,
     durationMs,
   }
@@ -132,6 +139,7 @@ export async function scheduleContentTranslation(
   changedKeys?: string[],
 ): Promise<void> {
   setImmediate(async () => {
+    try {
     const apiKey = buildApiKey()
     if (!apiKey) {
       console.warn(JSON.stringify({ service: 'ai-translation', event: 'skipped_no_api_key', entityType: 'content', entityId: contentItemId }))
@@ -153,6 +161,7 @@ export async function scheduleContentTranslation(
 
     if (!changedKeys) {
       // Create path: translate full data for all locales
+      const startMs = Date.now()
       try {
         const { translations, usage, durationMs } = await callOpenRouter(apiKey, JSON.stringify(data), targetLocales)
         for (const { code } of targetLocales) {
@@ -167,7 +176,7 @@ export async function scheduleContentTranslation(
         }
         logSuccess({ ...logBase, mode: 'full', translatedKeys: Object.keys(data), durationMs }, usage)
       } catch (err) {
-        logFailure({ ...logBase, mode: 'full', translatedKeys: Object.keys(data) }, 0, err)
+        logFailure({ ...logBase, mode: 'full', translatedKeys: Object.keys(data) }, Date.now() - startMs, err)
       }
     } else {
       // Update path: only translate changed fields, merge into existing translations
@@ -181,6 +190,7 @@ export async function scheduleContentTranslation(
 
       if (localesNeedingPartial.length > 0) {
         const changedData = Object.fromEntries(changedKeys.map(k => [k, data[k]]))
+        const startMsPartial = Date.now()
         try {
           const { translations: partialTranslations, usage, durationMs } = await callOpenRouter(apiKey, JSON.stringify(changedData), localesNeedingPartial)
           for (const { code } of localesNeedingPartial) {
@@ -194,11 +204,12 @@ export async function scheduleContentTranslation(
           }
           logSuccess({ ...logBase, mode: 'partial', targetLocales: localesNeedingPartial.map(l => l.code), translatedKeys: changedKeys, durationMs }, usage)
         } catch (err) {
-          logFailure({ ...logBase, mode: 'partial', targetLocales: localesNeedingPartial.map(l => l.code), translatedKeys: changedKeys }, 0, err)
+          logFailure({ ...logBase, mode: 'partial', targetLocales: localesNeedingPartial.map(l => l.code), translatedKeys: changedKeys }, Date.now() - startMsPartial, err)
         }
       }
 
       if (localesNeedingFull.length > 0) {
+        const startMsFull = Date.now()
         try {
           const { translations: fullTranslations, usage, durationMs } = await callOpenRouter(apiKey, JSON.stringify(data), localesNeedingFull)
           for (const { code } of localesNeedingFull) {
@@ -210,9 +221,12 @@ export async function scheduleContentTranslation(
           }
           logSuccess({ ...logBase, mode: 'full', targetLocales: localesNeedingFull.map(l => l.code), translatedKeys: Object.keys(data), durationMs }, usage)
         } catch (err) {
-          logFailure({ ...logBase, mode: 'full', targetLocales: localesNeedingFull.map(l => l.code), translatedKeys: Object.keys(data) }, 0, err)
+          logFailure({ ...logBase, mode: 'full', targetLocales: localesNeedingFull.map(l => l.code), translatedKeys: Object.keys(data) }, Date.now() - startMsFull, err)
         }
       }
+    }
+    } catch (err) {
+      console.error(JSON.stringify({ service: 'ai-translation', event: 'unhandled_error', entityType: 'content', entityId: contentItemId, error: String(err) }))
     }
   })
 }
@@ -276,6 +290,7 @@ export async function generateMissingUiTranslations(knownKeys: Record<string, st
 
 export async function scheduleGroupTranslation(groupId: string, title: string): Promise<void> {
   setImmediate(async () => {
+    try {
     const apiKey = buildApiKey()
     if (!apiKey) {
       console.warn(JSON.stringify({ service: 'ai-translation', event: 'skipped_no_api_key', entityType: 'group', entityId: groupId }))
@@ -295,6 +310,7 @@ export async function scheduleGroupTranslation(groupId: string, title: string): 
       translatedKeys: ['title'],
     }
 
+    const startMs = Date.now()
     try {
       const { translations, usage, durationMs } = await callOpenRouter(apiKey, JSON.stringify({ title }), targetLocales)
 
@@ -312,7 +328,10 @@ export async function scheduleGroupTranslation(groupId: string, title: string): 
       }
       logSuccess({ ...logBase, durationMs }, usage)
     } catch (err) {
-      logFailure(logBase, 0, err)
+      logFailure(logBase, Date.now() - startMs, err)
+    }
+    } catch (err) {
+      console.error(JSON.stringify({ service: 'ai-translation', event: 'unhandled_error', entityType: 'group', entityId: groupId, error: String(err) }))
     }
   })
 }
