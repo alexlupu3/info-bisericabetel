@@ -1527,7 +1527,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
         <label className="flex items-center gap-1.5 cursor-pointer" title="Ascunde din vizualizarea tuturor locațiilor">
           <input type="checkbox" checked={form.exclusiveSite !== null}
             onChange={e => set(e.target.checked
-              ? { exclusiveSite: availableSites[0]?.slug ?? null, sites: [] }
+              ? { exclusiveSite: availableSites[0]?.slug ?? null }
               : { exclusiveSite: null })}
             data-testid="exclusive-toggle"
             className="accent-[var(--accent)]" />

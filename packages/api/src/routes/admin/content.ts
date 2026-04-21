@@ -120,6 +120,16 @@ export async function adminContentRoutes(app: FastifyInstance) {
         }
       }
 
+      // Clearing exclusivity changes visibility scope: an exclusive row has sites=[], which
+      // would otherwise mean "all sites" once exclusiveSite is null. Require the caller to
+      // state the new sites scope explicitly so we never silently widen visibility.
+      const clearingExclusive = exclusiveProvided
+        && normalizedExclusive === null
+        && existing.exclusiveSite !== null
+      if (clearingExclusive && sites === undefined) {
+        return reply.code(400).send({ error: 'sites is required when clearing exclusiveSite' })
+      }
+
       // If the resulting row will be exclusive, sites[] must be empty regardless of what
       // the request asked for. Otherwise, honour an explicit sites field if present.
       const sitesPatch: { sites: string[] } | undefined = normalizedExclusive !== null

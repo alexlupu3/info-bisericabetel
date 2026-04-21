@@ -45,6 +45,7 @@ Migration file: `packages/api/src/db/migrations/0008_exclusive_site.sql`
 - `GET /api/content` (no `?site=`): adds `WHERE exclusive_site IS NULL` to exclude exclusive items.
 - `GET /api/content?site=<slug>`: includes items where `exclusive_site = slug` OR `exclusive_site IS NULL` (i.e. non-exclusive items also appear in site-specific views).
 - Write path (`POST /admin/content`, `PATCH /admin/content/:id`): when `exclusive_site` is present and non-null, `sites` is overwritten to `[]` before persisting.
+- `PATCH /admin/content/:id` clear-case guard: if the request sets `exclusive_site` to null on a currently-exclusive row, a `sites` array must be explicitly provided in the same request body. Omitting `sites` returns `400 { error: 'sites is required when clearing exclusiveSite' }`. This prevents a silent widening of visibility scope (an exclusive row carries `sites = []`, which without the guard would make the item visible to all sites after clearing).
 
 ### Admin UI
 
