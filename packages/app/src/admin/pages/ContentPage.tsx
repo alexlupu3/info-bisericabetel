@@ -1081,7 +1081,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
 // ── Shared form state ──────────────────────────────────────────────────────────
 
 type FormData = {
-  type: string; sites: string[]; expiresAt: string; groupId: string
+  type: string; sites: string[]; exclusiveSite: string | null; expiresAt: string; groupId: string
   title: string; body: string; description: string; date: string; endDate: string; link: string; cta: string; imageUrl: string; url: string
   name: string; thumbnail: string
   siteLinks: Record<string, string>
@@ -1092,6 +1092,7 @@ function itemToForm(item?: ContentItem | null): FormData {
   return {
     type:        item?.type ?? 'card',
     sites:       item?.sites ?? [],
+    exclusiveSite: item?.exclusiveSite ?? null,
     expiresAt:   item?.expiresAt ? item.expiresAt.slice(0, 10) : '',
     groupId:     item?.groupId ?? '',
     title:       d.title ?? '',
@@ -1135,7 +1136,15 @@ function formToPayload(f: FormData) {
   // Shared date fields — apply to all content types
   if (f.date)    data.startDate = f.date
   if (f.endDate) data.endDate   = f.endDate
-  return { type: f.type, sites: f.sites, groupId: f.groupId || null, expiresAt: f.expiresAt || null, data }
+  const exclusive = f.exclusiveSite !== null
+  return {
+    type: f.type,
+    sites: exclusive ? [] : f.sites,
+    exclusiveSite: f.exclusiveSite,
+    groupId: f.groupId || null,
+    expiresAt: f.expiresAt || null,
+    data,
+  }
 }
 
 // ── Media library modal ─────────────────────────────────────────────────────────
@@ -1498,25 +1507,60 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
         )}
       </div>
 
-      <div>
-        <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
-          Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
+      <div className="space-y-3">
+        <label className="flex items-center gap-1.5 cursor-pointer" title="Ascunde din vizualizarea tuturor locațiilor">
+          <input type="checkbox" checked={form.exclusiveSite !== null}
+            onChange={e => set(e.target.checked
+              ? { exclusiveSite: availableSites[0]?.slug ?? null, sites: [] }
+              : { exclusiveSite: null })}
+            data-testid="exclusive-toggle"
+            className="accent-[var(--accent)]" />
+          <span className="text-xs tracking-widest uppercase text-[var(--muted)] font-content">
+            Exclusiv unei locații <span className="normal-case text-[var(--muted)]">(ascunde din vizualizarea tuturor locațiilor)</span>
+          </span>
         </label>
-        <div className="flex gap-4">
-          {availableSites.map(s => (
-            <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={form.sites.includes(s.slug)}
-                onChange={() => toggleSite(s.slug)}
-                data-testid={`site-check-${s.slug}`}
-                className="accent-[var(--accent)]" />
-              <span className="text-xs font-content">{s.name}</span>
+
+        {form.exclusiveSite === null ? (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
+              Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
             </label>
-          ))}
-        </div>
+            <div className="flex gap-4">
+              {availableSites.map(s => (
+                <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={form.sites.includes(s.slug)}
+                    onChange={() => toggleSite(s.slug)}
+                    data-testid={`site-check-${s.slug}`}
+                    className="accent-[var(--accent)]" />
+                  <span className="text-xs font-content">{s.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
+              Locație <span className="normal-case text-[var(--muted)]">(obligatoriu)</span>
+            </label>
+            <div className="flex gap-4">
+              {availableSites.map(s => (
+                <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="exclusive-site"
+                    checked={form.exclusiveSite === s.slug}
+                    onChange={() => set({ exclusiveSite: s.slug })}
+                    data-testid={`exclusive-site-radio-${s.slug}`}
+                    className="accent-[var(--accent)]" />
+                  <span className="text-xs font-content">{s.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-1">
-        <button onClick={submit} disabled={busy}
+        <button onClick={submit}
+          disabled={busy || (form.exclusiveSite !== null && !availableSites.find(s => s.slug === form.exclusiveSite))}
           data-testid="create-submit-btn"
           className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
                      hover:border-[var(--accent)] transition-colors disabled:opacity-40">
