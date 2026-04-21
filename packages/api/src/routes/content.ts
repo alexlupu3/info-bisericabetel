@@ -9,12 +9,22 @@ export async function contentRoutes(app: FastifyInstance) {
 
     const now = new Date()
 
+    // Site-exclusive items belong to exactly one site and are hidden from the all-sites view.
+    // When a site is selected: include items exclusive to that site OR non-exclusive items
+    // whose surfacing hint matches (sites[] empty or contains the site).
+    // When no site is selected (all-sites view): hide every exclusive item.
     const siteFilter = site
       ? or(
-          sql`${contentItems.sites} = '{}'`,
-          sql`${site} = ANY(${contentItems.sites})`
+          eq(contentItems.exclusiveSite, site),
+          and(
+            isNull(contentItems.exclusiveSite),
+            or(
+              sql`${contentItems.sites} = '{}'`,
+              sql`${site} = ANY(${contentItems.sites})`
+            )
+          )
         )
-      : undefined
+      : isNull(contentItems.exclusiveSite)
 
     // LEFT JOIN groups so we can sort grouped items by their group's root orderPosition,
     // then by their own within-group orderPosition.
