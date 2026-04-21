@@ -22,8 +22,8 @@ describe('Card content type', () => {
       data: {
         title: 'Conferința de Tineret',
         description: 'Un weekend de rugăciune și comuniune.',
-        startDate: '2026-04-10',
-        endDate: '2026-04-12',
+        startDate: '2099-04-10',
+        endDate: '2099-04-12',
         link: 'https://example.com',
         cta: 'Înregistrează-te',
       },

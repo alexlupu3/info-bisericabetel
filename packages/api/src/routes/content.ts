@@ -30,12 +30,17 @@ export async function contentRoutes(app: FastifyInstance) {
     // then by their own within-group orderPosition.
     // For all content types: filter out past items based on endDate or startDate in JSONB data.
     // endDate is authoritative if present; fallback to startDate; no date = permanent (always shown).
+    // Compare against "today" in the church's local timezone (Europe/Bucharest) rather than the
+    // server's CURRENT_DATE. Production runs in UTC, so for a few hours each evening the server
+    // would otherwise still consider an item current after the admin (Romania-local) has it as past,
+    // and the public site keeps showing items that are visibly expired in the admin tool.
+    const todayLocal = sql`(NOW() AT TIME ZONE 'Europe/Bucharest')::date`
     const dateFilter = sql`(
       CASE
         WHEN ${contentItems.data}->>'endDate' IS NOT NULL
-          THEN (${contentItems.data}->>'endDate')::date >= CURRENT_DATE
+          THEN (${contentItems.data}->>'endDate')::date >= ${todayLocal}
         WHEN ${contentItems.data}->>'startDate' IS NOT NULL
-          THEN (${contentItems.data}->>'startDate')::date >= CURRENT_DATE
+          THEN (${contentItems.data}->>'startDate')::date >= ${todayLocal}
         ELSE TRUE
       END
     )`
