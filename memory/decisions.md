@@ -42,3 +42,8 @@ Use this file for recent decisions that need quick visibility. Promote durable d
   Decision: Merged `packages/pwa` and `packages/admin` into a single `packages/app` package. Admin routes (`/admin/*`) are lazy-loaded via `React.lazy` producing a separate Vite chunk. Public users never download admin JS. Admin surface is scoped via `.admin-theme` CSS class. Single Vite dev server on port 5173.
   Why: Both packages shared an identical stack (React, TypeScript, Vite, TanStack Query, React Router) and maintained two separate build pipelines, deploy stages, and Nginx location blocks with no real isolation benefit. The original "must not share build artifacts" constraint is now satisfied at runtime by lazy loading rather than by physical package separation.
   See: ADR-005 for full options analysis and implementation notes.
+
+- Date: 2026-04-21
+  Decision: Site-exclusive content uses a dedicated nullable `exclusive_site TEXT REFERENCES sites(slug)` column on `content_items`, not a boolean flag that reuses `sites[]` as a single-element array.
+  Why: Overloading `sites[]` with a second semantic (surfacing hint vs. hard gate) requires runtime "must be exactly one slug" validation across multiple layers and makes the schema ambiguous. A dedicated column follows established project conventions (`expiresAt`, `groupId`) and keeps semantics unambiguous. Migration: `0008_exclusive_site.sql`.
+  See: ADR-009 for full options analysis and implementation notes.
