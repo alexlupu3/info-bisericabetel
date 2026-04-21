@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus } from 'lucide-react'
+import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -29,7 +29,23 @@ const CONTENT_TYPES = ['card', 'richtext', 'poster', 'video'] as const
 
 // ── Site circles ───────────────────────────────────────────────────────────────
 
-function SiteCircles({ sites, availableSites }: { sites: string[]; availableSites: Site[] }) {
+function SiteCircles({ sites, exclusiveSite, availableSites }: { sites: string[]; exclusiveSite: string | null; availableSites: Site[] }) {
+  if (exclusiveSite !== null) {
+    const site = availableSites.find(s => s.slug === exclusiveSite)
+    return (
+      <div
+        data-testid={`exclusive-badge-${exclusiveSite}`}
+        title={`Exclusiv ${site?.name ?? exclusiveSite}`}
+        className="flex gap-1 flex-shrink-0 items-center hidden sm:flex"
+      >
+        <Lock className="w-3 h-3" style={{ color: 'var(--muted)' }} />
+        <span
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 cursor-default ring-1 ring-[var(--text)]/40"
+          style={{ backgroundColor: site?.accent ?? '#888' }}
+        />
+      </div>
+    )
+  }
   if (sites.length === 0) return null
   return (
     <div className="flex gap-1 flex-shrink-0 items-center hidden sm:flex">
@@ -672,7 +688,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           data-testid={`group-name-${entry.id}`}
           className="flex-1 text-xs tracking-widest uppercase font-content font-bold text-left hover:text-[var(--accent)] transition-colors cursor-pointer"
         >{entry.title}</button>
-        <SiteCircles sites={entry.sites} availableSites={availableSites} />
+        <SiteCircles sites={entry.sites} exclusiveSite={null} availableSites={availableSites} />
         <button
           onClick={onAddContent}
           data-testid={`group-add-content-${entry.id}`}
@@ -952,7 +968,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
           expirat
         </span>
       )}
-      <SiteCircles sites={item.sites} availableSites={availableSites} />
+      <SiteCircles sites={item.sites} exclusiveSite={item.exclusiveSite} availableSites={availableSites} />
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className={`hidden sm:inline text-xs font-content uppercase tracking-widest ${stateColor}`}>{item.state}</span>
         <button
