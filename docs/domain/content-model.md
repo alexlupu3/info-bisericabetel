@@ -92,6 +92,8 @@ The public API applies date filtering uniformly across all types using this prio
 2. If only a `startDate` is set → item is hidden after `startDate`
 3. If no JSONB dates are set → no date-based filtering from this mechanism
 
+"After" is evaluated against `(NOW() AT TIME ZONE 'Europe/Bucharest')::date` rather than the server's `CURRENT_DATE`. The production API container runs in UTC; without this, items the admin (Romania-local) already shows as expired would keep rendering on the public hub for the few hours each evening between Bucharest midnight and UTC midnight. The public client mirrors this with a defense-in-depth `isItemPast()` filter that uses the visitor's local calendar day, so the public view stays consistent with the admin's expired-badge regardless of any server-side drift.
+
 The admin past-item badge (`isItemPast()`) follows the same priority: `endDate` → `startDate`.
 
 The admin form applies progressive disclosure: the end date input is hidden until a start date is provided.
