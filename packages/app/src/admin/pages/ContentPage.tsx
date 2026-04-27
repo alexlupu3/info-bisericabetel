@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus } from 'lucide-react'
+import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -29,7 +29,23 @@ const CONTENT_TYPES = ['card', 'richtext', 'poster', 'video'] as const
 
 // ── Site circles ───────────────────────────────────────────────────────────────
 
-function SiteCircles({ sites, availableSites }: { sites: string[]; availableSites: Site[] }) {
+function SiteCircles({ sites, exclusiveSite, availableSites }: { sites: string[]; exclusiveSite: string | null; availableSites: Site[] }) {
+  if (exclusiveSite !== null) {
+    const site = availableSites.find(s => s.slug === exclusiveSite)
+    return (
+      <div
+        data-testid={`exclusive-badge-${exclusiveSite}`}
+        title={`Exclusiv ${site?.name ?? exclusiveSite}`}
+        className="flex gap-1 flex-shrink-0 items-center hidden sm:flex"
+      >
+        <Lock className="w-3 h-3" style={{ color: 'var(--muted)' }} />
+        <span
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 cursor-default ring-1 ring-[var(--text)]/40"
+          style={{ backgroundColor: site?.accent ?? '#888' }}
+        />
+      </div>
+    )
+  }
   if (sites.length === 0) return null
   return (
     <div className="flex gap-1 flex-shrink-0 items-center hidden sm:flex">
@@ -672,7 +688,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           data-testid={`group-name-${entry.id}`}
           className="flex-1 text-xs tracking-widest uppercase font-content font-bold text-left hover:text-[var(--accent)] transition-colors cursor-pointer"
         >{entry.title}</button>
-        <SiteCircles sites={entry.sites} availableSites={availableSites} />
+        <SiteCircles sites={entry.sites} exclusiveSite={null} availableSites={availableSites} />
         <button
           onClick={onAddContent}
           data-testid={`group-add-content-${entry.id}`}
@@ -952,7 +968,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
           expirat
         </span>
       )}
-      <SiteCircles sites={item.sites} availableSites={availableSites} />
+      <SiteCircles sites={item.sites} exclusiveSite={item.exclusiveSite} availableSites={availableSites} />
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className={`hidden sm:inline text-xs font-content uppercase tracking-widest ${stateColor}`}>{item.state}</span>
         <button
@@ -1081,7 +1097,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
 // ── Shared form state ──────────────────────────────────────────────────────────
 
 type FormData = {
-  type: string; sites: string[]; expiresAt: string; groupId: string
+  type: string; sites: string[]; exclusiveSite: string | null; expiresAt: string; groupId: string
   title: string; body: string; description: string; date: string; endDate: string; link: string; cta: string; imageUrl: string; url: string
   name: string; thumbnail: string
   siteLinks: Record<string, string>
@@ -1092,6 +1108,7 @@ function itemToForm(item?: ContentItem | null): FormData {
   return {
     type:        item?.type ?? 'card',
     sites:       item?.sites ?? [],
+    exclusiveSite: item?.exclusiveSite ?? null,
     expiresAt:   item?.expiresAt ? item.expiresAt.slice(0, 10) : '',
     groupId:     item?.groupId ?? '',
     title:       d.title ?? '',
@@ -1135,7 +1152,15 @@ function formToPayload(f: FormData) {
   // Shared date fields — apply to all content types
   if (f.date)    data.startDate = f.date
   if (f.endDate) data.endDate   = f.endDate
-  return { type: f.type, sites: f.sites, groupId: f.groupId || null, expiresAt: f.expiresAt || null, data }
+  const exclusive = f.exclusiveSite !== null
+  return {
+    type: f.type,
+    sites: exclusive ? [] : f.sites,
+    exclusiveSite: f.exclusiveSite,
+    groupId: f.groupId || null,
+    expiresAt: f.expiresAt || null,
+    data,
+  }
 }
 
 // ── Media library modal ─────────────────────────────────────────────────────────
@@ -1655,26 +1680,61 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
           )}
         </div>
 
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
-            Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
+        <div className="space-y-3">
+          <label className="flex items-center gap-1.5 cursor-pointer" title="Ascunde din vizualizarea tuturor locațiilor">
+            <input type="checkbox" checked={form.exclusiveSite !== null}
+              onChange={e => set(e.target.checked
+                ? { exclusiveSite: availableSites[0]?.slug ?? null }
+                : { exclusiveSite: null })}
+              data-testid="exclusive-toggle"
+              className="accent-[var(--accent)]" />
+            <span className="text-xs tracking-widest uppercase text-[var(--muted)] font-content">
+              Exclusiv unei locații <span className="normal-case text-[var(--muted)]">(ascunde din vizualizarea tuturor locațiilor)</span>
+            </span>
           </label>
-          <div className="flex gap-4">
-            {availableSites.map(s => (
-              <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={form.sites.includes(s.slug)}
-                  onChange={() => toggleSite(s.slug)}
-                  data-testid={`site-check-${s.slug}`}
-                  className="accent-[var(--accent)]" />
-                <span className="text-xs font-content">{s.name}</span>
+
+          {form.exclusiveSite === null ? (
+            <div>
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
+                Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
               </label>
-            ))}
-          </div>
+              <div className="flex gap-4">
+                {availableSites.map(s => (
+                  <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={form.sites.includes(s.slug)}
+                      onChange={() => toggleSite(s.slug)}
+                      data-testid={`site-check-${s.slug}`}
+                      className="accent-[var(--accent)]" />
+                    <span className="text-xs font-content">{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
+                Locație <span className="normal-case text-[var(--muted)]">(obligatoriu)</span>
+              </label>
+              <div className="flex gap-4">
+                {availableSites.map(s => (
+                  <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="exclusive-site"
+                      checked={form.exclusiveSite === s.slug}
+                      onChange={() => set({ exclusiveSite: s.slug })}
+                      data-testid={`exclusive-site-radio-${s.slug}`}
+                      className="accent-[var(--accent)]" />
+                    <span className="text-xs font-content">{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </>)}
 
       <div className="flex gap-3 pt-1">
-        <button onClick={submit} disabled={busy}
+        <button onClick={submit}
+          disabled={busy || (form.exclusiveSite !== null && !availableSites.find(s => s.slug === form.exclusiveSite))}
           data-testid="create-submit-btn"
           className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
                      hover:border-[var(--accent)] transition-colors disabled:opacity-40">

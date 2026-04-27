@@ -16,7 +16,7 @@ export default function GroupBlock({ title, items, accent, activeSite = null, sh
         <span className="block w-4 h-px flex-shrink-0" style={{ backgroundColor: accent }} />
         <h2 className="betel-title-bold text-sm tracking-widest uppercase">{title}</h2>
       </header>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
         {items.map(item => (
           <ContentRenderer key={item.id} item={item} accent={accent} activeSite={activeSite} showSiteLabel={showSiteLabel} />
         ))}

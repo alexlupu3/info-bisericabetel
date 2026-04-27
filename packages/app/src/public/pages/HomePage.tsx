@@ -9,6 +9,7 @@ import LanguageSwitcher from '../components/LanguageSwitcher'
 import ContentRenderer from '../components/content/ContentRenderer'
 import GroupBlock from '../components/content/GroupBlock'
 import { api, type ContentItem } from '../api/client'
+import { filterCurrent } from '../api/filter'
 import { track } from '../api/track'
 
 export default function HomePage() {
@@ -78,11 +79,12 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto w-full px-5 space-y-10">
           {isLoading && <LoadingState />}
           {isError  && <ErrorState />}
-          {!isLoading && !isError && data && (
-            data.items.length === 0
+          {!isLoading && !isError && data && (() => {
+            const visibleItems = filterCurrent(data.items)
+            return visibleItems.length === 0
               ? <EmptyState accent={accent} siteName={site?.name ?? null} />
-              : <Feed items={data.items} accent={accent} activeSite={activeSite} showSiteLabel={activeSite === null} />
-          )}
+              : <Feed items={visibleItems} accent={accent} activeSite={activeSite} showSiteLabel={activeSite === null} />
+          })()}
         </div>
       </main>
 

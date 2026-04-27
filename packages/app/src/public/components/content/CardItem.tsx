@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
@@ -63,9 +65,9 @@ export default function CardItem({
             <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
             <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
             {d.description && (
-              <p className="font-content text-sm text-[var(--muted)] leading-relaxed">
-                {d.description}
-              </p>
+              <div className="font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.description}</ReactMarkdown>
+              </div>
             )}
           </div>
           {resolvedLink && d.cta && (
@@ -119,9 +121,9 @@ export default function CardItem({
         <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
         <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
         {d.description && (
-          <p className="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">
-            {d.description}
-          </p>
+          <div className="font-content text-sm text-[var(--muted)] leading-relaxed mb-4 prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.description}</ReactMarkdown>
+          </div>
         )}
         {resolvedLink && d.cta && (
           <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">

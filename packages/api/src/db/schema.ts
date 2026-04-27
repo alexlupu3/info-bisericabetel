@@ -69,6 +69,7 @@ export const contentItems = pgTable('content_items', {
   type:          text('type').notNull(),
   state:         text('state').notNull().default('draft'),
   sites:         text('sites').array().notNull().default([]),
+  exclusiveSite: text('exclusive_site').references(() => sites.slug),
   orderPosition: integer('order_position').notNull().default(0),
   groupId:       uuid('group_id').references(() => groups.id),
   expiresAt:     timestamp('expires_at', { withTimezone: true }),

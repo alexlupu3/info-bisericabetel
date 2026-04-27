@@ -259,3 +259,106 @@ describe('Content admin — past badge for all content types', () => {
     cy.get('[data-testid="past-badge-n1"]').should('not.exist')
   })
 })
+
+describe('Content form — site-exclusive', () => {
+  beforeEach(setup)
+
+  it('toggling exclusive hides multi-site checkboxes and shows the radio group', () => {
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('richtext')
+    cy.get('[data-testid="create-body-input"]').type('Anunț exclusiv')
+
+    // Sanity: multi-checkbox exists before toggling
+    cy.get('[data-testid="site-check-centru"]').should('exist')
+
+    cy.get('[data-testid="exclusive-toggle"]').check()
+
+    cy.get('[data-testid="site-check-centru"]').should('not.exist')
+    cy.get('[data-testid="site-check-vest"]').should('not.exist')
+    cy.get('[data-testid="exclusive-site-radio-centru"]').should('exist').and('be.checked')
+    cy.get('[data-testid="exclusive-site-radio-vest"]').should('exist').and('not.be.checked')
+  })
+
+  it('submits exclusiveSite and forces sites to []', () => {
+    cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: {
+      id: 'rt-ex', type: 'richtext', state: 'draft', sites: [], exclusiveSite: 'vest',
+      orderPosition: 0, groupId: null, expiresAt: null,
+      data: { body: 'Anunț exclusiv' }, createdAt: '', updatedAt: '',
+    }}).as('create')
+
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('richtext')
+    cy.get('[data-testid="create-body-input"]').type('Anunț exclusiv')
+    cy.get('[data-testid="exclusive-toggle"]').check()
+    cy.get('[data-testid="exclusive-site-radio-vest"]').check()
+    cy.get('[data-testid="create-submit-btn"]').click()
+
+    cy.wait('@create').its('request.body').should(body => {
+      expect(body).to.deep.include({ exclusiveSite: 'vest' })
+      expect(body.sites).to.deep.equal([])
+    })
+  })
+
+  it('untoggling exclusive restores multi-checkboxes and clears exclusiveSite on submit', () => {
+    cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: {
+      id: 'rt-multi', type: 'richtext', state: 'draft', sites: ['centru', 'vest'], exclusiveSite: null,
+      orderPosition: 0, groupId: null, expiresAt: null,
+      data: { body: 'Anunț multi' }, createdAt: '', updatedAt: '',
+    }}).as('create')
+
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('richtext')
+    cy.get('[data-testid="create-body-input"]').type('Anunț multi')
+
+    // Toggle on then off
+    cy.get('[data-testid="exclusive-toggle"]').check()
+    cy.get('[data-testid="site-check-centru"]').should('not.exist')
+    cy.get('[data-testid="exclusive-toggle"]').uncheck()
+
+    // Multi-checkboxes are back
+    cy.get('[data-testid="site-check-centru"]').should('exist')
+    cy.get('[data-testid="site-check-vest"]').should('exist')
+    cy.get('[data-testid="exclusive-site-radio-centru"]').should('not.exist')
+
+    cy.get('[data-testid="site-check-centru"]').check()
+    cy.get('[data-testid="site-check-vest"]').check()
+    cy.get('[data-testid="create-submit-btn"]').click()
+
+    cy.wait('@create').its('request.body').should(body => {
+      expect(body.exclusiveSite).to.eq(null)
+      expect(body.sites).to.include.members(['centru', 'vest'])
+    })
+  })
+})
+
+describe('Content form — site-exclusive edit mode', () => {
+  beforeEach(() => {
+    cy.intercept('GET', '/api/auth/me', mockUser).as('me')
+    cy.intercept('GET', '/api/admin/groups', { groups: [] })
+    cy.intercept('GET', '/api/sites', { sites: mockSites })
+    cy.intercept('GET', '/api/admin/content', {
+      items: [{
+        id: 'item-ex', type: 'richtext', state: 'draft',
+        sites: [], exclusiveSite: 'vest',
+        orderPosition: 0, groupId: null, expiresAt: null,
+        data: { body: 'Anunț doar vest' }, createdAt: '', updatedAt: '',
+      }],
+    })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
+    cy.wait('@me')
+  })
+
+  it('pre-fills the exclusive radio when editing an exclusive item', () => {
+    cy.get('[data-testid="item-menu-trigger-item-ex"]').click()
+    cy.get('[data-testid="item-menu-edit-item-ex"]').click()
+    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="exclusive-toggle"]').should('be.checked')
+    cy.get('[data-testid="exclusive-site-radio-vest"]').should('be.checked')
+    cy.get('[data-testid="exclusive-site-radio-centru"]').should('exist').and('not.be.checked')
+    cy.get('[data-testid="site-check-centru"]').should('not.exist')
+  })
+
+  it('shows the exclusive badge in the list for an exclusive item', () => {
+    cy.get('[data-testid="exclusive-badge-vest"]').should('exist')
+  })
+})

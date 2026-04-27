@@ -44,6 +44,7 @@ export interface Group {
 
 export interface ContentItem {
   id: string; type: string; state: string; sites: string[]
+  exclusiveSite: string | null
   orderPosition: number; groupId: string | null
   expiresAt: string | null; data: Record<string, unknown>
   createdAt: string; updatedAt: string

@@ -48,5 +48,5 @@ UI string translations (small, ~10 strings) are fetched from the API on language
 - Adding a new language requires only a super-admin action (no deploy).
 - Translation completeness is the responsibility of super-admins; partial translations fall back silently to Romanian.
 - New content types must explicitly declare which of their fields are translatable. The AI auto-translation system prompt already excludes `imageUrl` and `thumbnail` from translation so locale image selection remains an explicit admin action, not an AI-generated value.
-- The `languages`, `ui_translations`, `content_translations`, and `group_translations` tables (migration `0008_i18n.sql`) are the authoritative source for all translation data.
+- The `languages`, `ui_translations`, `content_translations`, and `group_translations` tables (migration `0009_i18n.sql`) are the authoritative source for all translation data.
 - First-pass translations are automatically generated via OpenRouter (Claude Haiku) when content items or groups are created or updated (if `OPEN_ROUTER_API_KEY` is configured); see [ADR-010](ADR-010-ai-auto-translation-fire-and-forget.md) for the fire-and-forget job decision.
