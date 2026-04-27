@@ -13,6 +13,7 @@ import MediaPage from './pages/MediaPage'
 import LogsPage from './pages/LogsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import ArchivePage from './pages/ArchivePage'
+import TranslationsPage from './pages/TranslationsPage'
 import SetupPage from './pages/SetupPage'
 
 export default function AdminApp() {
@@ -78,6 +79,9 @@ function Shell() {
             {user.role === 'super-admin' && (
               <NavLink to="logs" className={navLinkClass}>Jurnale</NavLink>
             )}
+            {user.role === 'super-admin' && (
+              <NavLink to="translations" className={navLinkClass}>Traduceri</NavLink>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -113,6 +117,9 @@ function Shell() {
           {user.role === 'super-admin' && (
             <NavLink to="logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Jurnale</NavLink>
           )}
+          {user.role === 'super-admin' && (
+            <NavLink to="translations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Traduceri</NavLink>
+          )}
           <button onClick={() => { setMobileMenuOpen(false); logout() }}
             className="text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors text-left">
             Ieșire
@@ -135,6 +142,9 @@ function Shell() {
           )}
           {user.role === 'super-admin' && (
             <Route path="logs" element={<LogsPage />} />
+          )}
+          {user.role === 'super-admin' && (
+            <Route path="translations" element={<PageContainer><TranslationsPage /></PageContainer>} />
           )}
           <Route path="*" element={<Navigate to="content" replace />} />
         </Routes>

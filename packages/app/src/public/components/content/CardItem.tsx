@@ -3,6 +3,7 @@ import remarkGfm from 'remark-gfm'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
+import { useLanguage } from '../../context/LanguageContext'
 
 type CardData = {
   title: string
@@ -39,7 +40,8 @@ export default function CardItem({
 }) {
   const d = item.data as CardData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
-  const dateStr = formatDateRange(d.startDate ?? d.date, d.endDate)
+  const { dateLocale } = useLanguage()
+  const dateStr = formatDateRange(d.startDate ?? d.date, d.endDate, dateLocale)
 
   if (variant === 'horizontal') {
     const article = (
@@ -154,9 +156,9 @@ export default function CardItem({
   return article
 }
 
-function formatDateRange(start?: string, end?: string) {
+function formatDateRange(start?: string, end?: string, dateLocale = 'ro-RO') {
   if (!start) return null
   const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long' })
+    new Date(d).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })
   return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start)
 }

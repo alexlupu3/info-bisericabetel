@@ -13,3 +13,8 @@ Define business and ministry terms exactly once and reuse them consistently.
 | Poster | A content type composed of an image and an optional admin-only `name` label; rendered as a visual image tile on the public hub | The `name` field is stored in `data.name` (JSONB), admin-only, never displayed publicly |
 | Media library | The admin UI and underlying `media` table that tracks all uploaded images, shows which content items use each image, and allows deletion of unused images | Accessible via the `/media` admin route; see ADR-003 |
 | Orphan (media) | An image file present on disk that has no corresponding row in the `media` table | Can occur only if the DB insert fails after a successful file write during upload |
+| Locale | A BCP-47 language code (e.g. `ro`, `en`) identifying the language used for public hub display | Romanian (`ro`) is the default; additional locales are managed by super-admins |
+| Default locale | The canonical language (Romanian, `ro`) in which all content is originally authored | Always available; used as fallback when a translation is missing for any other locale |
+| Translation key | A dot-notation string (e.g. `nav.viewAll`) identifying a UI string that can be translated | Managed in the admin Translations page; source values are defined in code |
+| LanguageSwitcher | The UI toggle in the public hub footer that allows users to switch the display language | Preference is persisted in localStorage under the key `betel-lang` |
+| Translation status badge | An indicator shown on admin content list items when translations are missing or incomplete for one or more enabled non-default languages | Visible in the admin content list; not shown on the public hub |

@@ -15,8 +15,9 @@
 #   DATABASE_URL   — override to point to an external database
 #   UPLOADS_DIR    — path inside the container for uploaded media (default: /uploads)
 #   PORT           — host port the app listens on (default: 80)
-#   RESEND_API_KEY — email sending (future feature)
-#   EMAIL_FROM     — sender address for emails
+#   RESEND_API_KEY    — email sending (future feature)
+#   EMAIL_FROM        — sender address for emails
+#   OPEN_ROUTER_API_KEY — enables AI-powered auto-translation (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -50,6 +51,7 @@ services:
       UPLOADS_DIR: /uploads
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
+      OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:-}
     volumes:
       - uploads:/uploads
     ports:

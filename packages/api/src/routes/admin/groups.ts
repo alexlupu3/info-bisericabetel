@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, and } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { groups, contentItems } from '../../db/schema.js'
+import { groups, contentItems, groupTranslations, languages } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
+import { scheduleGroupTranslation } from '../../services/ai-translation.js'
 
 function adminOnly(req: any, reply: any, done: any) {
   const role = (req.user as any)?.role
@@ -26,6 +27,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
       const { title, sites = [] } = req.body
       if (!title) return reply.code(400).send({ error: 'title is required' })
       const [group] = await db.insert(groups).values({ title, sites }).returning()
+      scheduleGroupTranslation(group.id, title)
       return reply.code(201).send(group)
     }
   )
@@ -40,6 +42,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
         updatedAt: new Date(),
       }).where(eq(groups.id, id)).returning()
       if (!updated) return reply.code(404).send({ error: 'Not found' })
+      if (title !== undefined) scheduleGroupTranslation(id, title)
       return updated
     }
   )
@@ -68,6 +71,47 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
       await db.delete(groups).where(eq(groups.id, req.params.id))
       const actor = req.user as any
       await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'group.delete', entityId: req.params.id })
+      return reply.code(204).send()
+    }
+  )
+
+  // ── Group translations ──────────────────────────────────────────────
+
+  // Upsert group title translation
+  app.put<{ Params: { id: string; locale: string }; Body: { title: string } }>(
+    '/admin/groups/:id/translations/:locale', { preHandler: auth }, async (req, reply) => {
+      const { id, locale } = req.params
+      const { title } = req.body
+      if (!title) return reply.code(400).send({ error: 'title is required' })
+
+      const [group] = await db.select().from(groups).where(eq(groups.id, id))
+      if (!group) return reply.code(404).send({ error: 'Not found' })
+
+      const [lang] = await db.select().from(languages).where(eq(languages.code, locale))
+      if (!lang) return reply.code(400).send({ error: 'invalid locale' })
+
+      const [translation] = await db.insert(groupTranslations)
+        .values({ groupId: id, locale, title, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: [groupTranslations.groupId, groupTranslations.locale],
+          set: { title, updatedAt: new Date() },
+        })
+        .returning()
+
+      const actor = req.user as any
+      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'group.translation.upsert', entityType: 'translation', entityId: id, detail: { locale } })
+      return translation
+    }
+  )
+
+  // Delete group title translation
+  app.delete<{ Params: { id: string; locale: string } }>(
+    '/admin/groups/:id/translations/:locale', { preHandler: auth }, async (req, reply) => {
+      const { id, locale } = req.params
+      await db.delete(groupTranslations)
+        .where(and(eq(groupTranslations.groupId, id), eq(groupTranslations.locale, locale)))
+      const actor = req.user as any
+      await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'group.translation.delete', entityType: 'translation', entityId: id, detail: { locale } })
       return reply.code(204).send()
     }
   )

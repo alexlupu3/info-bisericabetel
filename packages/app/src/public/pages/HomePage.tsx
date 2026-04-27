@@ -2,7 +2,10 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSite } from '../hooks/useSite'
 import { useTheme } from '../hooks/useTheme'
+import { useLanguage } from '../context/LanguageContext'
+import { UI_KEYS } from '../i18n/keys'
 import SiteSwitcher from '../components/SiteSwitcher'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 import ContentRenderer from '../components/content/ContentRenderer'
 import GroupBlock from '../components/content/GroupBlock'
 import { api, type ContentItem } from '../api/client'
@@ -12,14 +15,15 @@ import { track } from '../api/track'
 export default function HomePage() {
   const { activeSite, site, accent, selectSite } = useSite()
   const { theme, toggle } = useTheme()
+  const { t, locale } = useLanguage()
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent', accent)
   }, [accent])
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['content', activeSite],
-    queryFn: () => api.content(activeSite),
+    queryKey: ['content', activeSite, locale],
+    queryFn: () => api.content(activeSite, locale),
   })
 
   useEffect(() => {
@@ -49,7 +53,7 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mt-3 font-content text-sm text-[var(--muted)] leading-relaxed" data-testid="hero-subtitle">
-            Rămâi la curent cu programul și activitățile bisericii Betel
+            {t(UI_KEYS.HERO_SUBTITLE, 'Rămâi la curent cu programul și activitățile bisericii Betel')}
           </p>
           <a
             href="https://bisericabetel.com"
@@ -88,9 +92,12 @@ export default function HomePage() {
       <footer className="border-t border-[var(--border)]">
         <div className="max-w-4xl mx-auto w-full px-5 py-6 flex items-center justify-between">
           <p className="text-[10px] tracking-widest uppercase text-[var(--muted)] font-content">
-            © {new Date().getFullYear()} Biserica Baptistă Betel · Cluj-Napoca
+            {`© ${new Date().getFullYear()} ${t(UI_KEYS.FOOTER_COPYRIGHT, 'Biserica Baptistă Betel · Cluj-Napoca')}`}
           </p>
-          <ThemeToggle theme={theme} onToggle={toggle} />
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <ThemeToggle theme={theme} onToggle={toggle} />
+          </div>
         </div>
       </footer>
     </div>
@@ -149,34 +156,37 @@ function LoadingState() {
 }
 
 function ErrorState() {
+  const { t } = useLanguage()
   return (
     <p className="font-content text-sm text-[var(--muted)]" data-testid="content-error">
-      Nu s-a putut încărca conținutul. Încearcă din nou.
+      {t(UI_KEYS.CONTENT_ERROR, 'Nu s-a putut încărca conținutul. Încearcă din nou.')}
     </p>
   )
 }
 
 function EmptyState({ accent, siteName }: { accent: string; siteName: string | null }) {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-start gap-3" data-testid="content-empty">
       <span className="block w-6 h-px" style={{ backgroundColor: accent }} aria-hidden="true" />
       <p className="font-content text-sm text-[var(--muted)] leading-relaxed">
         {siteName
-          ? `Nicio informație disponibilă pentru ${siteName} în momentul acesta.`
-          : 'Nicio informație disponibilă în momentul acesta.'}
+          ? t(UI_KEYS.CONTENT_EMPTY_WITH_SITE, 'Nicio informație disponibilă pentru {siteName} în momentul acesta.', { siteName })
+          : t(UI_KEYS.CONTENT_EMPTY_NO_SITE, 'Nicio informație disponibilă în momentul acesta.')}
       </p>
       <p className="font-content text-xs text-[var(--muted)] opacity-60">
-        Revino mai târziu sau selectează o altă locație.
+        {t(UI_KEYS.CONTENT_EMPTY_HINT, 'Revino mai târziu sau selectează o altă locație.')}
       </p>
     </div>
   )
 }
 
 function ThemeToggle({ theme, onToggle }: { theme: 'light' | 'dark'; onToggle: () => void }) {
+  const { t } = useLanguage()
   return (
     <button
       onClick={onToggle}
-      aria-label={theme === 'dark' ? 'Comută la modul luminos' : 'Comută la modul întunecat'}
+      aria-label={theme === 'dark' ? t(UI_KEYS.THEME_LIGHT, 'Comută la modul luminos') : t(UI_KEYS.THEME_DARK, 'Comută la modul întunecat')}
       className="text-[var(--muted)] opacity-40 hover:opacity-70 transition-opacity duration-200 focus:outline-none"
     >
       {theme === 'dark' ? (

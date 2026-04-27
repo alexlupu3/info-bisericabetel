@@ -18,6 +18,13 @@ const mockSites = [
 
 beforeEach(() => {
   cy.intercept('GET', '/api/sites', { sites: mockSites })
+  cy.intercept('GET', '/api/languages', {
+    languages: [
+      { code: 'ro', name: 'Română', isDefault: true, enabled: true },
+      { code: 'en', name: 'English', isDefault: false, enabled: true },
+    ]
+  }).as('languages')
+  cy.intercept('GET', '/api/translations*', { locale: 'ro', translations: {} }).as('translations')
 })
 
 describe('Card — per-site link resolution', () => {

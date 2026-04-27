@@ -19,6 +19,11 @@ This repository is the root for a production-ready application and its supportin
 - `/media` — browse uploaded images, view usage, delete unused files
 - `/locations` — manage site settings
 - `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal, and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins
+- `/translations` — super-admin only; manage supported languages and translate all public UI strings; content items also support per-language translation via the content edit form
+
+## AI Auto-Translation
+
+When `OPEN_ROUTER_API_KEY` is set, the API automatically generates first-pass translations for content items and groups into all enabled non-default languages whenever they are created or updated. Translation runs as a background job (after the HTTP response is returned) using Claude Haiku via OpenRouter and does not affect admin response times. AI-generated translations can be reviewed and overridden at any time via `/translations`. If the key is not set the feature is silently disabled — no errors, no changed behavior.
 
 ## Prerequisites
 
@@ -136,6 +141,7 @@ A `captain-definition` file is included at the repo root so the app can be deplo
 | `JWT_SECRET` | Min 32 chars — signs JWT tokens |
 | `UPLOADS_DIR` | Absolute path for media storage inside the container (e.g. `/uploads`) |
 | `NODE_ENV` | `production` |
+| `OPEN_ROUTER_API_KEY` | Optional — enables AI auto-translation of content and groups on create/update (Claude Haiku via OpenRouter) |
 
 **3. Container HTTP Port** — set to `3100` in the CapRover app settings. CapRover routes external HTTPS traffic through its own load balancer to this port.
 

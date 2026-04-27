@@ -1,6 +1,7 @@
 /**
  * Task 5 — Location indicator for scoped items in "all sites" view
  */
+import { stubI18nRoutes } from '../support/helpers/i18n'
 
 const SITES_FIXTURE = {
   sites: [
@@ -24,6 +25,7 @@ const base = {
 function mockContent(items: object[]) {
   cy.intercept('GET', '/api/sites', SITES_FIXTURE).as('sites')
   cy.intercept('GET', '/api/content*', { site: null, items }).as('content')
+  stubI18nRoutes()
 }
 
 describe('Site label — all-sites view', () => {
@@ -101,6 +103,7 @@ describe('Site label — all-sites view', () => {
   describe('does not show label when viewing a specific site', () => {
     it('hides site label when user is on a site-specific view', () => {
       cy.intercept('GET', '/api/sites', SITES_FIXTURE).as('sites')
+      stubI18nRoutes()
       cy.intercept('GET', '/api/content?site=manastur', {
         site: 'manastur',
         items: [{

@@ -24,3 +24,30 @@ export interface ApiHealth {
   version: string
   timestamp: string
 }
+
+export interface Language {
+  code: string
+  name: string
+  isDefault: boolean
+  enabled: boolean
+}
+
+export interface UiTranslation {
+  locale: string
+  key: string
+  value: string
+}
+
+export interface ContentTranslation {
+  id: string
+  contentItemId: string
+  locale: string
+  data: Record<string, unknown>
+}
+
+export interface GroupTranslation {
+  id: string
+  groupId: string
+  locale: string
+  title: string
+}

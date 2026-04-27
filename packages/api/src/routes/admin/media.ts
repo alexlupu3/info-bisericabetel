@@ -4,7 +4,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import sharp from 'sharp'
 import { db } from '../../db/client.js'
-import { media, contentItems } from '../../db/schema.js'
+import { media, contentItems, contentTranslations } from '../../db/schema.js'
 import { eq, sql } from 'drizzle-orm'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), '..', 'uploads')
@@ -69,25 +69,32 @@ export async function adminMediaRoutes(app: FastifyInstance) {
   app.get('/admin/media', { preHandler: auth }, async (_req, _reply) => {
     const rows = await db.select().from(media).orderBy(sql`${media.createdAt} DESC`)
 
-    // For each image, find content items that reference it
+    // For each image, find content items that reference it (directly or via locale translations)
     const usages = await Promise.all(
       rows.map(async (m) => {
-        const users = await db
+        const directUsers = await db
           .select({ id: contentItems.id, type: contentItems.type, data: contentItems.data })
           .from(contentItems)
-          .where(
-            sql`${contentItems.data}->>'imageUrl' = ${m.url}
-             OR ${contentItems.data}->>'thumbnail' = ${m.url}`
-          )
+          .where(sql`${contentItems.data}->>'imageUrl' = ${m.url} OR ${contentItems.data}->>'thumbnail' = ${m.url}`)
+
+        const transUsers = await db
+          .select({ id: contentItems.id, type: contentItems.type, data: contentItems.data })
+          .from(contentTranslations)
+          .innerJoin(contentItems, eq(contentTranslations.contentItemId, contentItems.id))
+          .where(sql`${contentTranslations.data}->>'imageUrl' = ${m.url} OR ${contentTranslations.data}->>'thumbnail' = ${m.url}`)
+
+        const seen = new Set<string>()
+        const allUsers = [...directUsers, ...transUsers].filter(u => {
+          if (seen.has(u.id)) return false
+          seen.add(u.id)
+          return true
+        })
+
         return {
           ...m,
-          usedBy: users.map(u => {
+          usedBy: allUsers.map(u => {
             const d = u.data as Record<string, string>
-            return {
-              id: u.id,
-              type: u.type,
-              name: d.name ?? d.title ?? u.id,
-            }
+            return { id: u.id, type: u.type, name: d.name ?? d.title ?? u.id }
           }),
         }
       })
@@ -103,17 +110,20 @@ export async function adminMediaRoutes(app: FastifyInstance) {
     const [row] = await db.select().from(media).where(eq(media.id, id))
     if (!row) return reply.code(404).send({ error: 'Not found' })
 
-    // Check if in use
-    const [inUse] = await db
+    // Check if in use — either directly on content items or via locale-specific translations
+    const [inUseItem] = await db
       .select({ id: contentItems.id })
       .from(contentItems)
-      .where(
-        sql`${contentItems.data}->>'imageUrl' = ${row.url}
-         OR ${contentItems.data}->>'thumbnail' = ${row.url}`
-      )
+      .where(sql`${contentItems.data}->>'imageUrl' = ${row.url} OR ${contentItems.data}->>'thumbnail' = ${row.url}`)
       .limit(1)
 
-    if (inUse) {
+    const [inUseTrans] = await db
+      .select({ id: contentTranslations.id })
+      .from(contentTranslations)
+      .where(sql`${contentTranslations.data}->>'imageUrl' = ${row.url} OR ${contentTranslations.data}->>'thumbnail' = ${row.url}`)
+      .limit(1)
+
+    if (inUseItem || inUseTrans) {
       return reply.code(409).send({ error: 'Image is in use and cannot be deleted' })
     }
 
