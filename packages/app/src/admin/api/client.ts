@@ -116,6 +116,18 @@ export interface ItemDaily {
   daily: Array<{ date: string; clicks: number }>
 }
 
+export interface SiteComparisonPoint {
+  label: string
+  sites: Record<string, { views: number; clicks: number }>
+  total: { views: number; clicks: number }
+}
+
+export interface SiteComparisonData {
+  period: Period
+  sites: Array<{ slug: string; name: string; accent: string }>
+  series: SiteComparisonPoint[]
+}
+
 export const api = {
   auth: {
     login:          (email: string, password: string) =>
@@ -192,6 +204,8 @@ export const api = {
       get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}`),
     itemDaily: (itemId: string, site?: string) =>
       get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
+    sitesComparison: (period: Period) =>
+      get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}`),
   },
   languages: {
     list:   () => get<{ languages: Language[] }>('/api/admin/languages'),

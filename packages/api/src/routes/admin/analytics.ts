@@ -290,6 +290,115 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   )
 
+  app.get<{ Querystring: { period?: string } }>(
+    '/admin/analytics/sites-comparison', { preHandler: auth }, async (req, reply) => {
+      const period = req.query.period ?? 'week'
+
+      if (period !== 'day' && period !== 'week' && period !== 'month') {
+        return reply.code(400).send({ error: 'Invalid period.' })
+      }
+
+      const sites = await sql<{ slug: string; name: string; accent: string }>`
+        SELECT slug, name, accent FROM sites ORDER BY name
+      `
+
+      type SitePoint = { views: number; clicks: number }
+      type SeriesPoint = { label: string; sites: Record<string, SitePoint>; total: SitePoint }
+
+      const buildPoint = (): SitePoint => ({ views: 0, clicks: 0 })
+
+      if (period === 'day') {
+        const rows = await sql<{
+          hour: number
+          site_slug: string | null
+          event_type: string
+          count: number
+        }>`
+          SELECT
+            EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'UTC')::int AS hour,
+            site_slug,
+            event_type,
+            COUNT(*)::int AS count
+          FROM analytics_events
+          WHERE occurred_at >= CURRENT_DATE AT TIME ZONE 'UTC'
+          GROUP BY hour, site_slug, event_type
+          ORDER BY hour ASC
+        `
+
+        const pointMap = new Map<number, SeriesPoint>()
+        for (let h = 0; h < 24; h++) {
+          const siteData: Record<string, SitePoint> = {}
+          for (const s of sites) siteData[s.slug] = buildPoint()
+          pointMap.set(h, { label: String(h).padStart(2, '0'), sites: siteData, total: buildPoint() })
+        }
+
+        for (const row of rows) {
+          const point = pointMap.get(row.hour)!
+          const count = Number(row.count)
+          if (row.event_type === 'site_visit') {
+            point.total.views += count
+            if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].views += count
+          } else if (row.event_type === 'link_click') {
+            point.total.clicks += count
+            if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].clicks += count
+          }
+        }
+
+        return { period, sites, series: Array.from(pointMap.values()) }
+      }
+
+      const days = period === 'week' ? 7 : 30
+
+      const rows = await sql<{
+        day: string
+        site_slug: string | null
+        event_type: string
+        count: number
+      }>`
+        SELECT
+          (occurred_at AT TIME ZONE 'UTC')::date AS day,
+          site_slug,
+          event_type,
+          COUNT(*)::int AS count
+        FROM analytics_events
+        WHERE occurred_at >= NOW() - (${days} || ' days')::interval
+        GROUP BY day, site_slug, event_type
+        ORDER BY day ASC
+      `
+
+      const dateSet: string[] = []
+      const now = new Date()
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now)
+        d.setUTCDate(d.getUTCDate() - i)
+        dateSet.push(d.toISOString().slice(0, 10))
+      }
+
+      const pointMap = new Map<string, SeriesPoint>()
+      for (const date of dateSet) {
+        const siteData: Record<string, SitePoint> = {}
+        for (const s of sites) siteData[s.slug] = buildPoint()
+        pointMap.set(date, { label: date, sites: siteData, total: buildPoint() })
+      }
+
+      for (const row of rows) {
+        const dateStr = row.day.toString().slice(0, 10)
+        const point = pointMap.get(dateStr)
+        if (!point) continue
+        const count = Number(row.count)
+        if (row.event_type === 'site_visit') {
+          point.total.views += count
+          if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].views += count
+        } else if (row.event_type === 'link_click') {
+          point.total.clicks += count
+          if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].clicks += count
+        }
+      }
+
+      return { period, sites, series: Array.from(pointMap.values()) }
+    }
+  )
+
   app.get<{ Params: { itemId: string }; Querystring: { site?: string } }>(
     '/admin/analytics/items/:itemId/daily', { preHandler: auth }, async (req) => {
       const site = req.query.site || undefined

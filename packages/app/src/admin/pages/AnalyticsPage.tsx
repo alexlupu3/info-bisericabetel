@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type Period } from '../api/client'
-import { PeriodSelector, SiteFilter, StatCard, TrendChart, ItemsTable, ItemDailyModal } from '../components/analytics'
+import { PeriodSelector, SiteFilter, StatCard, TrendChart, ItemsTable, ItemDailyModal, SitesComparisonChart } from '../components/analytics'
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('week')
@@ -19,6 +19,12 @@ export default function AnalyticsPage() {
   const items = useQuery({
     queryKey: ['admin-analytics-items', site],
     queryFn: () => api.analytics.items(siteParam),
+  })
+
+  const sitesComparison = useQuery({
+    queryKey: ['admin-analytics-sites-comparison', period],
+    queryFn: () => api.analytics.sitesComparison(period),
+    enabled: site === '',
   })
 
   return (
@@ -56,13 +62,22 @@ export default function AnalyticsPage() {
             />
           </div>
 
-          {/* Trend chart */}
+          {/* Trend chart — total views/clicks per day */}
           <TrendChart
             currentSeries={overview.data.current.series}
             previousSeries={overview.data.previous.series}
             metric={activeMetric}
             period={period}
           />
+
+          {/* Sites comparison chart — only shown when viewing all sites */}
+          {site === '' && sitesComparison.data && (
+            <SitesComparisonChart
+              data={sitesComparison.data}
+              metric={activeMetric}
+              period={period}
+            />
+          )}
         </>
       )}
 
