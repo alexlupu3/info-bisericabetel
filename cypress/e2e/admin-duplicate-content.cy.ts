@@ -55,12 +55,9 @@ describe('Duplicate content item', () => {
     cy.get('[data-testid="item-menu-trigger-c1"]').click()
     cy.get('[data-testid="item-menu-duplicate-c1"]').click()
 
-    cy.wait('@duplicate')
+    cy.wait('@duplicate').its('response.body.data').should('not.have.property', 'thumbnail')
     cy.wait('@contentAfter')
-
-    // duplicate row exists and has no thumbnail in data
     cy.get('[data-testid="content-row-c1-dup"]').should('exist')
-    cy.wrap(duplicate.data).should('not.have.property', 'thumbnail')
   })
 
   it('duplicates an item inside a group — new item appears in same group', () => {

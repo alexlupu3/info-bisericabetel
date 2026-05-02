@@ -185,11 +185,11 @@ export async function adminContentRoutes(app: FastifyInstance) {
     const [original] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
     if (!original) return reply.code(404).send({ error: 'Not found' })
 
-    const MEDIA_FIELDS: Record<string, string[]> = {
+    const mediaFields: Record<string, string[]> = {
       card:     ['thumbnail'],
       poster:   ['imageUrl'],
     }
-    const fieldsToStrip = MEDIA_FIELDS[original.type] ?? []
+    const fieldsToStrip = mediaFields[original.type] ?? []
     const clonedData = { ...(original.data as Record<string, unknown>) }
     for (const f of fieldsToStrip) delete clonedData[f]
 
