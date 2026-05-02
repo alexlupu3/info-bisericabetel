@@ -7,7 +7,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import type { OverviewSeries, Period } from '../../api/client'
+import type { ClickBreakdownItem, OverviewSeries, Period } from '../../api/client'
 
 interface Props {
   currentSeries: OverviewSeries[]
@@ -33,18 +33,32 @@ interface TooltipPayloadEntry {
   name: string
   value: number
   color: string
+  dataKey: string
+  payload: {
+    label: string
+    current: number
+    previous: number
+    breakdown?: ClickBreakdownItem[]
+    otherClicks?: number
+  }
 }
 
 function CustomTooltip({
   active,
   payload,
   label,
+  metric,
 }: {
   active?: boolean
   payload?: TooltipPayloadEntry[]
   label?: string
+  metric: 'views' | 'clicks'
 }) {
   if (!active || !payload?.length) return null
+  const currentEntry = payload.find((p) => p.dataKey === 'current')
+  const breakdown = currentEntry?.payload.breakdown
+  const otherClicks = currentEntry?.payload.otherClicks ?? 0
+  const showBreakdown = metric === 'clicks' && breakdown && breakdown.length > 0
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-xs font-content">
       <p className="text-[var(--text)] mb-1">{label}</p>
@@ -53,6 +67,26 @@ function CustomTooltip({
           {entry.name}: {entry.value.toLocaleString('ro-RO')}
         </p>
       ))}
+      {showBreakdown && (
+        <div data-testid="click-breakdown" className="mt-2 pt-2 border-t border-[var(--border)] space-y-0.5">
+          {breakdown.map((item, i) => (
+            <div
+              key={item.itemId ?? `unknown-${i}`}
+              data-testid="breakdown-item"
+              className="flex justify-between gap-3 text-[var(--muted)]"
+            >
+              <span className="max-w-[14rem] truncate">{item.title}</span>
+              <span className="tabular-nums">{item.clicks.toLocaleString('ro-RO')}</span>
+            </div>
+          ))}
+          {otherClicks > 0 && (
+            <div className="flex justify-between gap-3 text-[var(--muted)] italic">
+              <span>+ alte linkuri</span>
+              <span className="tabular-nums">{otherClicks.toLocaleString('ro-RO')}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -62,6 +96,8 @@ export default function TrendChart({ currentSeries, previousSeries, metric, peri
     label: point.label,
     current: point[metric],
     previous: previousSeries[i]?.[metric] ?? 0,
+    breakdown: point.clickBreakdown,
+    otherClicks: point.otherClicks,
   }))
 
   return (
@@ -80,7 +116,7 @@ export default function TrendChart({ currentSeries, previousSeries, metric, peri
             tick={{ fontSize: 11, fill: 'var(--muted)' }}
             allowDecimals={false}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip metric={metric} />} />
           <Line
             type="monotone"
             dataKey="current"
