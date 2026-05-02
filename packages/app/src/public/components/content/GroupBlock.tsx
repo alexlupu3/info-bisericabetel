@@ -17,6 +17,8 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 export default function GroupBlock({ title, items, accent, activeSite = null, showSiteLabel = false }: Props) {
