@@ -79,6 +79,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
   - Any non-deleted state → `deleted` ("Șterge" action)
   - `deleted` → `draft` ("Restaurează" action on `/admin/archive`)
   - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`)
+  - Any non-deleted state → new `draft` item created (duplicate action, "Duplică" in context menu — see Duplication below)
 - **Ownership:** managed by any admin; changes are audit-logged
 
 ## Expiration Behavior
@@ -158,5 +159,29 @@ See ADR-009 for the rejected alternative (boolean flag + reusing `sites[]` as a 
 - This means group scope is evaluated first; item scope is only evaluated for items that belong to ungrouped sections or to groups that are visible for the current site.
 - Rationale: a group's site assignment communicates the intent that this collection of content is relevant only to certain locations. Allowing individual items within a scoped group to "leak" through to other sites would contradict that intent and confuse both admins and members.
 
+## Duplication
+
+Admins can duplicate any content item (all four types) via the "Duplică" option in the item context menu on the Content page. The backend endpoint is `POST /api/admin/content/:id/duplicate` (auth required, HTTP 201).
+
+**What is copied:**
+- `type`, `sites[]`, `exclusiveSite`, `groupId`, `expiresAt`
+- All `data` JSONB fields **except** media attachment fields (see below)
+
+**What is not copied (media attachments):**
+- `data.thumbnail` — Card thumbnail image
+- `data.imageUrl` — Poster image
+
+Media fields are deliberately excluded: copying an image URL would create a second content item referencing the same `media` row without registering that reference. The media library's usage-detection query would still find both references (preventing deletion), but the relationship would be implicit and potentially confusing. Admins must re-upload or re-select an image on the duplicate.
+
+**Initial state:**
+- The duplicate is always created as `draft`, regardless of the source item's state. This ensures the duplicate does not become immediately visible on the public hub.
+- Order position is set to `global max + 1` (appended at the end of the entire item list).
+- If the original belonged to a group, the duplicate is placed in the same group at the bottom of the group's order.
+
+**Auto-translation:**
+- `scheduleContentTranslation` is triggered for the duplicate if `OPEN_ROUTER_API_KEY` is set, same as for newly created items.
+
+**Audit:** action `content.duplicate`, with `detail.sourceId` (original item ID) and `detail.type` (content type) recorded.
+
 ## Extensibility Note
-The content type system must be designed to allow new types to be added in future without requiring data migrations or codebase restructuring for existing types.
+The content type system must be designed to allow new types to be added in future without requiring data migrations or codebase restructuring for existing types. When a new type introduces a media attachment field (stored under a new JSONB key), the `MEDIA_FIELDS` map in the duplicate endpoint (`POST /api/admin/content/:id/duplicate`) must be updated to include that field so it is excluded from duplication.

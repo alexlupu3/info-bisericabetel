@@ -65,6 +65,22 @@ List the highest-priority flows first.
   - Admin restores an item whose group no longer exists (handled: groupId is cleared; item appears in ungrouped section)
   - Admin permanently deletes an item that was referenced by analytics events (handled: `item_id` on analytics events is a soft reference with no FK constraint — events are preserved)
 
+### Flow 6 (Admin) — Duplicating a content item
+
+- Trigger: an admin wants to create a new item that is similar to an existing one (e.g. recurring event, same-format announcement)
+- Steps:
+  - The admin opens the Content page
+  - The admin opens the context menu (⋮) on the item they want to duplicate
+  - The admin clicks "Duplică"
+  - A new `draft` item is created immediately with the same type, fields, site scope, group assignment, and expiry as the original — except media attachments (`thumbnail` for cards, `imageUrl` for posters) are not copied
+  - A toast notification confirms "Element duplicat"
+  - The duplicate appears in the content list (at the bottom of the global order, within the same group if applicable)
+  - The admin opens the duplicate to fill in the missing image (if applicable) and make any other adjustments before publishing
+- Success state: the duplicate is created in draft state, is editable, and does not appear on the public hub until the admin publishes it
+- Failure or edge states:
+  - Original item not found (deleted between page load and click) — API returns 404; the admin sees an error toast
+  - The duplicate inherits `expiresAt` from the original — if the original was near expiry, the duplicate may also be near expiry; the admin should review the dates after duplication
+
 ### Flow 3 — Switching between site-specific and all-sites views
 - Trigger: a member wants to switch between site-specific and all-sites views
 - Steps:

@@ -12,8 +12,12 @@ Record rules that must stay true regardless of implementation details.
 - BR-007: The `exclusive_site` column and the `sites[]` array are mutually exclusive on a single content item row. When `exclusive_site` is set, the server forces `sites = []` to prevent conflicting scoping semantics. The `sites[]` array continues to function as a surfacing hint (non-exclusive visibility) on rows where `exclusive_site` is null. Corollary: clearing `exclusive_site` (setting it to null via `PATCH /admin/content/:id`) requires an explicit `sites` array in the same request; the API returns 400 otherwise, because an exclusive row's stored `sites = []` would otherwise silently make the item visible to all sites.
 - BR-008: Groups do not support the `exclusive_site` flag. An exclusive content item that belongs to a group will be hidden from the all-sites view at the item level — this can cause the group to render with fewer items in the all-sites view than in the site-specific view.
 
+- BR-009: Duplicating a content item always creates a new item in `draft` state, regardless of the source item's state. Media attachment fields (`data.thumbnail` for cards, `data.imageUrl` for posters) are never copied — the duplicate starts with no image. All other `data` fields, site scope (`sites[]`, `exclusiveSite`), group assignment (`groupId`), and expiry (`expiresAt`) are copied from the source. The duplicate is appended at the end of the global item list and assigned to the same group as the original if applicable.
+- BR-010: When a new content type is introduced that includes a media attachment field in its `data` JSONB payload, the `MEDIA_FIELDS` map in the duplicate endpoint must be updated to exclude that field from duplication. Failure to do so would silently copy a media URL reference without tracking it in the media library.
+
 ## Source
 - Stakeholder or document: initial product context provided by repository owner
 - Date confirmed: 2026-03-12
 - BR-005 added: 2026-03-17 (resolved during group site-scope implementation)
 - BR-006, BR-007, BR-008 added: 2026-04-21 (site-exclusive content feature, migration 0008_exclusive_site.sql)
+- BR-009, BR-010 added: 2026-05-02 (duplicate content item feature, FR-042)

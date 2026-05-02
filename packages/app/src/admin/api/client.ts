@@ -158,6 +158,7 @@ export const api = {
     publish: (id: string) => post<ContentItem>(`/api/admin/content/${id}/publish`, {}),
     archive: (id: string) => post<ContentItem>(`/api/admin/content/${id}/archive`, {}),
     listDeleted: () => get<{ items: ContentItem[] }>('/api/admin/content/deleted'),
+    duplicate: (id: string) => post<ContentItem>(`/api/admin/content/${id}/duplicate`, {}),
     restore: (id: string) => post<ContentItem>(`/api/admin/content/${id}/restore`, {}),
     removePermanent: (id: string) => del<void>(`/api/admin/content/${id}/permanent`),
     listTranslations: (id: string) =>
