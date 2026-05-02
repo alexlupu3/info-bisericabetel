@@ -9,9 +9,19 @@ interface Props {
   showSiteLabel?: boolean
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+}
+
 export default function GroupBlock({ title, items, accent, activeSite = null, showSiteLabel = false }: Props) {
   return (
-    <section aria-label={title}>
+    <section aria-label={title} id={slugify(title)}>
       <header className="flex items-center gap-3 mb-6">
         <span className="block w-4 h-px flex-shrink-0" style={{ backgroundColor: accent }} />
         <h2 className="betel-title-bold text-sm tracking-widest uppercase">{title}</h2>
