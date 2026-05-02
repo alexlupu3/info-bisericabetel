@@ -284,6 +284,7 @@ export default function ContentPage() {
   const deleteMut      = useMutation({ mutationFn: api.content.remove,      onSuccess: () => { invalidate(); toast('Element șters') } })
   const publishMut     = useMutation({ mutationFn: api.content.publish,     onSuccess: () => { invalidate(); toast('Publicat') } })
   const archiveMut     = useMutation({ mutationFn: api.content.archive,     onSuccess: () => { invalidate(); toast('Ascuns') } })
+  const duplicateMut   = useMutation({ mutationFn: api.content.duplicate,   onSuccess: () => { invalidate(); toast('Element duplicat') } })
 
   const togglePublishMut = useMutation({
     mutationFn: ({ id, currentState }: { id: string; currentState: string }) =>
@@ -569,6 +570,7 @@ export default function ContentPage() {
                       onPublish={() => publishMut.mutate(entry.item.id)}
                       onArchive={() => archiveMut.mutate(entry.item.id)}
                       onDelete={() => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(entry.item.id) }}
+                      onDuplicate={() => duplicateMut.mutate(entry.item.id)}
                       onTogglePublish={() => togglePublishMut.mutate({ id: entry.item.id, currentState: entry.item.state })}
                     />
                     {editing?.id === entry.item.id && (
@@ -594,6 +596,7 @@ export default function ContentPage() {
                     onPublish={id => publishMut.mutate(id)}
                     onArchive={id => archiveMut.mutate(id)}
                     onDelete={id => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(id) }}
+                    onDuplicate={id => duplicateMut.mutate(id)}
                     onTogglePublish={(id, currentState) => togglePublishMut.mutate({ id, currentState })}
                     onDeleteGroup={() => {
                       if (confirm(`Ștergi grupul "${entry.title}"? Elementele din grup vor fi mutate în arhivă.`))
@@ -618,7 +621,7 @@ export default function ContentPage() {
 
 // ── Sortable group block ───────────────────────────────────────────────────────
 
-function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, editingItem, editingFormRef, onEdit, onEditClose, onEditSaved, onEditGroup, onPublish, onArchive, onDelete, onTogglePublish, onDeleteGroup, onAddContent, groups }: {
+function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, editingItem, editingFormRef, onEdit, onEditClose, onEditSaved, onEditGroup, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish, onDeleteGroup, onAddContent, groups }: {
   entry: GroupEntry
   availableSites: Site[]
   isCollapsed: boolean
@@ -632,6 +635,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
   onPublish: (id: string) => void
   onArchive: (id: string) => void
   onDelete: (id: string) => void
+  onDuplicate: (id: string) => void
   onTogglePublish: (id: string, currentState: string) => void
   onDeleteGroup: () => void
   onAddContent: () => void
@@ -757,6 +761,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
                 onPublish={() => onPublish(item.id)}
                 onArchive={() => onArchive(item.id)}
                 onDelete={() => onDelete(item.id)}
+                onDuplicate={() => onDuplicate(item.id)}
                 onTogglePublish={() => onTogglePublish(item.id, item.state)}
               />
             ))}
@@ -781,12 +786,13 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
 
 // ── Item context menu ──────────────────────────────────────────────────────────
 
-function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, itemState }: {
+function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, onDuplicate, itemState }: {
   itemId: string
   onEdit: () => void
   onDelete: () => void
   onPublish: () => void
   onArchive: () => void
+  onDuplicate: () => void
   itemState: string
 }) {
   const [open, setOpen] = useState(false)
@@ -839,6 +845,13 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, itemS
             className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--text)] transition-colors"
           >
             Editează
+          </button>
+          <button
+            data-testid={`item-menu-duplicate-${itemId}`}
+            onClick={() => { setOpen(false); onDuplicate() }}
+            className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--text)] transition-colors"
+          >
+            Duplică
           </button>
           <button
             data-testid={`item-menu-delete-${itemId}`}
@@ -922,7 +935,7 @@ function isItemPast(item: ContentItem): boolean {
 
 // ── Sortable content row ───────────────────────────────────────────────────────
 
-function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPublish, onArchive, onDelete, onTogglePublish }: {
+function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
   item: ContentItem
   dragData: Record<string, unknown>
   availableSites?: Site[]
@@ -930,6 +943,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
   onPublish: () => void
   onArchive: () => void
   onDelete: () => void
+  onDuplicate: () => void
   onTogglePublish: () => void
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -994,6 +1008,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
           onDelete={onDelete}
           onPublish={onPublish}
           onArchive={onArchive}
+          onDuplicate={onDuplicate}
           itemState={item.state}
         />
       </div>

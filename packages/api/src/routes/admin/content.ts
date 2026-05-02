@@ -180,6 +180,45 @@ export async function adminContentRoutes(app: FastifyInstance) {
     return reply.code(204).send()
   })
 
+  // Duplicate
+  app.post<{ Params: { id: string } }>('/admin/content/:id/duplicate', { preHandler: auth }, async (req, reply) => {
+    const [original] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
+    if (!original) return reply.code(404).send({ error: 'Not found' })
+
+    const MEDIA_FIELDS: Record<string, string[]> = {
+      card:     ['thumbnail'],
+      poster:   ['imageUrl'],
+    }
+    const fieldsToStrip = MEDIA_FIELDS[original.type] ?? []
+    const clonedData = { ...(original.data as Record<string, unknown>) }
+    for (const f of fieldsToStrip) delete clonedData[f]
+
+    const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
+      .from(contentItems)
+
+    const [item] = await db.insert(contentItems).values({
+      type: original.type,
+      sites: original.sites,
+      exclusiveSite: original.exclusiveSite,
+      groupId: original.groupId,
+      expiresAt: original.expiresAt,
+      data: clonedData,
+      orderPosition: max + 1,
+      state: 'draft',
+    }).returning()
+
+    const actor = req.user as any
+    await logAudit({
+      userId: actor.sub,
+      userEmail: actor.email ?? '',
+      action: 'content.duplicate',
+      entityId: item.id,
+      detail: { sourceId: original.id, type: original.type },
+    })
+    if (Object.keys(clonedData).length > 0) scheduleContentTranslation(item.id, clonedData)
+    return reply.code(201).send(item)
+  })
+
   // Restore from archive
   app.post<{ Params: { id: string } }>('/admin/content/:id/restore', { preHandler: auth }, async (req, reply) => {
     const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
