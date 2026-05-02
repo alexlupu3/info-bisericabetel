@@ -70,3 +70,49 @@ Migration `0006_analytics_item_idx.sql` adds a partial index on `(item_id, occur
 - Recharts is a new production dependency in `packages/app`; it must be kept up-to-date alongside other React dependencies.
 - The partial DB index marginally increases index storage on `analytics_events` but has no impact on ingest write performance (events are inserted asynchronously).
 - Legacy API endpoints are preserved; any future cleanup of the dead routes should be tracked as a separate task.
+
+---
+
+## Amendment — 2026-05-02: Per-Link Click Breakdown in Trend Chart Tooltip
+
+### Context
+
+When the Clicks metric is active on the trend chart, the aggregate total in the tooltip gave no indication of which links drove the number. Admins had to cross-reference the Content clicks table manually.
+
+### Decision
+
+Extend the `GET /admin/analytics/overview` response with per-link click breakdown data attached to each current-period bucket, and render it in the `TrendChart` tooltip when the clicks metric is active.
+
+### Implementation details
+
+**API (`packages/api/src/routes/admin/analytics.ts`)**
+
+A second SQL query runs per overview request, grouping `link_click` events by `(bucket, item_id, ci.data->>'title')` for the current period only. Results are merged into the existing current-series entries as:
+
+```
+clickBreakdown?: [{ itemId, title, clicks }]  // sorted desc by clicks, capped at 10
+otherClicks?: number                           // residual count when > 10 links exist
+```
+
+The `title` field is sourced from `ci.data->>'title'` (Romanian base field) because the admin UI is Romanian-only per ADR-009 rule 1. The breakdown query is not run for the previous period — previous-period tooltip lines remain plain.
+
+The constant `MAX_BREAKDOWN_PER_BUCKET = 10` caps the list; if more distinct links exist in a bucket, their aggregate click count is returned as `otherClicks` and displayed as "+ N alte linkuri".
+
+**Frontend types (`packages/app/src/admin/api/client.ts`)**
+
+`OverviewSeries` extended with optional `clickBreakdown: ClickBreakdownItem[]` and `otherClicks?: number`. New exported interface: `ClickBreakdownItem { itemId: string; title: string; clicks: number }`.
+
+**Frontend component (`packages/app/src/admin/components/analytics/TrendChart.tsx`)**
+
+`CustomTooltip` now accepts a `metric` prop. The breakdown section (labelled list of link titles + click counts, followed by the residual line if present) renders only when `metric === 'clicks'` and `clickBreakdown` is present on the hovered entry. When `metric === 'views'` the tooltip is unchanged.
+
+Test hooks: `data-testid="click-breakdown"` on the breakdown container; `data-testid="breakdown-item"` on each row.
+
+**Cypress (`cypress/e2e/admin-analytics.cy.ts`)**
+
+Two new tests: tooltip breakdown visible when clicks metric active; breakdown absent when views metric active.
+
+### Constraints
+
+- Breakdown data is only attached to current-period buckets; the query is cheap because it is already scoped to the current-period date range.
+- The 10-item cap with residual is a product decision — it keeps the tooltip scannable without scrolling.

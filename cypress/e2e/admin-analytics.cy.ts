@@ -18,6 +18,11 @@ function loginAndGo(path: string) {
   })
 }
 
+const mockBreakdown = [
+  { itemId: 'item-1', title: 'Program Duminică', clicks: 8 },
+  { itemId: 'item-2', title: 'Conferință Mai', clicks: 5 },
+]
+
 // Mock overview data
 const mockOverview = {
   period: 'week',
@@ -28,6 +33,7 @@ const mockOverview = {
       label: `2026-04-${String(13 + i).padStart(2, '0')}`,
       views: 30 + i * 5,
       clicks: 10 + i * 3,
+      clickBreakdown: mockBreakdown,
     })),
   },
   previous: {
@@ -115,6 +121,47 @@ describe('Admin — Analytics dashboard', () => {
 
     // Stat cards should still render with mocked data
     cy.get('[data-testid="stat-card-vizualizri"]').should('contain', '275')
+  })
+
+  it('shows per-link breakdown in tooltip when hovering clicks chart', () => {
+    cy.wait('@overview')
+    // Switch to clicks metric
+    cy.get('[data-testid="stat-card-clickuri"]').click()
+
+    // Hover the chart SVG at its midpoint to trigger a tooltip
+    cy.get('[data-testid="trend-chart"]').find('svg').then(($svg) => {
+      const rect = $svg[0].getBoundingClientRect()
+      const midX = rect.left + rect.width / 2
+      const midY = rect.top + rect.height / 2
+      cy.wrap($svg).trigger('mousemove', {
+        clientX: midX,
+        clientY: midY,
+        force: true,
+      })
+    })
+
+    // Tooltip breakdown should appear with link titles
+    cy.get('[data-testid="click-breakdown"]').should('be.visible')
+    cy.get('[data-testid="breakdown-item"]').should('have.length', mockBreakdown.length)
+    cy.get('[data-testid="breakdown-item"]').first().should('contain', 'Program Duminică')
+    cy.get('[data-testid="breakdown-item"]').first().should('contain', '8')
+  })
+
+  it('does not show per-link breakdown when metric is views', () => {
+    cy.wait('@overview')
+    // Views metric is active by default — hover the chart
+    cy.get('[data-testid="trend-chart"]').find('svg').then(($svg) => {
+      const rect = $svg[0].getBoundingClientRect()
+      const midX = rect.left + rect.width / 2
+      const midY = rect.top + rect.height / 2
+      cy.wrap($svg).trigger('mousemove', {
+        clientX: midX,
+        clientY: midY,
+        force: true,
+      })
+    })
+
+    cy.get('[data-testid="click-breakdown"]').should('not.exist')
   })
 
   it('closes item detail modal by clicking backdrop', () => {

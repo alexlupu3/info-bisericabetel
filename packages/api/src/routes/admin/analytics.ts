@@ -127,12 +127,43 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid period. Must be day, week, or month.' })
       }
 
-      type SeriesEntry = { label: string; views: number; clicks: number }
+      type ClickBreakdownItem = { itemId: string | null; title: string; clicks: number }
+      type SeriesEntry = {
+        label: string
+        views: number
+        clicks: number
+        clickBreakdown?: ClickBreakdownItem[]
+        otherClicks?: number
+      }
+
+      const MAX_BREAKDOWN_PER_BUCKET = 10
 
       const change = (current: number, previous: number) =>
         previous === 0
           ? (current > 0 ? 100 : 0)
           : Math.round(((current - previous) / previous) * 100)
+
+      const attachBreakdown = (
+        series: SeriesEntry[],
+        breakdownMap: Map<string, ClickBreakdownItem[]>,
+        keyOf: (entry: SeriesEntry) => string,
+      ) => {
+        for (const entry of series) {
+          const items = breakdownMap.get(keyOf(entry))
+          if (!items || items.length === 0) continue
+          items.sort((a, b) => b.clicks - a.clicks)
+          if (items.length > MAX_BREAKDOWN_PER_BUCKET) {
+            const top = items.slice(0, MAX_BREAKDOWN_PER_BUCKET)
+            const otherClicks = items
+              .slice(MAX_BREAKDOWN_PER_BUCKET)
+              .reduce((acc, it) => acc + it.clicks, 0)
+            entry.clickBreakdown = top
+            if (otherClicks > 0) entry.otherClicks = otherClicks
+          } else {
+            entry.clickBreakdown = items
+          }
+        }
+      }
 
       if (period === 'day') {
         const rows = await sql<{
@@ -186,6 +217,38 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
         const currentSeries = buildSeries(currentMap)
         const previousSeries = buildSeries(previousMap)
+
+        const breakdownRows = await sql<{
+          hour: number
+          item_id: string | null
+          title: string | null
+          clicks: number
+        }>`
+          SELECT
+            EXTRACT(HOUR FROM ae.occurred_at AT TIME ZONE 'UTC')::int AS hour,
+            ae.item_id,
+            ci.data->>'title' AS title,
+            COUNT(*)::int AS clicks
+          FROM analytics_events ae
+          LEFT JOIN content_items ci ON ci.id = ae.item_id
+          WHERE ae.event_type = 'link_click'
+            AND ae.occurred_at >= (CURRENT_DATE AT TIME ZONE 'UTC')
+            ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+          GROUP BY hour, ae.item_id, ci.data->>'title'
+        `
+
+        const breakdownMap = new Map<string, ClickBreakdownItem[]>()
+        for (const row of breakdownRows) {
+          const key = String(row.hour).padStart(2, '0')
+          const list = breakdownMap.get(key) ?? []
+          list.push({
+            itemId: row.item_id,
+            title: row.title ?? '—',
+            clicks: Number(row.clicks),
+          })
+          breakdownMap.set(key, list)
+        }
+        attachBreakdown(currentSeries, breakdownMap, (e) => e.label)
 
         const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
           series.reduce((acc, s) => acc + s[key], 0)
@@ -271,6 +334,38 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       const currentSeries = buildSeries(currentMap)
       const previousSeries = buildSeries(previousMap)
+
+      const breakdownRows = await sql<{
+        day: string
+        item_id: string | null
+        title: string | null
+        clicks: number
+      }>`
+        SELECT
+          (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
+          ae.item_id,
+          ci.data->>'title' AS title,
+          COUNT(*)::int AS clicks
+        FROM analytics_events ae
+        LEFT JOIN content_items ci ON ci.id = ae.item_id
+        WHERE ae.event_type = 'link_click'
+          AND (ae.occurred_at AT TIME ZONE 'UTC')::date >= ${cutoffStr}::date
+          ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+        GROUP BY day, ae.item_id, ci.data->>'title'
+      `
+
+      const breakdownMap = new Map<string, ClickBreakdownItem[]>()
+      for (const row of breakdownRows) {
+        const key = row.day.toString().slice(0, 10)
+        const list = breakdownMap.get(key) ?? []
+        list.push({
+          itemId: row.item_id,
+          title: row.title ?? '—',
+          clicks: Number(row.clicks),
+        })
+        breakdownMap.set(key, list)
+      }
+      attachBreakdown(currentSeries, breakdownMap, (e) => e.label)
 
       const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
         series.reduce((acc, s) => acc + s[key], 0)

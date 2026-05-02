@@ -97,10 +97,18 @@ export interface ItemAnalytics {
 
 export type Period = 'day' | 'week' | 'month'
 
+export interface ClickBreakdownItem {
+  itemId: string | null
+  title: string
+  clicks: number
+}
+
 export interface OverviewSeries {
   label: string
   views: number
   clicks: number
+  clickBreakdown?: ClickBreakdownItem[]
+  otherClicks?: number
 }
 
 export interface OverviewData {
