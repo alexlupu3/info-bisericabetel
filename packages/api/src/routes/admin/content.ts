@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, ne, asc, and, sql } from 'drizzle-orm'
 import { db } from '../../db/client.js'
-import { contentItems, groups, contentTranslations, languages, sites as sitesTable } from '../../db/schema.js'
+import { contentItems, groups, contentTranslations, languages, sites as sitesTable, analyticsEvents, auditLog } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 
@@ -236,6 +236,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>('/admin/content/:id/permanent', { preHandler: auth }, async (req, reply) => {
     const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
     if (!item) return reply.code(404).send({ error: 'Not found' })
+    await db.delete(analyticsEvents).where(eq(analyticsEvents.itemId, req.params.id))
+    await db.delete(auditLog).where(eq(auditLog.entityId, req.params.id))
     await db.delete(contentItems).where(eq(contentItems.id, req.params.id))
     const actor = req.user as any
     await logAudit({ userId: actor.sub, userEmail: actor.email ?? '', action: 'content.permanent-delete', entityId: req.params.id })
