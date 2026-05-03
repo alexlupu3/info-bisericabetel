@@ -193,6 +193,7 @@ describe('Admin — Analytics dashboard', () => {
       body: 'Timestamp,Site,Titlu,URL',
     }).as('exportCsv')
     cy.get('[data-testid="items-table"] [data-testid="export-btn"]').first().click()
+    cy.wait('@exportCsv').its('response.statusCode').should('eq', 200)
     cy.get('[data-testid="item-daily-modal"]').should('not.exist')
   })
 })

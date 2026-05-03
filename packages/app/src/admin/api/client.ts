@@ -231,9 +231,9 @@ export const api = {
     exportItemClicks: (itemId: string, title: string, site?: string) => {
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
       const date = new Date().toISOString().slice(0, 10)
-      const params = site ? `?site=${site}` : ''
+      const params = site ? `?site=${encodeURIComponent(site)}` : ''
       return downloadFile(
-        `/api/admin/analytics/items/${itemId}/export${params}`,
+        `/api/admin/analytics/items/${encodeURIComponent(itemId)}/export${params}`,
         `clickuri-${slug}-${date}.csv`
       )
     },

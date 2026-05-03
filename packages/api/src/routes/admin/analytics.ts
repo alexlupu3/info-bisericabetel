@@ -406,9 +406,11 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       const escape = (v: string | null | undefined) => {
         if (v === null || v === undefined) return ''
         const s = String(v)
-        return s.includes(',') || s.includes('"') || s.includes('\n')
-          ? `"${s.replace(/"/g, '""')}"`
-          : s
+        const needsQuoting = s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')
+        const safe = /^[=+\-@]/.test(s) ? `'${s}` : s
+        return needsQuoting
+          ? `"${safe.replace(/"/g, '""')}"`
+          : safe
       }
 
       const lines = ['Timestamp,Site,Titlu,URL']

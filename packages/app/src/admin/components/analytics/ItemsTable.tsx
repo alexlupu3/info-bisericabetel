@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChevronRight, Download } from 'lucide-react'
 import { api, type ItemAnalytics } from '../../api/client'
 
@@ -9,6 +10,7 @@ interface Props {
 
 export default function ItemsTable({ items, site, onSelectItem }: Props) {
   const rows = items.filter((item) => item.itemId !== null)
+  const [exporting, setExporting] = useState<string | null>(null)
 
   return (
     <section>
@@ -48,11 +50,20 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
                     <button
                       data-testid="export-btn"
                       title="Descarcă CSV"
-                      onClick={(e) => {
+                      aria-label={`Descarcă CSV pentru ${item.title}`}
+                      disabled={exporting === item.itemId}
+                      onClick={async (e) => {
                         e.stopPropagation()
-                        api.analytics.exportItemClicks(item.itemId!, item.title, site)
+                        setExporting(item.itemId)
+                        try {
+                          await api.analytics.exportItemClicks(item.itemId!, item.title, site)
+                        } catch (err) {
+                          console.error('Export eșuat', err)
+                        } finally {
+                          setExporting(null)
+                        }
                       }}
-                      className="hover:text-[var(--foreground)] transition-colors"
+                      className="hover:text-[var(--foreground)] transition-colors disabled:opacity-40"
                     >
                       <Download size={14} />
                     </button>
