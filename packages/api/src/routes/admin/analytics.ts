@@ -318,7 +318,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       for (const row of rows) {
         const dayStr = row.day.toString().slice(0, 10)
-        const bucket = dayStr >= cutoffStr ? currentMap : previousMap
+        const bucket = dayStr > cutoffStr ? currentMap : previousMap
         const entry = bucket.get(dayStr)
         if (!entry) continue
         if (row.event_type === 'site_visit') entry.views += Number(row.count)
