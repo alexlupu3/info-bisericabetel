@@ -116,3 +116,51 @@ Two new tests: tooltip breakdown visible when clicks metric active; breakdown ab
 
 - Breakdown data is only attached to current-period buckets; the query is cheap because it is already scoped to the current-period date range.
 - The 10-item cap with residual is a product decision — it keeps the tooltip scannable without scrolling.
+
+---
+
+## Amendment — 2026-05-03: Per-Item CSV Export
+
+### Context
+
+Admins needed a way to get raw click data out of the system for offline analysis (e.g. spreadsheets, reporting to church leadership). The analytics dashboard surfaces aggregated views but provides no way to access event-level detail beyond looking at the DB directly.
+
+### Decision
+
+Add a `GET /api/admin/analytics/items/:itemId/export` endpoint that returns all historical `link_click` events for a given content item as a downloadable CSV, and surface it as a Download icon button on each row of the Content clicks table.
+
+### Implementation details
+
+**API (`packages/api/src/routes/admin/analytics.ts`)**
+
+New endpoint: `GET /admin/analytics/items/:itemId/export?site=<slug>`
+
+- Auth: admin/super-admin Bearer token (same guard as all other admin analytics endpoints).
+- Queries `analytics_events` for all `link_click` events matching the item, optionally filtered by `site_slug` when the `site` query param is provided.
+- Sets `Content-Type: text/csv` and `Content-Disposition: attachment; filename="clicks-<itemId>.csv"`.
+- CSV columns: `Timestamp`, `Site`, `Titlu`, `URL`.
+- No time range limit — the full historical dataset is returned.
+- CSV serialization is done inline with manual string concatenation; no CSV library dependency was introduced.
+
+**Decision: no time range filter on export.** The export is positioned as a full-history report for a single item. Adding a date-range UI was deferred — the current admin need is a complete data pull, and scoping can be done in a spreadsheet tool after download. This may be revisited if export file sizes become a concern.
+
+**Frontend (`packages/app/src/admin/api/client.ts`)**
+
+New `downloadFile(url, filename)` helper:
+- Fetches the URL with the `Authorization: Bearer <token>` header (required because the export endpoint is auth-protected).
+- Receives the response as a blob, creates a temporary object URL, programmatically clicks a hidden `<a>` element, then revokes the URL. This keeps the download in-browser without needing a signed URL or server-side redirect.
+- `api.analytics.exportItemClicks(itemId, title, site?)` composes the endpoint URL (including optional `site` param) and derives the download filename from the item title.
+
+**Frontend (`packages/app/src/admin/components/analytics/ItemsTable.tsx`)**
+
+- Accepts a new `site?: string` prop forwarded from `AnalyticsPage`.
+- Each row renders a Download icon button that calls `exportItemClicks`; `e.stopPropagation()` prevents the row click from also opening the item drill-down modal.
+
+**Cypress (`cypress/e2e/admin-analytics.cy.ts`)**
+
+Two new tests: (1) clicking the Download button fires the export request with the correct auth header; (2) clicking the Download button does not open the item modal.
+
+### Constraints
+
+- The export covers all time — it is not paginated and not windowed. For items with very high click volumes this could produce large files; this is an accepted trade-off for the current scale of the project.
+- The `site` scoping relies on the `SiteFilter` state already present in `AnalyticsPage`; the export automatically respects whatever site is currently active in the dashboard view.

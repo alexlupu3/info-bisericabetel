@@ -28,6 +28,19 @@ const patch = <T>(p: string, b: unknown) => request<T>('PATCH', p, b)
 const put  = <T>(p: string, b: unknown) => request<T>('PUT',    p, b)
 const del  = <T>(p: string)           => request<T>('DELETE', p)
 
+async function downloadFile(path: string, filename: string) {
+  const token = getToken()
+  const res = await fetch(path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('Export eșuat')
+  const blob = await res.blob()
+  const href = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = href; a.download = filename; a.click()
+  URL.revokeObjectURL(href)
+}
+
 export interface User {
   id: string; email: string; role: string; mustChangePassword: boolean
 }
@@ -215,6 +228,15 @@ export const api = {
       get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
     sitesComparison: (period: Period) =>
       get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}`),
+    exportItemClicks: (itemId: string, title: string, site?: string) => {
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
+      const date = new Date().toISOString().slice(0, 10)
+      const params = site ? `?site=${site}` : ''
+      return downloadFile(
+        `/api/admin/analytics/items/${itemId}/export${params}`,
+        `clickuri-${slug}-${date}.csv`
+      )
+    },
   },
   languages: {
     list:   () => get<{ languages: Language[] }>('/api/admin/languages'),

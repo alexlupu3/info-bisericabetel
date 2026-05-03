@@ -173,4 +173,26 @@ describe('Admin — Analytics dashboard', () => {
     cy.get('[data-testid="item-daily-modal"]').click({ force: true })
     cy.get('[data-testid="item-daily-modal"]').should('not.exist')
   })
+
+  it('triggers CSV export request when clicking download on an item row', () => {
+    cy.wait(['@overview', '@items'])
+    cy.intercept('GET', '/api/admin/analytics/items/*/export*', {
+      statusCode: 200,
+      headers: { 'content-type': 'text/csv; charset=utf-8' },
+      body: 'Timestamp,Site,Titlu,URL\n2026-05-01T10:00:00.000Z,centru,Program Duminică,https://example.com',
+    }).as('exportCsv')
+    cy.get('[data-testid="items-table"] [data-testid="export-btn"]').first().click()
+    cy.wait('@exportCsv').its('request.headers').should('have.property', 'authorization')
+  })
+
+  it('does not open item modal when clicking download button', () => {
+    cy.wait(['@overview', '@items'])
+    cy.intercept('GET', '/api/admin/analytics/items/*/export*', {
+      statusCode: 200,
+      headers: { 'content-type': 'text/csv; charset=utf-8' },
+      body: 'Timestamp,Site,Titlu,URL',
+    }).as('exportCsv')
+    cy.get('[data-testid="items-table"] [data-testid="export-btn"]').first().click()
+    cy.get('[data-testid="item-daily-modal"]').should('not.exist')
+  })
 })

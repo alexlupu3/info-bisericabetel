@@ -385,6 +385,50 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   )
 
+  app.get<{ Params: { itemId: string }; Querystring: { site?: string } }>(
+    '/admin/analytics/items/:itemId/export', { preHandler: auth }, async (req, reply) => {
+      const site = req.query.site || undefined
+      const rows = await sql<{
+        occurred_at: Date
+        site_slug: string | null
+        title: string | null
+        url: string | null
+      }>`
+        SELECT ae.occurred_at, ae.site_slug, ci.data->>'title' AS title, ae.url
+        FROM analytics_events ae
+        LEFT JOIN content_items ci ON ci.id = ae.item_id
+        WHERE ae.event_type = 'link_click'
+          AND ae.item_id = ${req.params.itemId}
+          ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+        ORDER BY ae.occurred_at DESC
+      `
+
+      const escape = (v: string | null | undefined) => {
+        if (v === null || v === undefined) return ''
+        const s = String(v)
+        return s.includes(',') || s.includes('"') || s.includes('\n')
+          ? `"${s.replace(/"/g, '""')}"`
+          : s
+      }
+
+      const lines = ['Timestamp,Site,Titlu,URL']
+      for (const row of rows) {
+        lines.push([
+          escape(new Date(row.occurred_at).toISOString()),
+          escape(row.site_slug),
+          escape(row.title),
+          escape(row.url),
+        ].join(','))
+      }
+
+      const date = new Date().toISOString().slice(0, 10)
+      reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="clickuri-${req.params.itemId}-${date}.csv"`)
+      return reply.send(lines.join('\n'))
+    }
+  )
+
   app.get<{ Querystring: { period?: string } }>(
     '/admin/analytics/sites-comparison', { preHandler: auth }, async (req, reply) => {
       const period = req.query.period ?? 'week'
