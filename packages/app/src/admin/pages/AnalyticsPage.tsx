@@ -88,6 +88,7 @@ export default function AnalyticsPage() {
       {items.data && (
         <ItemsTable
           items={items.data.items}
+          site={siteParam}
           onSelectItem={(id, title) => setSelectedItem({ id, title })}
         />
       )}

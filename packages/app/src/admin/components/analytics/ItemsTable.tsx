@@ -1,13 +1,16 @@
-import { ChevronRight } from 'lucide-react'
-import type { ItemAnalytics } from '../../api/client'
+import { useState } from 'react'
+import { ChevronRight, Download } from 'lucide-react'
+import { api, type ItemAnalytics } from '../../api/client'
 
 interface Props {
   items: ItemAnalytics['items']
+  site?: string
   onSelectItem: (itemId: string, title: string) => void
 }
 
-export default function ItemsTable({ items, onSelectItem }: Props) {
+export default function ItemsTable({ items, site, onSelectItem }: Props) {
   const rows = items.filter((item) => item.itemId !== null)
+  const [exporting, setExporting] = useState<string | null>(null)
 
   return (
     <section>
@@ -29,6 +32,7 @@ export default function ItemsTable({ items, onSelectItem }: Props) {
                   Clickuri
                 </th>
                 <th className="w-8" />
+                <th className="w-8" />
               </tr>
             </thead>
             <tbody>
@@ -41,6 +45,28 @@ export default function ItemsTable({ items, onSelectItem }: Props) {
                   <td className="px-3 py-2">{item.title}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {item.clicks.toLocaleString('ro-RO')}
+                  </td>
+                  <td className="px-3 py-2 text-right text-[var(--muted)]">
+                    <button
+                      data-testid="export-btn"
+                      title="Descarcă CSV"
+                      aria-label={`Descarcă CSV pentru ${item.title}`}
+                      disabled={exporting === item.itemId}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setExporting(item.itemId)
+                        try {
+                          await api.analytics.exportItemClicks(item.itemId!, item.title, site)
+                        } catch (err) {
+                          console.error('Export eșuat', err)
+                        } finally {
+                          setExporting(null)
+                        }
+                      }}
+                      className="hover:text-[var(--foreground)] transition-colors disabled:opacity-40"
+                    >
+                      <Download size={14} />
+                    </button>
                   </td>
                   <td className="px-3 py-2 text-right text-[var(--muted)]">
                     <ChevronRight size={14} />
