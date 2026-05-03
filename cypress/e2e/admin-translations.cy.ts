@@ -39,7 +39,7 @@ describe('Admin — Translations page', () => {
   it('shows Traduceri nav link for super-admin', () => {
     loginAsSuperAdmin()
     cy.visit('/admin/', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Traduceri').should('be.visible')
@@ -48,7 +48,7 @@ describe('Admin — Translations page', () => {
   it('hides Traduceri nav link for regular admin', () => {
     loginAsAdmin()
     cy.visit('/admin/', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Traduceri').should('not.exist')
@@ -57,7 +57,7 @@ describe('Admin — Translations page', () => {
   it('displays language list on translations page', () => {
     loginAsSuperAdmin()
     cy.visit('/admin/translations', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Limbi').should('be.visible')
@@ -69,7 +69,7 @@ describe('Admin — Translations page', () => {
   it('displays UI translation keys with values', () => {
     loginAsSuperAdmin()
     cy.visit('/admin/translations', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Traduceri interfață').should('be.visible')
@@ -80,7 +80,7 @@ describe('Admin — Translations page', () => {
     loginAsSuperAdmin()
     cy.intercept('POST', '/api/admin/translations/generate', { generated: 3 }).as('generate')
     cy.visit('/admin/translations', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Generează lipsă').click()
@@ -92,7 +92,7 @@ describe('Admin — Translations page', () => {
     loginAsSuperAdmin()
     cy.intercept('POST', '/api/admin/translations/generate', { generated: 0 }).as('generate')
     cy.visit('/admin/translations', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
     cy.contains('Generează lipsă').click()
@@ -104,7 +104,7 @@ describe('Admin — Translations page', () => {
     loginAsSuperAdmin()
     cy.intercept('PUT', '/api/admin/translations', { ok: true }).as('saveTranslations')
     cy.visit('/admin/translations', {
-      onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+      onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
     })
     cy.wait('@me')
 

@@ -14,7 +14,7 @@ function setup() {
   cy.intercept('GET', '/api/admin/content', { items: [] }).as('content')
   cy.intercept('GET', '/api/admin/groups', { groups: [] }).as('groups')
   cy.intercept('GET', '/api/sites', { sites: mockSites }).as('sites')
-  cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
+  cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
   cy.wait('@me')
 }
 
@@ -157,7 +157,7 @@ describe('Content form — edit mode', () => {
         data: { title: 'Titlu vechi', body: 'Corp vechi' }, createdAt: '', updatedAt: '',
       }],
     })
-    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
     cy.wait('@me')
   })
 
@@ -202,7 +202,7 @@ describe('Content admin — past badge for all content types', () => {
     cy.intercept('GET', '/api/admin/groups', { groups: [] })
     cy.intercept('GET', '/api/sites', { sites: [] })
     cy.intercept('GET', '/api/admin/content', { items }).as('content')
-    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
     cy.wait('@me')
   }
 
@@ -344,7 +344,7 @@ describe('Content form — site-exclusive edit mode', () => {
         data: { body: 'Anunț doar vest' }, createdAt: '', updatedAt: '',
       }],
     })
-    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) } })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
     cy.wait('@me')
   })
 

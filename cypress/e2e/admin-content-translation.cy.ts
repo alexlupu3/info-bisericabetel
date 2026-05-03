@@ -27,7 +27,7 @@ function loginAndVisit() {
   cy.intercept('GET', '/api/admin/languages', mockLanguages).as('languages')
   cy.intercept('GET', `/api/admin/content/${mockItem.id}/translations`, { translations: [] }).as('itemTranslations')
   cy.visit('/admin/', {
-    onBeforeLoad(win) { win.sessionStorage.setItem('betel-admin-token', mockToken) },
+    onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) },
   })
   cy.wait('@me')
 }

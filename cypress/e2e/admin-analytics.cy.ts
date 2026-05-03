@@ -13,7 +13,7 @@ function loginAndGo(path: string) {
   cy.intercept('GET', '/api/admin/groups', { groups: [] })
   cy.visit(ADMIN_URL + path, {
     onBeforeLoad(win) {
-      win.sessionStorage.setItem('betel-admin-token', mockToken)
+      win.localStorage.setItem('betel-admin-token', mockToken)
     },
   })
 }

@@ -26,7 +26,7 @@ describe('Admin — soft reload regression', () => {
     setupInterceptors()
     cy.visit(ADMIN_URL, {
       onBeforeLoad(win) {
-        win.sessionStorage.setItem('betel-admin-token', mockToken)
+        win.localStorage.setItem('betel-admin-token', mockToken)
       },
     })
     cy.wait('@me')

@@ -1,8 +1,8 @@
 const TOKEN_KEY = 'betel-admin-token'
 
-export function getToken() { return sessionStorage.getItem(TOKEN_KEY) }
-export function setToken(t: string) { sessionStorage.setItem(TOKEN_KEY, t) }
-export function clearToken() { sessionStorage.removeItem(TOKEN_KEY) }
+export function getToken() { return localStorage.getItem(TOKEN_KEY) }
+export function setToken(t: string) { localStorage.setItem(TOKEN_KEY, t) }
+export function clearToken() { localStorage.removeItem(TOKEN_KEY) }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}

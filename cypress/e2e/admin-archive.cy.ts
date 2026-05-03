@@ -25,7 +25,7 @@ function loginAndVisit(path = '') {
   cy.intercept('GET', '/api/sites', { sites: mockSites })
   cy.visit(ADMIN_URL + path, {
     onBeforeLoad(win) {
-      win.sessionStorage.setItem('betel-admin-token', mockToken)
+      win.localStorage.setItem('betel-admin-token', mockToken)
     },
   })
   cy.wait('@me')
