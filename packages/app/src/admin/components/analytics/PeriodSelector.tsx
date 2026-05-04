@@ -5,7 +5,7 @@ interface Props {
   onChange: (p: Period) => void
 }
 
-const options: Array<{ label: string; period: Period }> = [
+const options: Array<{ label: string; period: Exclude<Period, 'custom'> }> = [
   { label: 'Zi', period: 'day' },
   { label: 'Săptămână', period: 'week' },
   { label: 'Lună', period: 'month' },

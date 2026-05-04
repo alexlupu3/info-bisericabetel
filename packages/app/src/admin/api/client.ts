@@ -108,7 +108,7 @@ export interface ItemAnalytics {
   items: Array<{ itemId: string | null; type: string; title: string; clicks: number }>
 }
 
-export type Period = 'day' | 'week' | 'month'
+export type Period = 'day' | 'week' | 'month' | 'custom'
 
 export interface ClickBreakdownItem {
   itemId: string | null
@@ -222,12 +222,12 @@ export const api = {
     daily:    (days = 30) => get<DailyAnalytics>(`/api/admin/analytics/daily?days=${days}`),
     items:    (site?: string) =>
       get<ItemAnalytics>(`/api/admin/analytics/items${site ? `?site=${site}` : ''}`),
-    overview: (period: Period = 'week', site?: string) =>
-      get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}`),
+    overview: (period: Period = 'week', site?: string, startDate?: string) =>
+      get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}${startDate ? `&startDate=${startDate}` : ''}`),
     itemDaily: (itemId: string, site?: string) =>
       get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
-    sitesComparison: (period: Period) =>
-      get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}`),
+    sitesComparison: (period: Period, startDate?: string) =>
+      get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}${startDate ? `&startDate=${startDate}` : ''}`),
     exportItemClicks: (itemId: string, title: string, site?: string) => {
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
       const date = new Date().toISOString().slice(0, 10)

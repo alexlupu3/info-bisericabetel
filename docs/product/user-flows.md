@@ -81,6 +81,22 @@ List the highest-priority flows first.
   - Original item not found (deleted between page load and click) — API returns 404; the admin sees an error toast
   - The duplicate inherits `expiresAt` from the original — if the original was near expiry, the duplicate may also be near expiry; the admin should review the dates after duplication
 
+### Flow 7 (Admin) — Analyzing a specific historical date range in the analytics dashboard
+
+- Trigger: an admin wants to investigate activity starting from a specific past date (e.g. the day a campaign started or an event was announced) rather than using a rolling preset window
+- Steps:
+  - The admin opens `/admin/analytics`
+  - The admin locates the "De la" date picker in the page header controls area (to the right of the Zi / Săptămână / Lună preset buttons)
+  - The admin selects a start date; the picker prevents selecting a future date
+  - The preset buttons become inactive (none highlighted); the charts reload showing daily data from the selected date to today as the current period
+  - The previous-period comparison line automatically uses the same number of days immediately before the selected start date
+  - To clear the custom range: the admin clicks the "×" button next to the date input; the dashboard reverts to the previously active preset (or defaults to week)
+  - Alternatively, clicking any preset button (Zi / Săptămână / Lună) also clears the custom date and activates that preset
+- Success state: the admin sees daily trend data anchored to their chosen start date, with an automatic same-duration comparison window for context
+- Failure or edge states:
+  - Admin selects a very distant start date — large windows fetch more data but the chart renders the same dual-line format; no practical limit is enforced beyond what the database holds
+  - Admin selects today as the start date — current period is a single day, previous period is the single day before it
+
 ### Flow 3 — Switching between site-specific and all-sites views
 - Trigger: a member wants to switch between site-specific and all-sites views
 - Steps:

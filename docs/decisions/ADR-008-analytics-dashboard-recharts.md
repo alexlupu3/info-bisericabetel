@@ -164,3 +164,58 @@ Two new tests: (1) clicking the Download button fires the export request with th
 
 - The export covers all time — it is not paginated and not windowed. For items with very high click volumes this could produce large files; this is an accepted trade-off for the current scale of the project.
 - The `site` scoping relies on the `SiteFilter` state already present in `AnalyticsPage`; the export automatically respects whatever site is currently active in the dashboard view.
+
+---
+
+## Amendment — 2026-05-04: Manual Start Date Selection for Charts
+
+### Context
+
+The existing period presets (Zi / Săptămână / Lună) always anchor to the current moment (e.g. "the last 7 days ending today"). Admins needed a way to investigate a specific historical window — for example, to see how a specific campaign or event affected click activity starting from a date they choose, rather than being constrained to a rolling preset window.
+
+### Decision
+
+Add a date picker control to the analytics page header. When a date is selected it becomes the start of the current-period window (from that date to today, daily granularity). The previous period window is automatically computed as the same duration of days immediately before the selected start date, preserving the current/previous period comparison. Period presets and the date picker are mutually exclusive: selecting a date deactivates all preset buttons; clicking a preset clears the date.
+
+No new API route was introduced. The existing `GET /admin/analytics/overview` and `GET /admin/analytics/sites-comparison` endpoints were extended with an optional `startDate` query parameter.
+
+### Implementation details
+
+**API (`packages/api/src/routes/admin/analytics.ts`)**
+
+Both `/admin/analytics/overview` and `/admin/analytics/sites-comparison` accept an optional `startDate` query parameter (ISO date string, `YYYY-MM-DD`).
+
+When `startDate` is provided:
+- Current period: from `startDate` to today (inclusive), daily granularity.
+- Previous period: the same number of days immediately before `startDate` (e.g. if `startDate` is 2026-04-20 and today is 2026-05-04, the window is 14 days, so previous period is 2026-04-06 to 2026-04-19).
+- Response includes `period: 'custom'` instead of `'day' | 'week' | 'month'`.
+- Daily granularity is always used in custom mode; hourly granularity (used by the `'day'` preset) is not available.
+
+**API client types (`packages/app/src/admin/api/client.ts`)**
+
+- `Period` type union extended: `'day' | 'week' | 'month' | 'custom'`.
+- `overview(period, site?, startDate?)` and `sitesComparison(period, site?, startDate?)` accept an optional `startDate: string` parameter.
+
+**Frontend (`packages/app/src/admin/pages/AnalyticsPage.tsx`)**
+
+- New `startDate` state (`string`, empty string = use period preset).
+- Date picker rendered in the page header controls area, labelled "De la", with a `max` attribute set to today's date to prevent selecting future dates.
+- A clear ("×") button appears next to the date input when a date is set.
+- Clicking any preset button (Zi / Săptămână / Lună) clears `startDate` and activates that preset.
+- Selecting a date via the picker sets `startDate` and deactivates all preset buttons (none shown as active, `value` prop on `PeriodSelector` receives `'custom'`).
+- Both `startDate` and `period` are included in react-query cache keys so queries re-run on either change.
+
+**Frontend (`packages/app/src/admin/components/analytics/PeriodSelector.tsx`)**
+
+- `options` array typed as `Array<{ label: string; period: Exclude<Period, 'custom'> }>` — the `'custom'` value is valid for the `value` prop (passed when a date is active) but is never a selectable button option. This means none of the three buttons will match `value === 'custom'` and all render in the inactive style when a custom date is active.
+
+### Constraints and design notes
+
+- The `'day'` period (hourly granularity) is not available in custom mode; custom mode always produces daily buckets. This is consistent with how daily data is already used for `'week'` and `'month'` presets.
+- The date picker `max` attribute prevents future-date selection at the HTML level. No server-side future-date guard was added; the API simply computes the window from the provided date to `now()`, which is never negative in normal use.
+- The previous-period comparison is always included in custom mode (same symmetric window before the start date), keeping the page's current/previous comparison model intact.
+- The `SiteFilter` selection remains orthogonal to the date picker — the two controls compose freely.
+
+**Cypress (`cypress/e2e/admin-analytics.cy.ts`)**
+
+Four new tests: (1) date picker is visible in the analytics page header; (2) selecting a date triggers an API call with the `startDate` query parameter; (3) clearing the date removes the `startDate` parameter from subsequent API calls; (4) clicking a preset period button clears the custom date.

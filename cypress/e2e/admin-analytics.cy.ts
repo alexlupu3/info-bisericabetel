@@ -196,4 +196,35 @@ describe('Admin — Analytics dashboard', () => {
     cy.wait('@exportCsv').its('response.statusCode').should('eq', 200)
     cy.get('[data-testid="item-daily-modal"]').should('not.exist')
   })
+
+  it('shows a date picker for custom start date selection', () => {
+    cy.wait('@overview')
+    cy.get('[data-testid="start-date-input"]').should('be.visible')
+    cy.get('[data-testid="clear-start-date"]').should('not.exist')
+  })
+
+  it('fetches overview with startDate param when a custom date is entered', () => {
+    cy.wait('@overview')
+    cy.get('[data-testid="start-date-input"]').type('2026-01-01')
+    cy.wait('@overview').its('request.url').should('include', 'startDate=2026-01-01')
+    cy.get('[data-testid="clear-start-date"]').should('be.visible')
+  })
+
+  it('clears the custom start date when the clear button is clicked', () => {
+    cy.wait('@overview')
+    cy.get('[data-testid="start-date-input"]').type('2026-01-01')
+    cy.wait('@overview')
+    cy.get('[data-testid="clear-start-date"]').click()
+    cy.get('[data-testid="start-date-input"]').should('have.value', '')
+    cy.get('[data-testid="clear-start-date"]').should('not.exist')
+  })
+
+  it('clears the custom start date when a preset period is selected', () => {
+    cy.wait('@overview')
+    cy.get('[data-testid="start-date-input"]').type('2026-01-01')
+    cy.wait('@overview')
+    cy.get('[data-testid="period-week"]').click()
+    cy.get('[data-testid="start-date-input"]').should('have.value', '')
+    cy.wait('@overview').its('request.url').should('not.include', 'startDate')
+  })
 })
