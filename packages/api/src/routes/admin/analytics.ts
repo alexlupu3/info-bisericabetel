@@ -118,13 +118,18 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   })
 
-  app.get<{ Querystring: { period?: string; site?: string } }>(
+  app.get<{ Querystring: { period?: string; site?: string; startDate?: string } }>(
     '/admin/analytics/overview', { preHandler: auth }, async (req, reply) => {
       const period = req.query.period ?? 'week'
       const site = req.query.site || undefined
+      const startDate = req.query.startDate || undefined
 
-      if (period !== 'day' && period !== 'week' && period !== 'month') {
+      if (!startDate && period !== 'day' && period !== 'week' && period !== 'month') {
         return reply.code(400).send({ error: 'Invalid period. Must be day, week, or month.' })
+      }
+
+      if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        return reply.code(400).send({ error: 'Invalid startDate format. Use YYYY-MM-DD.' })
       }
 
       type ClickBreakdownItem = { itemId: string | null; title: string; clicks: number }
@@ -162,6 +167,141 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           } else {
             entry.clickBreakdown = items
           }
+        }
+      }
+
+      if (startDate) {
+        const startUtc = new Date(startDate + 'T00:00:00Z')
+        if (isNaN(startUtc.getTime()) || startUtc.toISOString().slice(0, 10) !== startDate) {
+          return reply.code(400).send({ error: 'Invalid startDate. Use a valid calendar date in YYYY-MM-DD format.' })
+        }
+
+        const now = new Date()
+        const todayStr = now.toISOString().slice(0, 10)
+
+        const durationDays = Math.max(1, Math.ceil((now.getTime() - startUtc.getTime()) / 86400000))
+
+        const prevEndDate = new Date(startUtc)
+        prevEndDate.setUTCDate(prevEndDate.getUTCDate() - 1)
+        const prevEndStr = prevEndDate.toISOString().slice(0, 10)
+
+        const prevStartDate = new Date(startUtc)
+        prevStartDate.setUTCDate(prevStartDate.getUTCDate() - durationDays)
+        const prevStartStr = prevStartDate.toISOString().slice(0, 10)
+
+        const currentDates: string[] = []
+        for (let i = 0; i <= durationDays; i++) {
+          const d = new Date(startUtc)
+          d.setUTCDate(d.getUTCDate() + i)
+          const s = d.toISOString().slice(0, 10)
+          if (s <= todayStr) currentDates.push(s)
+        }
+
+        const previousDates: string[] = []
+        for (let i = 0; i <= durationDays; i++) {
+          const d = new Date(prevStartDate)
+          d.setUTCDate(d.getUTCDate() + i)
+          const s = d.toISOString().slice(0, 10)
+          if (s <= prevEndStr) previousDates.push(s)
+        }
+
+        const currentMap = new Map<string, { views: number; clicks: number }>()
+        const previousMap = new Map<string, { views: number; clicks: number }>()
+        for (const date of currentDates) currentMap.set(date, { views: 0, clicks: 0 })
+        for (const date of previousDates) previousMap.set(date, { views: 0, clicks: 0 })
+
+        const rows = await sql<{ day: string; event_type: string; count: number }>`
+          SELECT
+            (occurred_at AT TIME ZONE 'UTC')::date AS day,
+            event_type,
+            COUNT(*)::int AS count
+          FROM analytics_events
+          WHERE (occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
+            ${site ? sql`AND site_slug = ${site}` : sql``}
+          GROUP BY day, event_type
+          ORDER BY day ASC
+        `
+
+        const prevRows = await sql<{ day: string; event_type: string; count: number }>`
+          SELECT
+            (occurred_at AT TIME ZONE 'UTC')::date AS day,
+            event_type,
+            COUNT(*)::int AS count
+          FROM analytics_events
+          WHERE (occurred_at AT TIME ZONE 'UTC')::date BETWEEN ${prevStartStr}::date AND ${prevEndStr}::date
+            ${site ? sql`AND site_slug = ${site}` : sql``}
+          GROUP BY day, event_type
+          ORDER BY day ASC
+        `
+
+        for (const row of rows) {
+          const dayStr = row.day.toString().slice(0, 10)
+          const entry = currentMap.get(dayStr)
+          if (!entry) continue
+          if (row.event_type === 'site_visit') entry.views += Number(row.count)
+          else if (row.event_type === 'link_click') entry.clicks += Number(row.count)
+        }
+
+        for (const row of prevRows) {
+          const dayStr = row.day.toString().slice(0, 10)
+          const entry = previousMap.get(dayStr)
+          if (!entry) continue
+          if (row.event_type === 'site_visit') entry.views += Number(row.count)
+          else if (row.event_type === 'link_click') entry.clicks += Number(row.count)
+        }
+
+        const buildSeries = (map: Map<string, { views: number; clicks: number }>): SeriesEntry[] =>
+          Array.from(map.entries()).map(([label, entry]) => ({
+            label,
+            views: entry.views,
+            clicks: entry.clicks,
+          }))
+
+        const currentSeries = buildSeries(currentMap)
+        const previousSeries = buildSeries(previousMap)
+
+        const breakdownRows = await sql<{
+          day: string
+          item_id: string | null
+          title: string | null
+          clicks: number
+        }>`
+          SELECT
+            (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
+            ae.item_id,
+            ci.data->>'title' AS title,
+            COUNT(*)::int AS clicks
+          FROM analytics_events ae
+          LEFT JOIN content_items ci ON ci.id = ae.item_id
+          WHERE ae.event_type = 'link_click'
+            AND (ae.occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
+            ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+          GROUP BY day, ae.item_id, ci.data->>'title'
+        `
+
+        const breakdownMap = new Map<string, ClickBreakdownItem[]>()
+        for (const row of breakdownRows) {
+          const key = row.day.toString().slice(0, 10)
+          const list = breakdownMap.get(key) ?? []
+          list.push({ itemId: row.item_id, title: row.title ?? '—', clicks: Number(row.clicks) })
+          breakdownMap.set(key, list)
+        }
+        attachBreakdown(currentSeries, breakdownMap, (e) => e.label)
+
+        const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
+          series.reduce((acc, s) => acc + s[key], 0)
+
+        const currentViews = sum(currentSeries, 'views')
+        const currentClicks = sum(currentSeries, 'clicks')
+        const previousViews = sum(previousSeries, 'views')
+        const previousClicks = sum(previousSeries, 'clicks')
+
+        return {
+          period: 'custom' as const,
+          current: { views: currentViews, clicks: currentClicks, series: currentSeries },
+          previous: { views: previousViews, clicks: previousClicks, series: previousSeries },
+          viewsChange: change(currentViews, previousViews),
+          clicksChange: change(currentClicks, previousClicks),
         }
       }
 
@@ -431,12 +571,17 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     }
   )
 
-  app.get<{ Querystring: { period?: string } }>(
+  app.get<{ Querystring: { period?: string; startDate?: string } }>(
     '/admin/analytics/sites-comparison', { preHandler: auth }, async (req, reply) => {
       const period = req.query.period ?? 'week'
+      const startDate = req.query.startDate || undefined
 
-      if (period !== 'day' && period !== 'week' && period !== 'month') {
+      if (!startDate && period !== 'day' && period !== 'week' && period !== 'month') {
         return reply.code(400).send({ error: 'Invalid period.' })
+      }
+
+      if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        return reply.code(400).send({ error: 'Invalid startDate format. Use YYYY-MM-DD.' })
       }
 
       const sites = await sql<{ slug: string; name: string; accent: string }>`
@@ -447,6 +592,65 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       type SeriesPoint = { label: string; sites: Record<string, SitePoint>; total: SitePoint }
 
       const buildPoint = (): SitePoint => ({ views: 0, clicks: 0 })
+
+      if (startDate) {
+        const startUtc = new Date(startDate + 'T00:00:00Z')
+        if (isNaN(startUtc.getTime()) || startUtc.toISOString().slice(0, 10) !== startDate) {
+          return reply.code(400).send({ error: 'Invalid startDate. Use a valid calendar date in YYYY-MM-DD format.' })
+        }
+
+        const now = new Date()
+        const todayStr = now.toISOString().slice(0, 10)
+
+        const dateSet: string[] = []
+        const durationDays = Math.max(1, Math.ceil((now.getTime() - startUtc.getTime()) / 86400000))
+        for (let i = 0; i <= durationDays; i++) {
+          const d = new Date(startUtc)
+          d.setUTCDate(d.getUTCDate() + i)
+          const s = d.toISOString().slice(0, 10)
+          if (s <= todayStr) dateSet.push(s)
+        }
+
+        const rows = await sql<{
+          day: string
+          site_slug: string | null
+          event_type: string
+          count: number
+        }>`
+          SELECT
+            (occurred_at AT TIME ZONE 'UTC')::date AS day,
+            site_slug,
+            event_type,
+            COUNT(*)::int AS count
+          FROM analytics_events
+          WHERE (occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
+          GROUP BY day, site_slug, event_type
+          ORDER BY day ASC
+        `
+
+        const pointMap = new Map<string, SeriesPoint>()
+        for (const date of dateSet) {
+          const siteData: Record<string, SitePoint> = {}
+          for (const s of sites) siteData[s.slug] = buildPoint()
+          pointMap.set(date, { label: date, sites: siteData, total: buildPoint() })
+        }
+
+        for (const row of rows) {
+          const dateStr = row.day.toString().slice(0, 10)
+          const point = pointMap.get(dateStr)
+          if (!point) continue
+          const count = Number(row.count)
+          if (row.event_type === 'site_visit') {
+            point.total.views += count
+            if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].views += count
+          } else if (row.event_type === 'link_click') {
+            point.total.clicks += count
+            if (row.site_slug && point.sites[row.site_slug]) point.sites[row.site_slug].clicks += count
+          }
+        }
+
+        return { period: 'custom' as const, sites, series: Array.from(pointMap.values()) }
+      }
 
       if (period === 'day') {
         const rows = await sql<{
