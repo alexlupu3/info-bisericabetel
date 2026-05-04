@@ -64,11 +64,25 @@ const mockItemDaily = {
   })),
 }
 
+const mockSitesComparison = {
+  period: 'week',
+  sites: mockSites,
+  series: Array.from({ length: 7 }, (_, i) => ({
+    label: `2026-04-${String(13 + i).padStart(2, '0')}`,
+    sites: {
+      centru: { views: 15 + i, clicks: 4 + i },
+      nord: { views: 10 + i, clicks: 2 + i },
+    },
+    total: { views: 25 + i * 2, clicks: 6 + i * 2 },
+  })),
+}
+
 describe('Admin — Analytics dashboard', () => {
   beforeEach(() => {
     cy.intercept('GET', '/api/admin/analytics/overview*', mockOverview).as('overview')
     cy.intercept({ method: 'GET', pathname: '/api/admin/analytics/items' }, mockItems).as('items')
     cy.intercept('GET', '/api/admin/analytics/items/*/daily*', mockItemDaily).as('itemDaily')
+    cy.intercept('GET', '/api/admin/analytics/sites-comparison*', mockSitesComparison).as('sitesComparison')
     loginAndGo('analytics')
   })
 
@@ -205,26 +219,34 @@ describe('Admin — Analytics dashboard', () => {
 
   it('fetches overview with startDate param when a custom date is entered', () => {
     cy.wait('@overview')
+    cy.wait('@sitesComparison')
     cy.get('[data-testid="start-date-input"]').type('2026-01-01')
     cy.wait('@overview').its('request.url').should('include', 'startDate=2026-01-01')
+    cy.wait('@sitesComparison').its('request.url').should('include', 'startDate=2026-01-01')
     cy.get('[data-testid="clear-start-date"]').should('be.visible')
   })
 
   it('clears the custom start date when the clear button is clicked', () => {
     cy.wait('@overview')
+    cy.wait('@sitesComparison')
     cy.get('[data-testid="start-date-input"]').type('2026-01-01')
     cy.wait('@overview')
+    cy.wait('@sitesComparison')
     cy.get('[data-testid="clear-start-date"]').click()
     cy.get('[data-testid="start-date-input"]').should('have.value', '')
     cy.get('[data-testid="clear-start-date"]').should('not.exist')
+    cy.wait('@sitesComparison').its('request.url').should('not.include', 'startDate')
   })
 
   it('clears the custom start date when a preset period is selected', () => {
     cy.wait('@overview')
+    cy.wait('@sitesComparison')
     cy.get('[data-testid="start-date-input"]').type('2026-01-01')
     cy.wait('@overview')
+    cy.wait('@sitesComparison')
     cy.get('[data-testid="period-week"]').click()
     cy.get('[data-testid="start-date-input"]').should('have.value', '')
     cy.wait('@overview').its('request.url').should('not.include', 'startDate')
+    cy.wait('@sitesComparison').its('request.url').should('not.include', 'startDate')
   })
 })

@@ -172,6 +172,10 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       if (startDate) {
         const startUtc = new Date(startDate + 'T00:00:00Z')
+        if (isNaN(startUtc.getTime()) || startUtc.toISOString().slice(0, 10) !== startDate) {
+          return reply.code(400).send({ error: 'Invalid startDate. Use a valid calendar date in YYYY-MM-DD format.' })
+        }
+
         const now = new Date()
         const todayStr = now.toISOString().slice(0, 10)
 
@@ -212,7 +216,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
             event_type,
             COUNT(*)::int AS count
           FROM analytics_events
-          WHERE occurred_at >= ${startDate}::date
+          WHERE (occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
             ${site ? sql`AND site_slug = ${site}` : sql``}
           GROUP BY day, event_type
           ORDER BY day ASC
@@ -270,7 +274,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           FROM analytics_events ae
           LEFT JOIN content_items ci ON ci.id = ae.item_id
           WHERE ae.event_type = 'link_click'
-            AND ae.occurred_at >= ${startDate}::date
+            AND (ae.occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
             ${site ? sql`AND ae.site_slug = ${site}` : sql``}
           GROUP BY day, ae.item_id, ci.data->>'title'
         `
@@ -591,6 +595,10 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       if (startDate) {
         const startUtc = new Date(startDate + 'T00:00:00Z')
+        if (isNaN(startUtc.getTime()) || startUtc.toISOString().slice(0, 10) !== startDate) {
+          return reply.code(400).send({ error: 'Invalid startDate. Use a valid calendar date in YYYY-MM-DD format.' })
+        }
+
         const now = new Date()
         const todayStr = now.toISOString().slice(0, 10)
 
@@ -615,7 +623,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
             event_type,
             COUNT(*)::int AS count
           FROM analytics_events
-          WHERE occurred_at >= ${startDate}::date
+          WHERE (occurred_at AT TIME ZONE 'UTC')::date >= ${startDate}::date
           GROUP BY day, site_slug, event_type
           ORDER BY day ASC
         `
