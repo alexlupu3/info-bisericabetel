@@ -34,6 +34,10 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
       setSiteSlug(null)
       setCreating(false)
     },
+    onError: (err: any) => {
+      toast(err?.message ?? 'Eroare la crearea linkului')
+      console.error(err)
+    },
   })
 
   const deleteMut = useMutation({
@@ -41,6 +45,10 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['short-links', itemId] })
       toast('Link șters')
+    },
+    onError: (err: any) => {
+      toast(err?.message ?? 'Eroare la ștergerea linkului')
+      console.error(err)
     },
   })
 
@@ -54,7 +62,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
 
   const copyLink = (code: string) => {
     const url = `${getShortLinkBase()}/s/${code}`
-    navigator.clipboard.writeText(url).then(() => toast('Link copiat'))
+    navigator.clipboard.writeText(url).then(() => toast('Link copiat')).catch(err => { toast('Eroare la copierea linkului'); console.error(err) })
   }
 
   const links: ShortLink[] = data?.shortLinks ?? []

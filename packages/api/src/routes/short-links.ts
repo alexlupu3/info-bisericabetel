@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto'
+import { randomInt } from 'crypto'
 import type { FastifyInstance } from 'fastify'
 import { eq, and } from 'drizzle-orm'
 import { db, sql } from '../db/client.js'
@@ -7,8 +7,7 @@ import { shortLinks, contentItems, analyticsEvents } from '../db/schema.js'
 const CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
 function generateCode(length = 6): string {
-  const bytes = randomBytes(length)
-  return Array.from(bytes).map(b => CHARS[b % CHARS.length]).join('')
+  return Array.from({ length }, () => CHARS[randomInt(0, CHARS.length)]).join('')
 }
 
 async function resolveUrl(contentItemId: string, siteSlug: string | null): Promise<string | null> {
@@ -40,6 +39,7 @@ export async function shortLinkRedirectRoute(app: FastifyInstance) {
     // Fire-and-forget: log the click
     db.insert(analyticsEvents).values({
       eventType:   'link_click',
+      siteSlug:    link.siteSlug ?? undefined,
       itemId:      link.contentItemId,
       url:         url ?? undefined,
       shortLinkId: link.id,

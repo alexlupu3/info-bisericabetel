@@ -58,7 +58,7 @@ export const analyticsEvents = pgTable('analytics_events', {
   siteSlug:    text('site_slug'),
   itemId:      uuid('item_id'),
   url:         text('url'),
-  shortLinkId: uuid('short_link_id'),
+  shortLinkId: uuid('short_link_id').references(() => shortLinks.id, { onDelete: 'set null' }),
   occurredAt:  timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => [
   index('analytics_events_type_occurred_idx').on(t.eventType, t.occurredAt),
@@ -118,7 +118,6 @@ export const shortLinks = pgTable('short_links', {
   createdBy:     uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 }, t => [
   index('short_links_content_item_idx').on(t.contentItemId),
-  index('short_links_code_idx').on(t.code),
 ])
 
 export const groupTranslations = pgTable('group_translations', {

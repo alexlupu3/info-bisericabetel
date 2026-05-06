@@ -119,6 +119,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       FROM short_links sl
       LEFT JOIN analytics_events ae
         ON ae.short_link_id = sl.id
+        ${site ? sql`AND ae.site_slug = ${site}` : sql``}
       GROUP BY sl.content_item_id
     `
 
@@ -136,20 +137,20 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         shortLinkClicks: shortLinkMap.get(r.item_id) ?? 0,
       })
     }
-    for (const [itemId, slClicks] of shortLinkMap) {
-      if (!itemMap.has(itemId) && slClicks > 0) {
-        // fetch title for items that only have short-link clicks
-        const [ci] = await sql<{ type: string | null; title: string | null }>`
-          SELECT type, data->>'title' AS title FROM content_items WHERE id = ${itemId}
-        `
-        if (ci) {
-          itemMap.set(itemId, {
-            type:            ci.type ?? 'unknown',
-            title:           ci.title ?? '—',
-            websiteClicks:   0,
-            shortLinkClicks: slClicks,
-          })
-        }
+
+    // Batch-fetch titles for items that only appear via short-link clicks
+    const missingIds = [...shortLinkMap.keys()].filter(id => !itemMap.has(id) && (shortLinkMap.get(id) ?? 0) > 0)
+    if (missingIds.length > 0) {
+      const ciRows = await sql<{ id: string; type: string | null; title: string | null }>`
+        SELECT id, type, data->>'title' AS title FROM content_items WHERE id = ANY(${missingIds})
+      `
+      for (const ci of ciRows) {
+        itemMap.set(ci.id, {
+          type:            ci.type ?? 'unknown',
+          title:           ci.title ?? '—',
+          websiteClicks:   0,
+          shortLinkClicks: shortLinkMap.get(ci.id) ?? 0,
+        })
       }
     }
 
@@ -615,7 +616,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       const lines = ['Timestamp,Site,Titlu,URL,Sursa,Cod link scurt']
       for (const row of rows) {
-        const source = row.short_link_label ?? 'website'
+        const source = row.short_link_label ?? (row.short_link_id ? 'link scurt (șters)' : 'website')
         lines.push([
           escape(new Date(row.occurred_at).toISOString()),
           escape(row.site_slug),
@@ -839,6 +840,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         WHERE ae.event_type = 'link_click'
           AND sl.content_item_id = ${itemId}
           AND ae.occurred_at >= NOW() - INTERVAL '90 days'
+          ${site ? sql`AND ae.site_slug = ${site}` : sql``}
         GROUP BY day, sl.id, sl.label
         ORDER BY day ASC
       `

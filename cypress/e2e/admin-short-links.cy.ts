@@ -126,6 +126,8 @@ describe('Admin — Short Links tab', () => {
     // The item has siteLinks.centru defined, so the dropdown should appear
     cy.get('[data-testid="short-link-site-select"]').should('be.visible')
     cy.get('[data-testid="short-link-site-select"]').should('contain', 'Centru')
+    // Vest has no siteLinks override on the item, so it must not appear
+    cy.get('[data-testid="short-link-site-select"]').should('not.contain', 'Vest')
   })
 
   it('creates a short link with a site override', () => {

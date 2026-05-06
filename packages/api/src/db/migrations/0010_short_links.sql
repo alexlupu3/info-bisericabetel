@@ -9,7 +9,12 @@ CREATE TABLE IF NOT EXISTS short_links (
 );
 
 CREATE INDEX IF NOT EXISTS short_links_content_item_idx ON short_links (content_item_id);
-CREATE INDEX IF NOT EXISTS short_links_code_idx ON short_links (code);
 
 ALTER TABLE analytics_events
   ADD COLUMN IF NOT EXISTS short_link_id UUID;
+
+ALTER TABLE analytics_events
+  ADD CONSTRAINT analytics_events_short_link_id_fkey
+  FOREIGN KEY (short_link_id) REFERENCES short_links(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS analytics_events_short_link_id_idx ON analytics_events (short_link_id);
