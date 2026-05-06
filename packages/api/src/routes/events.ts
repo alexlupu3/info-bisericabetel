@@ -5,7 +5,7 @@ import { analyticsEvents } from '../db/schema.js'
 export async function eventsRoutes(app: FastifyInstance) {
   app.post<{
     Body: { type: string; site?: string | null; itemId?: string; url?: string }
-  }>('/events', async (req, reply) => {
+  }>('/events', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { type, site, itemId, url } = req.body ?? {}
 
     if (type !== 'site_visit' && type !== 'link_click') {

@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
+import rateLimit from '@fastify/rate-limit'
 import { sitesRoutes } from './routes/sites.js'
 import { contentRoutes } from './routes/content.js'
 import { authRoutes } from './routes/auth.js'
@@ -37,6 +38,7 @@ async function start() {
   await app.register(cors, { origin: true })
   await app.register(jwt, { secret: JWT_SECRET })
   await app.register(multipart)
+  await app.register(rateLimit, { global: false })
 
   // Serve uploaded media files at /uploads/ — also decorates reply.sendFile()
   await app.register(fastifyStatic, {

@@ -6,6 +6,16 @@ import { shortLinks, contentItems, analyticsEvents } from '../db/schema.js'
 
 const CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
 
+// Deduplicate short-link click events: same IP+code within 10 min counts once
+const CLICK_DEDUP_WINDOW_MS = 10 * 60 * 1000
+const clickDedup = new Map<string, number>()
+setInterval(() => {
+  const cutoff = Date.now() - CLICK_DEDUP_WINDOW_MS
+  for (const [key, ts] of clickDedup) {
+    if (ts < cutoff) clickDedup.delete(key)
+  }
+}, 30 * 60 * 1000).unref()
+
 function generateCode(length = 6): string {
   return Array.from({ length }, () => CHARS[randomInt(0, CHARS.length)]).join('')
 }
@@ -36,14 +46,20 @@ export async function shortLinkRedirectRoute(app: FastifyInstance) {
 
     const url = await resolveUrl(link.contentItemId, link.siteSlug)
 
-    // Fire-and-forget: log the click
-    db.insert(analyticsEvents).values({
-      eventType:   'link_click',
-      siteSlug:    link.siteSlug ?? undefined,
-      itemId:      link.contentItemId,
-      url:         url ?? undefined,
-      shortLinkId: link.id,
-    }).catch(() => {})
+    // Fire-and-forget: log the click, deduplicated per IP+code within 10 min
+    const dedupKey = `${req.ip}:${link.code}`
+    const now = Date.now()
+    const lastClick = clickDedup.get(dedupKey)
+    if (!lastClick || now - lastClick >= CLICK_DEDUP_WINDOW_MS) {
+      clickDedup.set(dedupKey, now)
+      db.insert(analyticsEvents).values({
+        eventType:   'link_click',
+        siteSlug:    link.siteSlug ?? undefined,
+        itemId:      link.contentItemId,
+        url:         url ?? undefined,
+        shortLinkId: link.id,
+      }).catch(() => {})
+    }
 
     return reply.redirect(url ?? '/', 302)
   })
