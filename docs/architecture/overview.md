@@ -27,7 +27,7 @@
 - **Style guide skill:** a `frontend-design` Claude Code skill is present in the project and contains the church's style guide. It must be used when building any public-facing UI to ensure brand consistency.
 
 ## Backend
-- Fastify (Node.js). In production, the Fastify process is the only runtime: it serves the frontend SPA from `dist/public/`, uploaded media from the `UPLOADS_DIR` volume, and all API routes under the `/api` prefix. A `setNotFoundHandler` SPA fallback returns `index.html` for unmatched non-`/api` routes. No nginx layer at runtime.
+- Fastify (Node.js). In production, the Fastify process is the only runtime: it serves the frontend SPA from `dist/public/`, uploaded media from the `UPLOADS_DIR` volume, and all API routes under the `/api` prefix. The short-link redirect route (`GET /s/:code`) is registered before the SPA static-serving handler so that short link codes are not intercepted by the SPA fallback. A `setNotFoundHandler` SPA fallback returns `index.html` for all other unmatched non-`/api` routes. No nginx layer at runtime.
 - Must be portable and integrate cleanly with a relational database via an ORM/connector layer.
 
 ## Database
@@ -38,6 +38,7 @@
 - Migration `0007_soft_delete.sql` adds a partial index on `content_items` where `state = 'deleted'` for efficient Archive page queries. The `state` column on `content_items` supports four values: `draft`, `published`, `archived`, `deleted`.
 - Migration `0008_exclusive_site.sql` adds a nullable `exclusive_site TEXT REFERENCES sites(slug)` column on `content_items`, plus a partial index on `(exclusive_site) WHERE exclusive_site IS NOT NULL` for efficient site-specific queries. When set, the value gates the item to that site only — the item is hidden from the all-sites API response. See ADR-009.
 - Migration `0009_i18n.sql` adds four tables for internationalization: `languages` (supported locales, seeded with Romanian default and English), `ui_translations` (translated public UI strings keyed by locale and dot-notation key), `content_translations` (per-field translated text for content items), and `group_translations` (translated group names). When the requested locale is the default (`ro`), no translation join is performed — zero query overhead for Romanian users.
+- Migration `0010_short_links.sql` adds the `short_links` table (`id` UUID PK, `content_item_id` FK → `content_items` with ON DELETE CASCADE, `code` TEXT UNIQUE, `label` TEXT, `site_slug` TEXT nullable, `created_at`) and a nullable `short_link_id UUID` column on `analytics_events`. `short_link_id` is a soft reference (no FK constraint) — analytics events are preserved even when a short link is later deleted. The `short_links` table uses a cascade-delete FK so that permanently hard-deleting a content item removes its short links.
 
 ## File Storage
 - Uploaded images are written to a local `uploads/` directory on the server.

@@ -15,9 +15,13 @@ Record rules that must stay true regardless of implementation details.
 - BR-009: Duplicating a content item always creates a new item in `draft` state, regardless of the source item's state. Media attachment fields (`data.thumbnail` for cards, `data.imageUrl` for posters) are never copied — the duplicate starts with no image. All other `data` fields, site scope (`sites[]`, `exclusiveSite`), group assignment (`groupId`), and expiry (`expiresAt`) are copied from the source. The duplicate is appended at the end of the global item list and assigned to the same group as the original if applicable.
 - BR-010: When a new content type is introduced that includes a media attachment field in its `data` JSONB payload, the `MEDIA_FIELDS` map in the duplicate endpoint must be updated to exclude that field from duplication. Failure to do so would silently copy a media URL reference without tracking it in the media library.
 
+- BR-011: Short links are cascade-deleted when their parent content item is permanently hard-deleted from the database. Soft-deleting or archiving a content item does not affect its short links — they continue to exist and redirect visitors to the current destination URL. This ensures admins can temporarily hide content without breaking distributed short links (e.g. a QR code already printed on flyers).
+- BR-012: The destination URL for a short link redirect is resolved dynamically at redirect time by reading the content item's current `data.link` value (or `data.siteLinks[siteSlug]` if a site override is configured on the short link). This means changing the content item's link automatically updates where all short links for that item redirect, with no need to update or re-create the short links. If no URL can be resolved, the redirect falls back to `/`.
+
 ## Source
 - Stakeholder or document: initial product context provided by repository owner
 - Date confirmed: 2026-03-12
 - BR-005 added: 2026-03-17 (resolved during group site-scope implementation)
 - BR-006, BR-007, BR-008 added: 2026-04-21 (site-exclusive content feature, migration 0008_exclusive_site.sql)
 - BR-009, BR-010 added: 2026-05-02 (duplicate content item feature, FR-042)
+- BR-011, BR-012 added: 2026-05-06 (short link tracking feature, FR-044, migration 0010_short_links.sql)
