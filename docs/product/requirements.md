@@ -70,14 +70,26 @@
   - **Frontend components:** `packages/app/src/admin/components/analytics/` contains 7 components + 1 barrel export (StatCard, TrendChart, PeriodSelector, SiteFilter, ItemsTable, ItemDailyModal, SitesComparisonChart, index.ts). `recharts` is a dependency of `packages/app`.
   - **Database:** migration `0006_analytics_item_idx.sql` adds a partial index on `(item_id, occurred_at)` for efficient per-item queries.
 
-- FR-043: The analytics dashboard must allow admins to export raw click data for a specific content item as a CSV file. **[Implemented — 2026-05-03]** A Download icon button on each row of the Content clicks table triggers a direct CSV download for that item. Details:
+- FR-043: The analytics dashboard must allow admins to export raw click data for a specific content item as a CSV file. **[Implemented — 2026-05-03; updated 2026-05-06 for short link columns]** A Download icon button on each row of the Content clicks table triggers a direct CSV download for that item. Details:
   - **Endpoint:** `GET /api/admin/analytics/items/:itemId/export?site=<slug>` (admin/super-admin Bearer token required). Returns all historical `link_click` events for the item with no time range limit.
-  - **CSV columns:** Timestamp, Site, Titlu (item title at time of click), URL (the clicked link).
+  - **CSV columns:** Timestamp, Site, Titlu (item title at time of click), URL (the clicked link), Sursa (source: "website" or the short link label), Cod link scurt (the short link code if applicable).
   - **Site scoping:** the optional `site` query parameter (forwarded from the active `SiteFilter` selection) scopes the export to one site. When no site is selected (all-sites view), all events across sites are included.
   - **Download mechanism:** the frontend `downloadFile()` helper in `packages/app/src/admin/api/client.ts` fetches the response with the Bearer auth header, receives a blob, and triggers a browser download via a temporary object URL — no server-side redirect or signed URL is required.
   - **CSV serialization:** implemented without a CSV library using manual comma/newline concatenation; no additional dependency introduced.
   - **Clicking the Download button does not open the item drill-down modal** — propagation is stopped at the button level in `ItemsTable.tsx`.
   - **No time range filter is exposed on the export** — the export always covers the full historical dataset for the item. This is intentional (admin reporting need) and may be revisited if export files become too large in practice.
+
+- FR-044: The system must support short link tracking for content items. **[Implemented — 2026-05-06]** Admins can generate multiple short links per content item, each labeled with a distribution channel (e.g. "WhatsApp Manastur", "QR cod intrare"). Short links are accessed at `GET /s/:code` (public, no auth) which logs the click server-side and redirects to the resolved destination URL. This allows admins to compare traffic volumes across different distribution channels for the same content. Details:
+  - **Short links are created on demand** — no auto-creation. Only admins create them via `POST /api/admin/content/:id/short-links`.
+  - **Code format:** 6-character alphanumeric code, server-generated, unique.
+  - **Dynamic URL resolution:** at redirect time the server reads `data.link` from the current content item record, or `data.siteLinks[siteSlug]` if a `siteSlug` override is stored on the short link. If no URL resolves (item has no link, or code not found), the redirect falls back to `/`.
+  - **Existing website tracking is unchanged** — public-page link clicks continue to fire client-side analytics events as before.
+  - **Cascade delete:** permanently hard-deleting a content item removes its short links. Soft-deleted and archived items retain their short links (and they continue to redirect).
+  - **Unresolved codes** redirect to `/` without error.
+  - **Admin endpoints:** `GET /api/admin/content/:id/short-links` (list with click counts), `POST /api/admin/content/:id/short-links` (create), `DELETE /api/admin/content/:id/short-links/:shortLinkId` (delete). All require Bearer token auth.
+  - **Admin UI:** the content item editor gains a tab bar with "Editează" and "Link-uri scurte" tabs. The `ShortLinksTab` component (`packages/app/src/admin/components/content/ShortLinksTab.tsx`) handles display, creation, and deletion.
+  - **Analytics integration:** `GET /admin/analytics/items` returns `websiteClicks`, `shortLinkClicks`, and `clicks` (total) per item. `GET /admin/analytics/items/:id/daily` returns `website` daily clicks plus per-short-link daily breakdown. The `ItemsTable` component shows three columns. The `ItemDailyModal` chart uses a stacked `AreaChart` (website layer + one layer per short link).
+  - **Database:** migration `0010_short_links.sql` adds the `short_links` table and a nullable `short_link_id UUID` column on `analytics_events` (soft reference — events survive short link deletion). See ADR-011 for the dynamic URL resolution decision.
 
 ## Non-Functional Requirements
 - NFR-001: Both the public hub and the admin tool must be optimized for mobile-first access.

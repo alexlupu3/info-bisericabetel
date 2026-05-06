@@ -18,8 +18,21 @@ This repository is the root for a production-ready application and its supportin
 - `/archive` — view soft-deleted content items; restore to draft or permanently delete
 - `/media` — browse uploaded images, view usage, delete unused files
 - `/locations` — manage site settings
-- `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), manual start date picker ("De la") for custom date-range analysis, stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal, per-item CSV export (Download button on each row of the Content clicks table), and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins
+- `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), manual start date picker ("De la") for custom date-range analysis, stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal with stacked area chart (website + per-short-link layers), per-item CSV export with source column (website vs. short link label), and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins
 - `/translations` — super-admin only; manage supported languages and translate all public UI strings; content items also support per-language translation via the content edit form
+
+## Short Link Tracking
+
+Admins can create multiple short links per content item (e.g. `betel.ro/s/abc123`), each labeled with a distribution channel (e.g. "WhatsApp Manastur", "QR cod intrare"). Clicking a short link logs the click server-side and redirects to the content item's current destination URL. This allows admins to compare traffic from different channels for the same content.
+
+Key behaviors:
+- Short links are created on demand by admins only — no auto-creation.
+- At redirect time the server reads the current `data.link` from the content item, or `data.siteLinks[siteSlug]` if a site override is set on the short link. If no URL resolves, the redirect falls back to `/`.
+- Any short link code not found in the database redirects to `/`.
+- When a content item is permanently hard-deleted, its short links are cascade-deleted. Soft-deleted and archived items retain their short links.
+- Public-page link clicks continue to fire client-side events as before — existing website tracking is unchanged.
+
+The content item editor gains a "Link-uri scurte" tab alongside the existing "Editează" tab. The analytics Content clicks table shows Website clicks, Short link clicks, and Total columns. The per-item daily modal uses a stacked area chart. The CSV export includes a "Sursa" (source) column and a "Cod link scurt" column.
 
 ## AI Auto-Translation
 
