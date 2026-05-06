@@ -105,7 +105,24 @@ export interface DailyAnalytics {
 }
 
 export interface ItemAnalytics {
-  items: Array<{ itemId: string | null; type: string; title: string; clicks: number }>
+  items: Array<{
+    itemId: string | null
+    type: string
+    title: string
+    clicks: number
+    websiteClicks: number
+    shortLinkClicks: number
+  }>
+}
+
+export interface ShortLink {
+  id: string
+  code: string
+  label: string
+  contentItemId: string
+  siteSlug: string | null
+  createdAt: string
+  clickCount: number
 }
 
 export type Period = 'day' | 'week' | 'month' | 'custom'
@@ -132,9 +149,15 @@ export interface OverviewData {
   clicksChange: number
 }
 
+export interface ItemDailyShortLink {
+  id: string
+  label: string
+}
+
 export interface ItemDaily {
   itemId: string
-  daily: Array<{ date: string; clicks: number }>
+  daily: Array<{ date: string; website: number; [shortLinkId: string]: number | string }>
+  shortLinks: ItemDailyShortLink[]
 }
 
 export interface SiteComparisonPoint {
@@ -216,6 +239,14 @@ export const api = {
       get<{ logs: AuditLogEntry[]; limit: number; offset: number }>(
         `/api/admin/logs?limit=${limit}&offset=${offset}`
       ),
+  },
+  shortLinks: {
+    list:   (contentItemId: string) =>
+      get<{ shortLinks: ShortLink[] }>(`/api/admin/content/${contentItemId}/short-links`),
+    create: (contentItemId: string, label: string, siteSlug?: string | null) =>
+      post<ShortLink>(`/api/admin/content/${contentItemId}/short-links`, { label, siteSlug }),
+    remove: (contentItemId: string, shortLinkId: string) =>
+      del<void>(`/api/admin/content/${contentItemId}/short-links/${shortLinkId}`),
   },
   analytics: {
     lifetime: () => get<LifetimeAnalytics>('/api/admin/analytics/lifetime'),

@@ -51,3 +51,13 @@ export interface GroupTranslation {
   locale: string
   title: string
 }
+
+export interface ShortLink {
+  id: string
+  code: string
+  label: string
+  contentItemId: string
+  siteSlug: string | null
+  createdAt: string
+  clickCount: number
+}

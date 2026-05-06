@@ -18,6 +18,7 @@ import { eventsRoutes } from './routes/events.js'
 import { setupRoutes } from './routes/setup.js'
 import { languagesRoutes } from './routes/languages.js'
 import { adminTranslationsRoutes } from './routes/admin/translations.js'
+import { shortLinkRedirectRoute, adminShortLinksRoutes } from './routes/short-links.js'
 import { runMigrations } from './db/migrate.js'
 
 const PORT = Number(process.env.PORT ?? 3100)
@@ -42,6 +43,9 @@ async function start() {
     root: UPLOADS_DIR,
     prefix: '/uploads/',
   })
+
+  // Short link redirects — registered before SPA static so /s/:code is handled here
+  await app.register(shortLinkRedirectRoute)
 
   // Serve frontend SPA static files
   await app.register(fastifyStatic, {
@@ -80,6 +84,7 @@ async function start() {
   await app.register(setupRoutes, { prefix: '/api' })
   await app.register(languagesRoutes, { prefix: '/api' })
   await app.register(adminTranslationsRoutes, { prefix: '/api' })
+  await app.register(adminShortLinksRoutes, { prefix: '/api' })
 
   // SPA fallback: serve index.html for any unmatched non-API route
   app.setNotFoundHandler((req, reply) => {

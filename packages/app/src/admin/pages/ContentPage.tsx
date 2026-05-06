@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock } from 'lucide-react'
+import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock, Link2 } from 'lucide-react'
+import ShortLinksTab from '../components/content/ShortLinksTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -1417,6 +1418,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
   item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: () => void
 }) {
   const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState<'edit' | 'short-links'>('edit')
   const [form, setForm] = useState<FormData>(() => {
     const base = itemToForm(item)
     if (!item && defaultGroupId) return { ...base, groupId: defaultGroupId }
@@ -1499,8 +1501,55 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
   }
 
   return (
-    <div className="border border-[var(--border)] p-4 mb-6 space-y-4"
+    <div className="border border-[var(--border)] mb-6"
          data-testid={isEdit ? 'edit-form' : 'create-form'}>
+      {/* Tab bar — only shown when editing an existing item */}
+      {isEdit && (
+        <div className="flex border-b border-[var(--border)]">
+          <button
+            onClick={() => setActiveTab('edit')}
+            data-testid="tab-edit"
+            className={`px-4 py-2.5 text-xs tracking-widest uppercase font-content transition-colors
+              ${activeTab === 'edit'
+                ? 'border-b-2 border-[var(--accent)] text-[var(--accent)] -mb-px'
+                : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
+          >
+            Editează
+          </button>
+          <button
+            onClick={() => setActiveTab('short-links')}
+            data-testid="tab-short-links"
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs tracking-widest uppercase font-content transition-colors
+              ${activeTab === 'short-links'
+                ? 'border-b-2 border-[var(--accent)] text-[var(--accent)] -mb-px'
+                : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
+          >
+            <Link2 size={12} />
+            Link-uri scurte
+          </button>
+        </div>
+      )}
+
+      {/* Short links tab */}
+      {isEdit && activeTab === 'short-links' && (
+        <div className="p-4">
+          <ShortLinksTab
+            itemId={item!.id}
+            itemData={item!.data}
+            availableSites={availableSites}
+          />
+          <div className="pt-4 mt-4 border-t border-[var(--border)]">
+            <button onClick={onClose}
+              className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">
+              Închide
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit tab (or create form) */}
+      {(!isEdit || activeTab === 'edit') && (
+      <div className="p-4 space-y-4">
       <span className="text-sm font-bold uppercase tracking-widest">{isEdit ? 'Editează' : 'Conținut nou'}</span>
 
       {/* Language selector — only in edit mode and when non-default languages exist */}
@@ -1776,6 +1825,8 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
           Anulează
         </button>
       </div>
+      </div>
+      )}
     </div>
   )
 }

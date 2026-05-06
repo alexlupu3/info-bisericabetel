@@ -53,12 +53,13 @@ export const media = pgTable('media', {
 })
 
 export const analyticsEvents = pgTable('analytics_events', {
-  id:         uuid('id').primaryKey().defaultRandom(),
-  eventType:  text('event_type').notNull(),
-  siteSlug:   text('site_slug'),
-  itemId:     uuid('item_id'),
-  url:        text('url'),
-  occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
+  id:          uuid('id').primaryKey().defaultRandom(),
+  eventType:   text('event_type').notNull(),
+  siteSlug:    text('site_slug'),
+  itemId:      uuid('item_id'),
+  url:         text('url'),
+  shortLinkId: uuid('short_link_id'),
+  occurredAt:  timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => [
   index('analytics_events_type_occurred_idx').on(t.eventType, t.occurredAt),
   index('analytics_events_site_occurred_idx').on(t.siteSlug, t.occurredAt),
@@ -105,6 +106,19 @@ export const contentTranslations = pgTable('content_translations', {
 }, t => [
   unique().on(t.contentItemId, t.locale),
   index('content_translations_item_idx').on(t.contentItemId),
+])
+
+export const shortLinks = pgTable('short_links', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  code:          text('code').notNull().unique(),
+  label:         text('label').notNull(),
+  contentItemId: uuid('content_item_id').notNull().references(() => contentItems.id, { onDelete: 'cascade' }),
+  siteSlug:      text('site_slug').references(() => sites.slug, { onDelete: 'set null' }),
+  createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  createdBy:     uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+}, t => [
+  index('short_links_content_item_idx').on(t.contentItemId),
+  index('short_links_code_idx').on(t.code),
 ])
 
 export const groupTranslations = pgTable('group_translations', {
