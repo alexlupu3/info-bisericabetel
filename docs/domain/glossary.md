@@ -18,3 +18,5 @@ Define business and ministry terms exactly once and reuse them consistently.
 | Translation key | A dot-notation string (e.g. `nav.viewAll`) identifying a UI string that can be translated | Managed in the admin Translations page; source values are defined in code |
 | LanguageSwitcher | The UI toggle in the public hub footer that allows users to switch the display language | Preference is persisted in localStorage under the key `betel-lang` |
 | Translation status badge | An indicator shown on admin content list items when translations are missing or incomplete for one or more enabled non-default languages | Visible in the admin content list; not shown on the public hub |
+| Short link | A short URL in the form `/s/<code>` that redirects to a content item's destination URL and logs the click server-side | Created by admins; each short link has a label identifying the distribution channel (e.g. "WhatsApp Manastur") |
+| Distribution channel | An admin-assigned label on a short link identifying how or where the link was shared (e.g. "QR cod intrare", "WhatsApp Manastur") | Used to distinguish traffic sources for the same content item in analytics |

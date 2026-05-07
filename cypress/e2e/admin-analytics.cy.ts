@@ -51,16 +51,20 @@ const mockOverview = {
 
 const mockItems = {
   items: [
-    { itemId: 'item-1', type: 'card', title: 'Program Duminică', clicks: 45 },
-    { itemId: 'item-2', type: 'poster', title: 'Conferință Mai', clicks: 32 },
+    { itemId: 'item-1', type: 'card', title: 'Program Duminică', clicks: 53, websiteClicks: 45, shortLinkClicks: 8 },
+    { itemId: 'item-2', type: 'poster', title: 'Conferință Mai', clicks: 32, websiteClicks: 32, shortLinkClicks: 0 },
   ],
 }
 
 const mockItemDaily = {
   itemId: 'item-1',
+  shortLinks: [
+    { id: 'sl-1', label: 'WhatsApp' },
+  ],
   daily: Array.from({ length: 14 }, (_, i) => ({
     date: `2026-04-${String(6 + i).padStart(2, '0')}`,
-    clicks: 2 + Math.floor(Math.random() * 5),
+    website: 2 + (i % 4),
+    'sl-1': i % 3,
   })),
 }
 
@@ -114,7 +118,7 @@ describe('Admin — Analytics dashboard', () => {
     cy.wait(['@overview', '@items'])
     cy.get('[data-testid="items-table"]').should('be.visible')
     cy.get('[data-testid="items-table"]').should('contain', 'Program Duminică')
-    cy.get('[data-testid="items-table"]').should('contain', '45')
+    cy.get('[data-testid="items-table"]').should('contain', '53') // total clicks
 
     // Click first row to open modal
     cy.get('[data-testid="items-table"] tbody tr').first().click()

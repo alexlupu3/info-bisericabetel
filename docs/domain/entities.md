@@ -47,12 +47,21 @@ Add one section per important domain entity.
 
 ### AnalyticsEvent
 - Purpose: record a single trackable user interaction (site visit or link click) for aggregation in the admin analytics dashboard
-- Key attributes: id (UUID), event_type (`site_visit` | `link_click`), site_slug, item_id (optional — the content item clicked), url (optional — the URL opened), occurred_at
-- Relationships: site_slug references a Site slug; item_id is a soft reference to a Content Item (no FK constraint — events must survive item deletion)
-- Lifecycle: created via the public `POST /events` ingest endpoint; never updated or deleted; read via aggregation endpoints accessible to all admins
-- Validation rules: event_type must be one of the two defined values; site_slug is required; item_id and url are optional and only relevant for `link_click` events
-- Notes: write is fire-and-forget — the API responds 204 before the DB write completes. The PWA deduplicates `site_visit` events within a 30-minute window using `localStorage` keys (`betel-track-visit-{site}`). Events are never deleted; reporting is done entirely by aggregation. See FR-024 and FR-025.
+- Key attributes: id (UUID), event_type (`site_visit` | `link_click`), site_slug, item_id (optional — the content item clicked), url (optional — the URL opened), short_link_id (optional UUID — set when the click was triggered by a short link redirect; null for website clicks), occurred_at
+- Relationships: site_slug references a Site slug; item_id is a soft reference to a Content Item (no FK constraint — events must survive item deletion); short_link_id is a soft reference to a ShortLink (no FK constraint — events must survive short link deletion)
+- Lifecycle: created via the public `POST /events` ingest endpoint (website clicks) or server-side during `GET /s/:code` redirect (short link clicks); never updated or deleted; read via aggregation endpoints accessible to all admins
+- Validation rules: event_type must be one of the two defined values; site_slug is required; item_id and url are optional and only relevant for `link_click` events; short_link_id is only set for short-link-originated clicks
+- Notes: write is fire-and-forget — the API responds 204 before the DB write completes (website clicks). Short-link click logging is synchronous within the redirect handler. The PWA deduplicates `site_visit` events within a 30-minute window using `localStorage` keys (`betel-track-visit-{site}`). Events are never deleted; reporting is done entirely by aggregation. See FR-024, FR-025, and FR-044.
 - Site filtering: the `analytics_events` table has a composite index on `(site_slug, occurred_at)` which makes per-site queries efficient. All three analytics aggregation endpoints (`/overview`, `/items`, `/items/:itemId/daily`) accept an optional `?site=slug` query parameter; omitting it returns cross-site totals. The admin dashboard exposes this as the `SiteFilter` dropdown (default: "Toate").
+- Short link attribution: `short_link_id` allows aggregation endpoints to distinguish website clicks from short-link clicks per item, and to break down short-link clicks by individual link label. Migration: `0010_short_links.sql`.
+
+### ShortLink
+- Purpose: represent a short redirect URL tied to a content item and a distribution channel label, enabling per-channel traffic tracking
+- Key attributes: id (UUID), content_item_id (FK → Content Item, cascade delete on hard-delete), code (TEXT, unique — 6-character alphanumeric, server-generated), label (TEXT — admin-assigned channel name, e.g. "WhatsApp Manastur"), site_slug (TEXT nullable — if set, `data.siteLinks[site_slug]` is used for URL resolution instead of `data.link`), created_at
+- Relationships: belongs to a Content Item (FK with ON DELETE CASCADE); referenced by AnalyticsEvent.short_link_id (soft reference, no FK)
+- Lifecycle: created on demand by admins via `POST /api/admin/content/:id/short-links`; deleted by admins via `DELETE /api/admin/content/:id/short-links/:shortLinkId`; cascade-deleted when the parent content item is permanently hard-deleted. Soft-deleted and archived items retain their short links.
+- Validation rules: code must be unique across all short links; label is required; site_slug is optional and must match a known site slug if set
+- Notes: the redirect endpoint (`GET /s/:code`) is registered before the SPA static-serving handler so the code route is not intercepted by the SPA fallback. URL resolution at redirect time reads the content item's current `data.link` (or `data.siteLinks[site_slug]` when a site override is configured) — if no URL resolves, the redirect falls back to `/`. See FR-044 and ADR-011.
 
 ### Media
 - Purpose: represent an uploaded image file tracked by the system for reuse and lifecycle management

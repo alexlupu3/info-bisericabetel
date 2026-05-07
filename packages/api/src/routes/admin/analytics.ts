@@ -88,7 +88,8 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { site?: string } }>(
     '/admin/analytics/items', { preHandler: auth }, async (req) => {
     const site = req.query.site || undefined
-    const rows = await sql<{
+
+    const websiteRows = await sql<{
       item_id: string | null
       type: string | null
       title: string | null
@@ -103,19 +104,68 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       LEFT JOIN content_items ci ON ci.id = ae.item_id
       WHERE ae.event_type = 'link_click'
         AND ae.item_id IS NOT NULL
+        AND ae.short_link_id IS NULL
         ${site ? sql`AND ae.site_slug = ${site}` : sql``}
       GROUP BY ae.item_id, ci.type, ci.data->>'title'
-      ORDER BY clicks DESC
     `
 
-    return {
-      items: rows.map(r => ({
-        itemId: r.item_id,
-        type:   r.type ?? 'unknown',
-        title:  r.title ?? '—',
-        clicks: Number(r.clicks),
-      })),
+    const shortLinkRows = await sql<{
+      item_id: string
+      clicks: string
+    }>`
+      SELECT
+        sl.content_item_id AS item_id,
+        COUNT(ae.id)::int AS clicks
+      FROM short_links sl
+      LEFT JOIN analytics_events ae
+        ON ae.short_link_id = sl.id
+        ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+      GROUP BY sl.content_item_id
+    `
+
+    const shortLinkMap = new Map<string, number>()
+    for (const r of shortLinkRows) shortLinkMap.set(r.item_id, Number(r.clicks))
+
+    // Merge: include items with only short-link clicks too
+    const itemMap = new Map<string, { type: string; title: string; websiteClicks: number; shortLinkClicks: number }>()
+    for (const r of websiteRows) {
+      if (!r.item_id) continue
+      itemMap.set(r.item_id, {
+        type:            r.type ?? 'unknown',
+        title:           r.title ?? '—',
+        websiteClicks:   Number(r.clicks),
+        shortLinkClicks: shortLinkMap.get(r.item_id) ?? 0,
+      })
     }
+
+    // Batch-fetch titles for items that only appear via short-link clicks
+    const missingIds = [...shortLinkMap.keys()].filter(id => !itemMap.has(id) && (shortLinkMap.get(id) ?? 0) > 0)
+    if (missingIds.length > 0) {
+      const ciRows = await sql<{ id: string; type: string | null; title: string | null }>`
+        SELECT id, type, data->>'title' AS title FROM content_items WHERE id = ANY(${missingIds})
+      `
+      for (const ci of ciRows) {
+        itemMap.set(ci.id, {
+          type:            ci.type ?? 'unknown',
+          title:           ci.title ?? '—',
+          websiteClicks:   0,
+          shortLinkClicks: shortLinkMap.get(ci.id) ?? 0,
+        })
+      }
+    }
+
+    const items = Array.from(itemMap.entries())
+      .map(([itemId, v]) => ({
+        itemId,
+        type:            v.type,
+        title:           v.title,
+        websiteClicks:   v.websiteClicks,
+        shortLinkClicks: v.shortLinkClicks,
+        clicks:          v.websiteClicks + v.shortLinkClicks,
+      }))
+      .sort((a, b) => b.clicks - a.clicks)
+
+    return { items }
   })
 
   app.get<{ Querystring: { period?: string; site?: string; startDate?: string } }>(
@@ -533,10 +583,21 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         site_slug: string | null
         title: string | null
         url: string | null
+        short_link_id: string | null
+        short_link_label: string | null
+        short_link_code: string | null
       }>`
-        SELECT ae.occurred_at, ae.site_slug, ci.data->>'title' AS title, ae.url
+        SELECT
+          ae.occurred_at,
+          ae.site_slug,
+          ci.data->>'title' AS title,
+          ae.url,
+          ae.short_link_id,
+          sl.label AS short_link_label,
+          sl.code AS short_link_code
         FROM analytics_events ae
         LEFT JOIN content_items ci ON ci.id = ae.item_id
+        LEFT JOIN short_links sl ON sl.id = ae.short_link_id
         WHERE ae.event_type = 'link_click'
           AND ae.item_id = ${req.params.itemId}
           ${site ? sql`AND ae.site_slug = ${site}` : sql``}
@@ -553,13 +614,16 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           : safe
       }
 
-      const lines = ['Timestamp,Site,Titlu,URL']
+      const lines = ['Timestamp,Site,Titlu,URL,Sursa,Cod link scurt']
       for (const row of rows) {
+        const source = row.short_link_label ?? (row.short_link_id ? 'link scurt (șters)' : 'website')
         lines.push([
           escape(new Date(row.occurred_at).toISOString()),
           escape(row.site_slug),
           escape(row.title),
           escape(row.url),
+          escape(source),
+          escape(row.short_link_code),
         ].join(','))
       }
 
@@ -747,26 +811,69 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
   app.get<{ Params: { itemId: string }; Querystring: { site?: string } }>(
     '/admin/analytics/items/:itemId/daily', { preHandler: auth }, async (req) => {
       const site = req.query.site || undefined
-      const rows = await sql<{ day: string; clicks: number }>`
+      const itemId = req.params.itemId
+
+      // Website clicks per day (no short_link_id)
+      const websiteRows = await sql<{ day: string; clicks: string }>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
           COUNT(*)::int AS clicks
         FROM analytics_events
         WHERE event_type = 'link_click'
-          AND item_id = ${req.params.itemId}
+          AND item_id = ${itemId}
+          AND short_link_id IS NULL
           AND occurred_at >= NOW() - INTERVAL '90 days'
           ${site ? sql`AND site_slug = ${site}` : sql``}
         GROUP BY day
         ORDER BY day ASC
       `
 
-      return {
-        itemId: req.params.itemId,
-        daily: rows.map(r => ({
-          date: r.day.toString().slice(0, 10),
-          clicks: Number(r.clicks),
-        })),
+      // Short link clicks per day, grouped by short link label
+      const shortLinkRows = await sql<{ day: string; short_link_id: string; label: string; clicks: string }>`
+        SELECT
+          (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
+          sl.id AS short_link_id,
+          sl.label,
+          COUNT(ae.id)::int AS clicks
+        FROM analytics_events ae
+        JOIN short_links sl ON sl.id = ae.short_link_id
+        WHERE ae.event_type = 'link_click'
+          AND sl.content_item_id = ${itemId}
+          AND ae.occurred_at >= NOW() - INTERVAL '90 days'
+          ${site ? sql`AND ae.site_slug = ${site}` : sql``}
+        GROUP BY day, sl.id, sl.label
+        ORDER BY day ASC
+      `
+
+      // Collect all distinct short links for this item
+      const shortLinkMeta = new Map<string, string>() // id → label
+      for (const r of shortLinkRows) shortLinkMeta.set(r.short_link_id, r.label)
+
+      // Build a unified date set
+      const dateSet = new Set<string>()
+      for (const r of websiteRows) dateSet.add(r.day.toString().slice(0, 10))
+      for (const r of shortLinkRows) dateSet.add(r.day.toString().slice(0, 10))
+
+      // Build daily map
+      type DayEntry = { date: string; website: number; [shortLinkId: string]: number | string }
+      const dayMap = new Map<string, DayEntry>()
+      for (const date of dateSet) dayMap.set(date, { date, website: 0 })
+
+      for (const r of websiteRows) {
+        const date = r.day.toString().slice(0, 10)
+        const entry = dayMap.get(date)!
+        entry.website = Number(r.clicks)
       }
+      for (const r of shortLinkRows) {
+        const date = r.day.toString().slice(0, 10)
+        const entry = dayMap.get(date)!
+        entry[r.short_link_id] = Number(r.clicks)
+      }
+
+      const daily = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+      const shortLinks = Array.from(shortLinkMeta.entries()).map(([id, label]) => ({ id, label }))
+
+      return { itemId, daily, shortLinks }
     }
   )
 }

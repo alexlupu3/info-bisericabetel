@@ -12,6 +12,8 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
   const rows = items.filter((item) => item.itemId !== null)
   const [exporting, setExporting] = useState<string | null>(null)
 
+  const hasShortLinkData = rows.some(r => r.shortLinkClicks > 0)
+
   return (
     <section>
       <h2 className="text-xs uppercase tracking-widest font-content text-[var(--muted)] mb-4">
@@ -28,8 +30,16 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
                 <th className="text-left text-xs uppercase tracking-widest text-[var(--muted)] font-normal px-3 py-2">
                   Titlu
                 </th>
+                <th className="text-right text-xs uppercase tracking-widest text-[var(--muted)] font-normal px-3 py-2 whitespace-nowrap">
+                  Website
+                </th>
+                {hasShortLinkData && (
+                  <th className="text-right text-xs uppercase tracking-widest text-[var(--muted)] font-normal px-3 py-2 whitespace-nowrap">
+                    Link-uri scurte
+                  </th>
+                )}
                 <th className="text-right text-xs uppercase tracking-widest text-[var(--muted)] font-normal px-3 py-2">
-                  Clickuri
+                  Total
                 </th>
                 <th className="w-8" />
                 <th className="w-8" />
@@ -43,7 +53,17 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
                   className="border-b border-[var(--border)] hover:bg-[var(--surface)] cursor-pointer transition-colors"
                 >
                   <td className="px-3 py-2">{item.title}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
+                    {item.websiteClicks.toLocaleString('ro-RO')}
+                  </td>
+                  {hasShortLinkData && (
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
+                      {item.shortLinkClicks > 0
+                        ? item.shortLinkClicks.toLocaleString('ro-RO')
+                        : '—'}
+                    </td>
+                  )}
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">
                     {item.clicks.toLocaleString('ro-RO')}
                   </td>
                   <td className="px-3 py-2 text-right text-[var(--muted)]">
