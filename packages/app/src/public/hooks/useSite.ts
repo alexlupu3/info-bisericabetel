@@ -5,13 +5,23 @@ import { useSites } from '../context/SitesContext'
 
 const STORAGE_KEY = 'betel-site'
 
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function safeSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value) } catch {}
+}
+function safeRemove(key: string): void {
+  try { localStorage.removeItem(key) } catch {}
+}
+
 export function useSite() {
   const sites = useSites()
   const { siteSlug } = useParams<{ siteSlug?: string }>()
   const navigate = useNavigate()
 
   const storedSlug = typeof window !== 'undefined'
-    ? localStorage.getItem(STORAGE_KEY)
+    ? safeGet(STORAGE_KEY)
     : null
 
   // Trust URL slug; fall back to stored slug (will be null if not found in sites once loaded)
@@ -23,7 +33,7 @@ export function useSite() {
   useEffect(() => {
     if (siteSlug) {
       setActiveSite(siteSlug)
-      localStorage.setItem(STORAGE_KEY, siteSlug)
+      safeSet(STORAGE_KEY, siteSlug)
     }
   }, [siteSlug])
 
@@ -32,17 +42,17 @@ export function useSite() {
     if (sites.length === 0 || siteSlug) return
     if (activeSite && !sites.some(s => s.slug === activeSite)) {
       setActiveSite(null)
-      localStorage.removeItem(STORAGE_KEY)
+      safeRemove(STORAGE_KEY)
     }
   }, [sites, activeSite, siteSlug])
 
   const selectSite = (slug: string | null) => {
     setActiveSite(slug)
     if (slug) {
-      localStorage.setItem(STORAGE_KEY, slug)
+      safeSet(STORAGE_KEY, slug)
       navigate(`/${slug}`, { replace: true })
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      safeRemove(STORAGE_KEY)
       navigate('/', { replace: true })
     }
   }

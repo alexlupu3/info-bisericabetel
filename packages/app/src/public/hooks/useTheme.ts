@@ -2,8 +2,15 @@ import { useState, useEffect } from 'react'
 
 type Theme = 'light' | 'dark'
 
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function safeSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value) } catch {}
+}
+
 function resolveTheme(): Theme {
-  const stored = localStorage.getItem('theme') as Theme | null
+  const stored = safeGet('theme') as Theme | null
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
@@ -19,7 +26,7 @@ export function useTheme() {
 
   const toggle = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark'
-    localStorage.setItem('theme', next)
+    safeSet('theme', next)
     setTheme(next)
   }
 

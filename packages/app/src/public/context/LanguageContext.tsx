@@ -5,6 +5,13 @@ import type { Language } from '@betel/shared'
 const LOCALE_KEY = 'betel-lang'
 const DEFAULT_LOCALE = 'ro'
 
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function safeSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value) } catch {}
+}
+
 const DATE_LOCALE_MAP: Record<string, string> = {
   ro: 'ro-RO',
   en: 'en-US',
@@ -42,7 +49,7 @@ async function fetchTranslations(locale: string): Promise<{ translations: Record
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState(() => {
-    return localStorage.getItem(LOCALE_KEY) ?? DEFAULT_LOCALE
+    return safeGet(LOCALE_KEY) ?? DEFAULT_LOCALE
   })
 
   const { data: langData } = useQuery({
@@ -60,7 +67,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const validated = supportedCodes.length === 0 || supportedCodes.includes(code)
       ? code
       : DEFAULT_LOCALE
-    localStorage.setItem(LOCALE_KEY, validated)
+    safeSet(LOCALE_KEY, validated)
     setLocaleState(validated)
   }, [supportedCodes])
 
@@ -68,7 +75,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (supportedCodes.length > 0 && !supportedCodes.includes(locale)) {
       const fallback = supportedCodes[0] ?? DEFAULT_LOCALE
-      localStorage.setItem(LOCALE_KEY, fallback)
+      safeSet(LOCALE_KEY, fallback)
       setLocaleState(fallback)
     }
   }, [supportedCodes, locale])
