@@ -2,15 +2,10 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect } 
 import { useQuery } from '@tanstack/react-query'
 import type { Language } from '@betel/shared'
 
+import { safeGet, safeSet } from '../utils/storage'
+
 const LOCALE_KEY = 'betel-lang'
 const DEFAULT_LOCALE = 'ro'
-
-function safeGet(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
-}
-function safeSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value) } catch {}
-}
 
 const DATE_LOCALE_MAP: Record<string, string> = {
   ro: 'ro-RO',

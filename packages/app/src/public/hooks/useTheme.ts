@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react'
+import { safeGet, safeSet } from '../utils/storage'
 
 type Theme = 'light' | 'dark'
-
-function safeGet(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
-}
-function safeSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value) } catch {}
-}
 
 function resolveTheme(): Theme {
   const stored = safeGet('theme') as Theme | null

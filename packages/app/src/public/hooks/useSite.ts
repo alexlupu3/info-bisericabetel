@@ -2,18 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import type { Site } from '@betel/shared'
 import { useSites } from '../context/SitesContext'
+import { safeGet, safeSet, safeRemove } from '../utils/storage'
 
 const STORAGE_KEY = 'betel-site'
-
-function safeGet(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
-}
-function safeSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value) } catch {}
-}
-function safeRemove(key: string): void {
-  try { localStorage.removeItem(key) } catch {}
-}
 
 export function useSite() {
   const sites = useSites()
