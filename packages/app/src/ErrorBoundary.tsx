@@ -1,4 +1,5 @@
 import React from 'react'
+import { reportError } from './public/api/report-error'
 
 interface Props {
   children: React.ReactNode
@@ -20,6 +21,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
+    const siteSlug = window.location.pathname.split('/')[1] || null
+    reportError(error, siteSlug)
   }
 
   render() {

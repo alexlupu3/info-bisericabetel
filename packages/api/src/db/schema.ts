@@ -108,6 +108,19 @@ export const contentTranslations = pgTable('content_translations', {
   index('content_translations_item_idx').on(t.contentItemId),
 ])
 
+export const errorLogs = pgTable('error_logs', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  message:    text('message').notNull(),
+  stack:      text('stack'),
+  url:        text('url'),
+  siteSlug:   text('site_slug'),
+  device:     jsonb('device').notNull().default({}),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => [
+  index('error_logs_occurred_idx').on(t.occurredAt),
+  index('error_logs_site_occurred_idx').on(t.siteSlug, t.occurredAt),
+])
+
 export const shortLinks = pgTable('short_links', {
   id:            uuid('id').primaryKey().defaultRandom(),
   code:          text('code').notNull().unique(),
