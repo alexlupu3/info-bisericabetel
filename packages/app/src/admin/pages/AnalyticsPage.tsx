@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Period } from '../api/client'
 import { PeriodSelector, SiteFilter, StatCard, TrendChart, ItemsTable, ItemDailyModal, SitesComparisonChart } from '../components/analytics'
 
@@ -9,6 +9,7 @@ export default function AnalyticsPage() {
   const [activeMetric, setActiveMetric] = useState<'views' | 'clicks'>('views')
   const [selectedItem, setSelectedItem] = useState<{ id: string; title: string } | null>(null)
   const [startDate, setStartDate] = useState('')
+  const queryClient = useQueryClient()
 
   const siteParam = site || undefined
   const effectivePeriod: Period = startDate ? 'custom' : period
@@ -31,6 +32,8 @@ export default function AnalyticsPage() {
   })
 
   function handlePeriodChange(p: Period) {
+    queryClient.removeQueries({ queryKey: ['admin-analytics-overview'] })
+    queryClient.removeQueries({ queryKey: ['admin-analytics-sites-comparison'] })
     setPeriod(p)
     setStartDate('')
   }
@@ -60,7 +63,11 @@ export default function AnalyticsPage() {
             {startDate && (
               <button
                 data-testid="clear-start-date"
-                onClick={() => setStartDate('')}
+                onClick={() => {
+                  queryClient.removeQueries({ queryKey: ['admin-analytics-overview'] })
+                  queryClient.removeQueries({ queryKey: ['admin-analytics-sites-comparison'] })
+                  setStartDate('')
+                }}
                 className="text-xs text-[var(--muted)] hover:text-[var(--text)] transition-colors"
                 aria-label="Resetează data"
               >

@@ -67,6 +67,7 @@ describe('Duplicate content item', () => {
     cy.intercept('POST', '/api/admin/content/c2/duplicate', { statusCode: 201, body: duplicate }).as('duplicate')
     cy.intercept('GET', '/api/admin/content', { items: [groupItem, duplicate] }).as('contentAfter')
 
+    cy.get('[data-testid="collapse-toggle-g1"]').click()
     cy.get('[data-testid="item-menu-trigger-c2"]').click()
     cy.get('[data-testid="item-menu-duplicate-c2"]').click()
 

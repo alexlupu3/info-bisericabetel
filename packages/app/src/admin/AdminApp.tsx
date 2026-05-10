@@ -57,7 +57,7 @@ function Shell() {
     `text-xs tracking-widest uppercase font-content transition-colors ${isActive ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`
 
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="h-screen flex flex-col">
       <nav className="border-b border-[var(--border)] px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <span className="text-sm">
@@ -126,7 +126,7 @@ function Shell() {
           </button>
         </div>
       )}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         <Routes>
           <Route index element={<Navigate to="content" replace />} />
           <Route path="content" element={<PageContainer><ContentPage /></PageContainer>} />

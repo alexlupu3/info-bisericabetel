@@ -73,7 +73,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-xs font-content text-[var(--muted)] text-center">
           Prima instalare?{' '}
-          <Link to="/setup" className="underline hover:text-[var(--text)] transition-colors"
+          <Link to="setup" className="underline hover:text-[var(--text)] transition-colors"
                 data-testid="setup-link">
             Configurare inițială
           </Link>
