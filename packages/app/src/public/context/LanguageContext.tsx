@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect } 
 import { useQuery } from '@tanstack/react-query'
 import type { Language } from '@betel/shared'
 
+import { safeGet, safeSet } from '../utils/storage'
+
 const LOCALE_KEY = 'betel-lang'
 const DEFAULT_LOCALE = 'ro'
 
@@ -42,7 +44,7 @@ async function fetchTranslations(locale: string): Promise<{ translations: Record
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState(() => {
-    return localStorage.getItem(LOCALE_KEY) ?? DEFAULT_LOCALE
+    return safeGet(LOCALE_KEY) ?? DEFAULT_LOCALE
   })
 
   const { data: langData } = useQuery({
@@ -60,7 +62,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const validated = supportedCodes.length === 0 || supportedCodes.includes(code)
       ? code
       : DEFAULT_LOCALE
-    localStorage.setItem(LOCALE_KEY, validated)
+    safeSet(LOCALE_KEY, validated)
     setLocaleState(validated)
   }, [supportedCodes])
 
@@ -68,7 +70,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (supportedCodes.length > 0 && !supportedCodes.includes(locale)) {
       const fallback = supportedCodes[0] ?? DEFAULT_LOCALE
-      localStorage.setItem(LOCALE_KEY, fallback)
+      safeSet(LOCALE_KEY, fallback)
       setLocaleState(fallback)
     }
   }, [supportedCodes, locale])

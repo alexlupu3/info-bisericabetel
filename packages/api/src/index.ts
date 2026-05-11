@@ -16,6 +16,7 @@ import { adminSitesRoutes } from './routes/admin/sites.js'
 import { adminLogsRoutes } from './routes/admin/logs.js'
 import { adminAnalyticsRoutes } from './routes/admin/analytics.js'
 import { eventsRoutes } from './routes/events.js'
+import { errorsRoutes } from './routes/errors.js'
 import { setupRoutes } from './routes/setup.js'
 import { languagesRoutes } from './routes/languages.js'
 import { adminTranslationsRoutes } from './routes/admin/translations.js'
@@ -83,6 +84,7 @@ async function start() {
   await app.register(adminLogsRoutes, { prefix: '/api' })
   await app.register(adminAnalyticsRoutes, { prefix: '/api' })
   await app.register(eventsRoutes, { prefix: '/api' })
+  await app.register(errorsRoutes, { prefix: '/api' })
   await app.register(setupRoutes, { prefix: '/api' })
   await app.register(languagesRoutes, { prefix: '/api' })
   await app.register(adminTranslationsRoutes, { prefix: '/api' })

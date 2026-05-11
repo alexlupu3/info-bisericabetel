@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import type { Site } from '@betel/shared'
 import { useSites } from '../context/SitesContext'
+import { safeGet, safeSet, safeRemove } from '../utils/storage'
 
 const STORAGE_KEY = 'betel-site'
 
@@ -11,7 +12,7 @@ export function useSite() {
   const navigate = useNavigate()
 
   const storedSlug = typeof window !== 'undefined'
-    ? localStorage.getItem(STORAGE_KEY)
+    ? safeGet(STORAGE_KEY)
     : null
 
   // Trust URL slug; fall back to stored slug (will be null if not found in sites once loaded)
@@ -23,7 +24,7 @@ export function useSite() {
   useEffect(() => {
     if (siteSlug) {
       setActiveSite(siteSlug)
-      localStorage.setItem(STORAGE_KEY, siteSlug)
+      safeSet(STORAGE_KEY, siteSlug)
     }
   }, [siteSlug])
 
@@ -32,17 +33,17 @@ export function useSite() {
     if (sites.length === 0 || siteSlug) return
     if (activeSite && !sites.some(s => s.slug === activeSite)) {
       setActiveSite(null)
-      localStorage.removeItem(STORAGE_KEY)
+      safeRemove(STORAGE_KEY)
     }
   }, [sites, activeSite, siteSlug])
 
   const selectSite = (slug: string | null) => {
     setActiveSite(slug)
     if (slug) {
-      localStorage.setItem(STORAGE_KEY, slug)
+      safeSet(STORAGE_KEY, slug)
       navigate(`/${slug}`, { replace: true })
     } else {
-      localStorage.removeItem(STORAGE_KEY)
+      safeRemove(STORAGE_KEY)
       navigate('/', { replace: true })
     }
   }
