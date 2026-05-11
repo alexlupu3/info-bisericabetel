@@ -20,6 +20,7 @@ This repository is the root for a production-ready application and its supportin
 - `/locations` — manage site settings
 - `/analytics` — interactive analytics dashboard: time-frame comparison (day/week/month), manual start date picker ("De la") for custom date-range analysis, stat cards with % change vs. prior period, dual-line trend chart, per-item daily-clicks modal with stacked area chart (website + per-short-link layers), per-item CSV export with source column (website vs. short link label), and site filter (default "Toate" shows cross-site totals; selecting a site scopes all stats to that site); accessible to all admins
 - `/translations` — super-admin only; manage supported languages and translate all public UI strings; content items also support per-language translation via the content edit form
+- `/error-logs` — super-admin only; view application errors captured by the React ErrorBoundary; supports pagination (50 per page) and filtering by site slug; columns: date/time, site, URL, message, stack trace, device info (all expandable)
 
 ## Short Link Tracking
 

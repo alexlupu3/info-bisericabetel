@@ -84,6 +84,16 @@ export interface AuditLogEntry {
   detail: Record<string, unknown>; createdAt: string
 }
 
+export interface ErrorLogEntry {
+  id: string
+  message: string
+  stack: string | null
+  url: string | null
+  siteSlug: string | null
+  device: Record<string, unknown>
+  occurredAt: string
+}
+
 export interface TranslationKey {
   key: string; values: Record<string, string>
 }
@@ -238,6 +248,12 @@ export const api = {
     list: (limit = 100, offset = 0) =>
       get<{ logs: AuditLogEntry[]; limit: number; offset: number }>(
         `/api/admin/logs?limit=${limit}&offset=${offset}`
+      ),
+  },
+  errorLogs: {
+    list: (limit = 50, offset = 0, site?: string) =>
+      get<{ errorLogs: ErrorLogEntry[]; limit: number; offset: number }>(
+        `/api/admin/error-logs?limit=${limit}&offset=${offset}${site ? `&site=${encodeURIComponent(site)}` : ''}`
       ),
   },
   shortLinks: {
