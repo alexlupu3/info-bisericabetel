@@ -16,8 +16,10 @@ export async function adminErrorLogsRoutes(app: FastifyInstance) {
 
   app.get<{ Querystring: { limit?: string; offset?: string; site?: string } }>(
     '/admin/error-logs', { preHandler: auth }, async (req) => {
-      const limit = Math.min(Number(req.query.limit ?? 50), 200)
-      const offset = Number(req.query.offset ?? 0)
+      const rawLimit = parseInt(req.query.limit ?? '', 10)
+      const rawOffset = parseInt(req.query.offset ?? '', 10)
+      const limit = Math.min(Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 50), 200)
+      const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0
       const site = req.query.site
 
       const rows = await db
