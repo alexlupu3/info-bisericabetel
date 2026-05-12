@@ -13,13 +13,21 @@
     "lint": "pnpm -r lint",
     "deploy": "bash scripts/deploy.sh",
     "deploy:app": "bash scripts/deploy-app.sh",
-    "deploy:api": "bash scripts/deploy-api.sh"
+    "deploy:api": "bash scripts/deploy-api.sh",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run"
   },
   "devDependencies": {
+    "@release-it/conventional-changelog": "^11.0.0",
     "cypress": "^13.17.0",
+    "release-it": "^20.0.1",
     "typescript": "^5.7.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["cypress", "esbuild", "sharp"]
+    "onlyBuiltDependencies": [
+      "cypress",
+      "esbuild",
+      "sharp"
+    ]
   }
 }
