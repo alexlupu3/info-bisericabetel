@@ -91,6 +91,12 @@
   - **Analytics integration:** `GET /admin/analytics/items` returns `websiteClicks`, `shortLinkClicks`, and `clicks` (total) per item. `GET /admin/analytics/items/:id/daily` returns `website` daily clicks plus per-short-link daily breakdown. The `ItemsTable` component shows three columns. The `ItemDailyModal` chart uses a stacked `AreaChart` (website layer + one layer per short link).
   - **Database:** migration `0010_short_links.sql` adds the `short_links` table and a nullable `short_link_id UUID` column on `analytics_events` (soft reference — events survive short link deletion). See ADR-011 for the dynamic URL resolution decision.
 
+- FR-045: The system must capture and expose frontend application errors to super-admins. **[Implemented — 2026-05-11]**
+  - **Ingest:** the public PWA wraps its React tree in an ErrorBoundary. On error, it calls `POST /api/errors` (no auth required) with `{ message, stack, url, site, device }`. The endpoint is rate-limited to 20 requests per minute per IP. The server responds 204 immediately and inserts asynchronously into the `error_logs` table (message capped at 2000 chars, stack at 10 000 chars).
+  - **Viewer:** `GET /api/admin/error-logs` (super-admin only) returns paginated rows (default `limit=50`, max 200) ordered by `occurred_at` DESC. An optional `site` query parameter filters by site slug.
+  - **Admin UI:** the `/admin/error-logs` page ("Erori" nav link, super-admin only) shows a table with columns: date/time, site slug, URL, message, stack trace, and device info. Message, stack, and device cells are expandable inline to reveal full content. Site slug input filters the table; prev/next pagination buttons step through pages of 50.
+  - **Database:** `error_logs` table — `id` (UUID PK), `message` (TEXT NOT NULL), `stack` (TEXT), `url` (TEXT), `site_slug` (TEXT nullable), `device` (JSONB default `{}`), `occurred_at` (TIMESTAMPTZ). Indexes on `occurred_at` and on `(site_slug, occurred_at)`. Records are never deleted.
+
 ## Non-Functional Requirements
 - NFR-001: Both the public hub and the admin tool must be optimized for mobile-first access.
 - NFR-002: The application must minimize friction for first-time visitors opening a shared link or scanned QR code.

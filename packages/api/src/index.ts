@@ -20,6 +20,7 @@ import { errorsRoutes } from './routes/errors.js'
 import { setupRoutes } from './routes/setup.js'
 import { languagesRoutes } from './routes/languages.js'
 import { adminTranslationsRoutes } from './routes/admin/translations.js'
+import { adminErrorLogsRoutes } from './routes/admin/error-logs.js'
 import { shortLinkRedirectRoute, adminShortLinksRoutes } from './routes/short-links.js'
 import { runMigrations } from './db/migrate.js'
 
@@ -89,6 +90,7 @@ async function start() {
   await app.register(languagesRoutes, { prefix: '/api' })
   await app.register(adminTranslationsRoutes, { prefix: '/api' })
   await app.register(adminShortLinksRoutes, { prefix: '/api' })
+  await app.register(adminErrorLogsRoutes, { prefix: '/api' })
 
   // SPA fallback: serve index.html for any unmatched non-API route
   app.setNotFoundHandler((req, reply) => {

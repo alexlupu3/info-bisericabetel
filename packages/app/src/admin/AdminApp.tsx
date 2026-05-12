@@ -11,6 +11,7 @@ import GroupsPage from './pages/GroupsPage'
 import LocationsPage from './pages/LocationsPage'
 import MediaPage from './pages/MediaPage'
 import LogsPage from './pages/LogsPage'
+import ErrorLogsPage from './pages/ErrorLogsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import ArchivePage from './pages/ArchivePage'
 import TranslationsPage from './pages/TranslationsPage'
@@ -80,6 +81,9 @@ function Shell() {
               <NavLink to="logs" className={navLinkClass}>Jurnale</NavLink>
             )}
             {user.role === 'super-admin' && (
+              <NavLink to="error-logs" className={navLinkClass}>Erori</NavLink>
+            )}
+            {user.role === 'super-admin' && (
               <NavLink to="translations" className={navLinkClass}>Traduceri</NavLink>
             )}
           </div>
@@ -118,6 +122,9 @@ function Shell() {
             <NavLink to="logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Jurnale</NavLink>
           )}
           {user.role === 'super-admin' && (
+            <NavLink to="error-logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Erori</NavLink>
+          )}
+          {user.role === 'super-admin' && (
             <NavLink to="translations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Traduceri</NavLink>
           )}
           <button onClick={() => { setMobileMenuOpen(false); logout() }}
@@ -142,6 +149,9 @@ function Shell() {
           )}
           {user.role === 'super-admin' && (
             <Route path="logs" element={<LogsPage />} />
+          )}
+          {user.role === 'super-admin' && (
+            <Route path="error-logs" element={<ErrorLogsPage />} />
           )}
           {user.role === 'super-admin' && (
             <Route path="translations" element={<PageContainer><TranslationsPage /></PageContainer>} />
