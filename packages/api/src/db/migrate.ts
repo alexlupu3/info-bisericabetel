@@ -25,7 +25,8 @@ export async function runMigrations() {
     const content = await readFile(join(migrationsDir, file), 'utf-8')
     await sql.begin(async tx => {
       await tx.unsafe(content)
-      await tx`INSERT INTO _migrations (name) VALUES (${file})`
+      // TransactionSql loses call signatures via Omit in postgres.js types, but is callable at runtime
+      await (tx as unknown as typeof sql)`INSERT INTO _migrations (name) VALUES (${file})`
     })
     console.log(`migration applied: ${file}`)
   }

@@ -87,7 +87,7 @@ export async function adminShortLinksRoutes(app: FastifyInstance) {
         site_slug: string | null
         created_at: Date
         click_count: string
-      }>`
+      }[]>`
         SELECT
           sl.id,
           sl.code,

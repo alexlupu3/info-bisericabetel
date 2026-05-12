@@ -38,7 +38,7 @@ async function start() {
   const app = Fastify({ logger: true })
 
   await app.register(cors, { origin: true })
-  await app.register(jwt, { secret: JWT_SECRET })
+  await app.register(jwt, { secret: JWT_SECRET! })
   await app.register(multipart)
   await app.register(rateLimit, { global: false })
 

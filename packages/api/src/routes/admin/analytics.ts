@@ -18,7 +18,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       event_type: string
       site_slug: string | null
       count: string
-    }>`
+    }[]>`
       SELECT event_type, site_slug, COUNT(*)::int AS count
       FROM analytics_events
       GROUP BY event_type, site_slug
@@ -59,7 +59,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         day: string
         event_type: string
         count: string
-      }>`
+      }[]>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
           event_type,
@@ -94,7 +94,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       type: string | null
       title: string | null
       clicks: string
-    }>`
+    }[]>`
       SELECT
         ae.item_id,
         ci.type,
@@ -112,7 +112,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     const shortLinkRows = await sql<{
       item_id: string
       clicks: string
-    }>`
+    }[]>`
       SELECT
         sl.content_item_id AS item_id,
         COUNT(ae.id)::int AS clicks
@@ -141,7 +141,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
     // Batch-fetch titles for items that only appear via short-link clicks
     const missingIds = [...shortLinkMap.keys()].filter(id => !itemMap.has(id) && (shortLinkMap.get(id) ?? 0) > 0)
     if (missingIds.length > 0) {
-      const ciRows = await sql<{ id: string; type: string | null; title: string | null }>`
+      const ciRows = await sql<{ id: string; type: string | null; title: string | null }[]>`
         SELECT id, type, data->>'title' AS title FROM content_items WHERE id = ANY(${missingIds})
       `
       for (const ci of ciRows) {
@@ -260,7 +260,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         for (const date of currentDates) currentMap.set(date, { views: 0, clicks: 0 })
         for (const date of previousDates) previousMap.set(date, { views: 0, clicks: 0 })
 
-        const rows = await sql<{ day: string; event_type: string; count: number }>`
+        const rows = await sql<{ day: string; event_type: string; count: number }[]>`
           SELECT
             (occurred_at AT TIME ZONE 'UTC')::date AS day,
             event_type,
@@ -272,7 +272,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           ORDER BY day ASC
         `
 
-        const prevRows = await sql<{ day: string; event_type: string; count: number }>`
+        const prevRows = await sql<{ day: string; event_type: string; count: number }[]>`
           SELECT
             (occurred_at AT TIME ZONE 'UTC')::date AS day,
             event_type,
@@ -315,7 +315,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           item_id: string | null
           title: string | null
           clicks: number
-        }>`
+        }[]>`
           SELECT
             (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
             ae.item_id,
@@ -361,7 +361,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           hour: number
           event_type: string
           count: number
-        }>`
+        }[]>`
           SELECT
             (occurred_at AT TIME ZONE 'UTC')::date AS day,
             EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'UTC')::int AS hour,
@@ -413,7 +413,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           item_id: string | null
           title: string | null
           clicks: number
-        }>`
+        }[]>`
           SELECT
             EXTRACT(HOUR FROM ae.occurred_at AT TIME ZONE 'UTC')::int AS hour,
             ae.item_id,
@@ -465,7 +465,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         day: string
         event_type: string
         count: number
-      }>`
+      }[]>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
           event_type,
@@ -530,7 +530,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         item_id: string | null
         title: string | null
         clicks: number
-      }>`
+      }[]>`
         SELECT
           (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
           ae.item_id,
@@ -586,7 +586,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         short_link_id: string | null
         short_link_label: string | null
         short_link_code: string | null
-      }>`
+      }[]>`
         SELECT
           ae.occurred_at,
           ae.site_slug,
@@ -648,7 +648,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid startDate format. Use YYYY-MM-DD.' })
       }
 
-      const sites = await sql<{ slug: string; name: string; accent: string }>`
+      const sites = await sql<{ slug: string; name: string; accent: string }[]>`
         SELECT slug, name, accent FROM sites ORDER BY name
       `
 
@@ -680,7 +680,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           site_slug: string | null
           event_type: string
           count: number
-        }>`
+        }[]>`
           SELECT
             (occurred_at AT TIME ZONE 'UTC')::date AS day,
             site_slug,
@@ -722,7 +722,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           site_slug: string | null
           event_type: string
           count: number
-        }>`
+        }[]>`
           SELECT
             EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'UTC')::int AS hour,
             site_slug,
@@ -763,7 +763,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
         site_slug: string | null
         event_type: string
         count: number
-      }>`
+      }[]>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
           site_slug,
@@ -814,7 +814,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       const itemId = req.params.itemId
 
       // Website clicks per day (no short_link_id)
-      const websiteRows = await sql<{ day: string; clicks: string }>`
+      const websiteRows = await sql<{ day: string; clicks: string }[]>`
         SELECT
           (occurred_at AT TIME ZONE 'UTC')::date AS day,
           COUNT(*)::int AS clicks
@@ -829,7 +829,7 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       `
 
       // Short link clicks per day, grouped by short link label
-      const shortLinkRows = await sql<{ day: string; short_link_id: string; label: string; clicks: string }>`
+      const shortLinkRows = await sql<{ day: string; short_link_id: string; label: string; clicks: string }[]>`
         SELECT
           (ae.occurred_at AT TIME ZONE 'UTC')::date AS day,
           sl.id AS short_link_id,
