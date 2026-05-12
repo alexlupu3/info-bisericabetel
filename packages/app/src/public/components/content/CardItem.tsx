@@ -1,5 +1,4 @@
 import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
@@ -66,7 +65,7 @@ export default function CardItem({
             <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
             {d.description && (
               <div className="font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.description}</ReactMarkdown>
+                <ReactMarkdown>{d.description}</ReactMarkdown>
               </div>
             )}
           </div>
@@ -122,7 +121,7 @@ export default function CardItem({
         <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
         {d.description && (
           <div className="font-content text-sm text-[var(--muted)] leading-relaxed mb-4 prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.description}</ReactMarkdown>
+            <ReactMarkdown>{d.description}</ReactMarkdown>
           </div>
         )}
         {resolvedLink && d.cta && (
