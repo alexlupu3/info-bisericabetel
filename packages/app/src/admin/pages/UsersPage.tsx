@@ -151,10 +151,10 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
         placeholder="Email"
         type="email"
         data-testid="create-user-email"
-        className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+        className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
       <select value={role} onChange={e => setRole(e.target.value)}
         data-testid="create-user-role"
-        className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
+        className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
         {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
       </select>
       <div className="flex gap-3">

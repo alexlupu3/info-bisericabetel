@@ -120,7 +120,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated }: { availableSite
         <input value={title} onChange={e => setTitle(e.target.value)}
           placeholder="ex. Anunțuri duminică"
           data-testid="create-group-title"
-          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
       </div>
       {availableSites.length > 0 && (
         <div>

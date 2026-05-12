@@ -93,7 +93,7 @@ export default function ErrorLogsPage() {
           placeholder="Filtrează după site (slug)…"
           value={siteFilter}
           onChange={handleSiteFilter}
-          className="border border-[var(--border)] bg-transparent text-sm font-content px-3 py-1.5
+          className="border border-[var(--border)] bg-transparent text-base font-content px-3 py-1.5
                      placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]
                      transition-colors w-64"
         />

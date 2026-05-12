@@ -138,13 +138,13 @@ export default function TranslationsPage() {
                 onChange={e => setNewCode(e.target.value)}
                 placeholder="Cod (ex: en)"
                 maxLength={5}
-                className="w-20 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+                className="w-20 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
               />
               <input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 placeholder="Denumire (ex: English)"
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
               />
             </div>
             <div className="flex gap-3">
@@ -270,7 +270,7 @@ export default function TranslationsPage() {
                       value={getValue(key, lang.code)}
                       onChange={e => setEdit(key, lang.code, e.target.value)}
                       placeholder={`Traducere ${lang.name}`}
-                      className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+                      className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
                     />
                   </div>
                 ))}

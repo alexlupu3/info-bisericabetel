@@ -715,7 +715,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
               data-testid={`edit-group-title-${entry.id}`}
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter' && editTitle) saveEdit() }}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           {availableSites.length > 0 && (
             <div>
@@ -1076,7 +1076,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
           data-testid="create-group-title"
           autoFocus
           onKeyDown={e => { if (e.key === 'Enter' && title) onCreated(title, sites) }}
-          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
       </div>
       {availableSites.length > 0 && (
         <div>
@@ -1377,7 +1377,7 @@ function SiteLinkOverrides({ form, set, availableSites }: {
                 value={form.siteLinks[s.slug] ?? ''}
                 onChange={e => setSiteLink(s.slug, e.target.value)}
                 placeholder="Folosește link-ul implicit"
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-sm font-content"
+                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-base font-content"
               />
             </div>
           ))}
@@ -1561,7 +1561,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
               value={transLocale}
               onChange={e => setTransLocale(e.target.value)}
               data-testid="translation-locale-select"
-              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
+              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
               <option value="">Română (original)</option>
               {nonDefaultLanguages.map(l => (
                 <option key={l.code} value={l.code}>{l.name}</option>
@@ -1605,14 +1605,14 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                   placeholder={getOriginalValue(field.key)}
                   rows={field.key === 'body' ? 5 : 3}
                   data-testid={`trans-${field.key}-input`}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content placeholder:text-[var(--muted)]/40" />
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
               ) : (
                 <input
                   value={transForm[field.key] ?? ''}
                   onChange={e => setTrans(field.key, e.target.value)}
                   placeholder={getOriginalValue(field.key)}
                   data-testid={`trans-${field.key}-input`}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content placeholder:text-[var(--muted)]/40" />
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
               )}
             </div>
           ))}
@@ -1633,7 +1633,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Tip</label>
             <select value={form.type} onChange={e => set({ type: e.target.value })}
               data-testid="create-type-select"
-              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content">
+              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
               {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -1646,7 +1646,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             </label>
             <input value={form.title} onChange={e => set({ title: e.target.value })}
               data-testid="create-title-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
         )}
 
@@ -1655,7 +1655,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Conținut Markdown *</label>
             <textarea value={form.body} onChange={e => set({ body: e.target.value })}
               data-testid="create-body-input" rows={5}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
         )}
 
@@ -1670,20 +1670,20 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Descriere</label>
             <textarea value={form.description} onChange={e => set({ description: e.target.value })}
               data-testid="create-description-input" rows={3}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link CTA</label>
               <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
                 data-testid="create-link-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
             </div>
             <div className="flex-1">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Text buton (opțional)</label>
               <input value={form.cta} onChange={e => set({ cta: e.target.value })} placeholder="ex: Înregistrează-te"
                 data-testid="create-cta-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
             </div>
           </div>
           <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
@@ -1695,7 +1695,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <input value={form.name} onChange={e => set({ name: e.target.value })}
               placeholder="ex: Poster Paște 2025"
               data-testid="create-poster-name-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           <ImagePicker
             label="Imagine *"
@@ -1706,7 +1706,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link (opțional)</label>
             <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
         </>)}
@@ -1717,12 +1717,12 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <input value={form.url} onChange={e => set({ url: e.target.value })}
               placeholder="https://youtu.be/... sau ID"
               data-testid="create-url-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu (opțional)</label>
             <input value={form.title} onChange={e => set({ title: e.target.value })}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
         </>)}
 
@@ -1732,14 +1732,14 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Dată (opțional)</label>
             <input type="date" value={form.date} onChange={e => set({ date: e.target.value, endDate: e.target.value ? form.endDate : '' })}
               data-testid="create-date-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           {form.date && (
             <div className="flex-1">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Până la (opțional)</label>
               <input type="date" value={form.endDate} min={form.date} onChange={e => set({ endDate: e.target.value })}
                 data-testid="create-end-date-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content" />
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
             </div>
           )}
         </div>

@@ -58,7 +58,7 @@ export default function AnalyticsPage() {
               value={startDate}
               max={today}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-2 py-1.5 text-xs font-content border border-[var(--border)] bg-transparent text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
+              className="px-2 py-1.5 text-base font-content border border-[var(--border)] bg-transparent text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
             />
             {startDate && (
               <button

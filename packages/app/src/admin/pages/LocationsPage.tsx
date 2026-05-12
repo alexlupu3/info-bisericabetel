@@ -95,7 +95,7 @@ function SiteCard({ site }: { site: Site }) {
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
             />
           </div>
           <div className="space-y-1">
@@ -110,7 +110,7 @@ function SiteCard({ site }: { site: Site }) {
               <input
                 value={accent}
                 onChange={e => setAccent(e.target.value)}
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-mono"
+                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-mono"
               />
             </div>
           </div>
@@ -120,7 +120,7 @@ function SiteCard({ site }: { site: Site }) {
               value={address}
               onChange={e => setAddress(e.target.value)}
               placeholder="ex: Str. Exemplu nr. 1, Cluj-Napoca"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
             />
           </div>
           <div className="flex gap-3 pt-1">

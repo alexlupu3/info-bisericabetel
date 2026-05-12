@@ -19,7 +19,7 @@ export default function SiteFilter({ value, onChange }: Props) {
       data-testid="site-filter"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-1.5 text-xs uppercase tracking-widest font-content border border-[var(--border)] bg-transparent text-[var(--text)] transition-colors cursor-pointer"
+      className="px-3 py-1.5 text-base uppercase tracking-widest font-content border border-[var(--border)] bg-transparent text-[var(--text)] transition-colors cursor-pointer"
     >
       <option value="">Toate</option>
       {data.sites.map((s) => (

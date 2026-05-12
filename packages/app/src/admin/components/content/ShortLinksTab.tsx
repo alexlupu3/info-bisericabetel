@@ -95,7 +95,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
               autoFocus
               data-testid="short-link-label-input"
               onKeyDown={e => { if (e.key === 'Enter' && label.trim()) createMut.mutate({ label: label.trim(), siteSlug }) }}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content"
             />
           </div>
 
@@ -108,7 +108,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
                 value={siteSlug ?? ''}
                 onChange={e => setSiteSlug(e.target.value || null)}
                 data-testid="short-link-site-select"
-                className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-content"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content"
               >
                 <option value="">Link implicit</option>
                 {sitesWithOverrides.map(s => (

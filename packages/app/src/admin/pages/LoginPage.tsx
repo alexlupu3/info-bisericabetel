@@ -43,7 +43,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               data-testid="login-email"
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3
-                         text-sm font-content text-[var(--text)] focus:outline-none
+                         text-base font-content text-[var(--text)] focus:outline-none
                          focus:border-[var(--accent)]"
             />
           </div>
@@ -56,7 +56,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               data-testid="login-password"
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3
-                         text-sm font-content text-[var(--text)] focus:outline-none
+                         text-base font-content text-[var(--text)] focus:outline-none
                          focus:border-[var(--accent)]"
             />
           </div>

@@ -54,19 +54,19 @@ export default function SetupPage({ onDone }: { onDone: () => void }) {
             type="email" value={email} onChange={e => setEmail(e.target.value)}
             placeholder="Email"
             data-testid="setup-email"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-sm font-content
+            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
                        focus:border-[var(--text)] outline-none transition-colors" />
           <input
             type="password" value={password} onChange={e => setPassword(e.target.value)}
             placeholder="Parolă (min. 8 caractere)"
             data-testid="setup-password"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-sm font-content
+            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
                        focus:border-[var(--text)] outline-none transition-colors" />
           <input
             type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
             placeholder="Confirmă parola"
             data-testid="setup-confirm"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-sm font-content
+            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
                        focus:border-[var(--text)] outline-none transition-colors" />
         </div>
 
