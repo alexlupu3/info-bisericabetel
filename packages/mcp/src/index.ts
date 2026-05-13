@@ -3,11 +3,11 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-const API_URL = (process.env.BETEL_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
-const EMAIL = process.env.BETEL_EMAIL
-const PASSWORD = process.env.BETEL_PASSWORD
+const apiUrl = (process.env.BETEL_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
+const email = process.env.BETEL_EMAIL
+const password = process.env.BETEL_PASSWORD
 
-if (!EMAIL || !PASSWORD) {
+if (!email || !password) {
   process.stderr.write('BETEL_EMAIL and BETEL_PASSWORD env vars are required\n')
   process.exit(1)
 }
@@ -15,19 +15,19 @@ if (!EMAIL || !PASSWORD) {
 let cachedToken: string | null = null
 let loginPromise: Promise<string> | null = null
 
-const FETCH_TIMEOUT_MS = 15_000
+const fetchTimeoutMs = 15_000
 
 function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  return fetch(url, { ...options, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+  return fetch(url, { ...options, signal: AbortSignal.timeout(fetchTimeoutMs) })
 }
 
 async function login(): Promise<string> {
   if (loginPromise) return loginPromise
   loginPromise = (async () => {
-    const res = await fetchWithTimeout(`${API_URL}/auth/login`, {
+    const res = await fetchWithTimeout(`${apiUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+      body: JSON.stringify({ email, password }),
     })
     if (!res.ok) {
       const body = await res.text()
@@ -43,7 +43,7 @@ async function login(): Promise<string> {
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   if (!cachedToken) await login()
 
-  const doRequest = (tok: string) => fetchWithTimeout(`${API_URL}${path}`, {
+  const doRequest = (tok: string) => fetchWithTimeout(`${apiUrl}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -62,8 +62,13 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 }
 
 async function jsonResponse(res: Response): Promise<{ ok: boolean; data: unknown }> {
-  const data = await res.json()
-  return { ok: res.ok, data }
+  try {
+    const data = await res.json()
+    return { ok: res.ok, data }
+  } catch {
+    const text = await res.text().catch(() => '')
+    return { ok: res.ok, data: text || null }
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -82,8 +87,9 @@ server.tool(
   'List all church sites (slugs, names, accent colours). Use slugs when scoping cards to specific sites.',
   {},
   async () => {
-    const res = await fetch(`${API_URL}/sites`)
-    const data = await res.json()
+    const res = await apiFetch('/sites')
+    const { ok, data } = await jsonResponse(res)
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
   },
 )
@@ -146,7 +152,7 @@ server.tool(
     cta: z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
     sites: z.array(z.string()).optional().describe('Site slugs to show this card on; omit or pass [] for all sites'),
     exclusiveSite: z.string().optional().describe('Restrict card to exactly one site (mutually exclusive with sites[])'),
-    groupId: z.string().optional().describe('ID of the group to attach this card to'),
+    groupId: z.string().uuid().optional().describe('ID of the group to attach this card to'),
   },
   async ({ title, description, thumbnail, startDate, endDate, link, cta, sites, exclusiveSite, groupId }) => {
     const body = {
