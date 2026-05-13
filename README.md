@@ -12,6 +12,7 @@ This repository is the root for a production-ready application and its supportin
 ## Packages
 - `packages/api/` — Fastify backend; handles content, admin, media, and location routes.
 - `packages/app/` — Unified React application: public PWA (at `/`) and admin tool (at `/admin/*`) in a single Vite build. Admin JS is code-split via `React.lazy` so public users never download it.
+- `packages/mcp/` — MCP (Model Context Protocol) server that exposes content management tools to the Claude desktop/web app. See [MCP Setup](#mcp-model-context-protocol-server) below.
 
 ## Key Admin Routes
 - `/` (Content) — create, edit, order content items and groups
@@ -160,6 +161,66 @@ A `captain-definition` file is included at the repo root so the app can be deplo
 **3. Container HTTP Port** — set to `3100` in the CapRover app settings. CapRover routes external HTTPS traffic through its own load balancer to this port.
 
 **4. Persistent volume** — mount a persistent volume at the path you set for `UPLOADS_DIR` so uploaded media survives container redeploys.
+
+---
+
+## MCP (Model Context Protocol) Server
+
+`packages/mcp/` is a stdio MCP server that lets you manage church content directly from the Claude desktop or web app.
+
+### Available tools
+
+| Tool | Description |
+|---|---|
+| `list_sites` | List all church sites and their slugs |
+| `list_groups` | List all content groups |
+| `list_media` | List images in the media library |
+| `list_cards` | List all card content items |
+| `create_card` | Create a new card (starts as draft) |
+| `update_card` | Update fields on an existing card |
+| `publish_card` | Publish a draft card to the public site |
+
+### Configuration
+
+The MCP server authenticates with the existing admin API using credentials provided via environment variables.
+
+| Variable | Required | Description |
+|---|---|---|
+| `BETEL_EMAIL` | yes | Admin account email |
+| `BETEL_PASSWORD` | yes | Admin account password |
+| `BETEL_API_URL` | no | Base API URL (default: `http://localhost:3000/api`) |
+
+### Claude Desktop setup
+
+Add the following to your Claude Desktop `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "betel": {
+      "command": "node",
+      "args": ["/absolute/path/to/packages/mcp/dist/index.js"],
+      "env": {
+        "BETEL_API_URL": "https://your-production-api.example.com/api",
+        "BETEL_EMAIL": "admin@betel.ro",
+        "BETEL_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+Build the MCP server first:
+
+```bash
+pnpm --filter @betel/mcp build
+```
+
+For development with hot-reload:
+
+```bash
+pnpm --filter @betel/mcp dev
+```
 
 ---
 
