@@ -324,11 +324,10 @@ export default function ContentPage() {
   const reorderMut     = useMutation({ mutationFn: api.content.reorder,     onSuccess: data => setContentCache(data.items) })
   const reorderRootMut = useMutation({ mutationFn: api.content.reorderRoot, onSuccess: data => setAllCache(data.items, data.groups) })
 
-  const sortGroupChronologically = (groupId: string, extraItem?: ContentItem) => {
+  const sortGroupChronologically = (groupId: string) => {
     setRootEntries(prev => prev.map(e => {
       if (e.kind !== 'group' || e.id !== groupId) return e
-      const items = extraItem ? [...e.items, extraItem] : e.items
-      const sorted = sortByStartDate(items)
+      const sorted = sortByStartDate(e.items)
       reorderMut.mutate(sorted.map(i => i.id))
       return { ...e, items: sorted }
     }))

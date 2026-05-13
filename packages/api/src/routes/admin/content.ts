@@ -106,11 +106,18 @@ export async function adminContentRoutes(app: FastifyInstance) {
       await db.transaction(async tx => {
         for (let i = 0; i < sorted.length; i++) {
           await tx.update(contentItems)
-            .set({ orderPosition: i, updatedAt: new Date() })
+            .set({ orderPosition: i })
             .where(eq(contentItems.id, sorted[i].id))
         }
       })
-      finalOrderPosition = sorted.findIndex(s => s.id === item.id)
+      const idx = sorted.findIndex(s => s.id === item.id)
+      if (idx === -1) {
+        // Insertion succeeded but item not found in sibling query — return with the
+        // temporary position rather than propagating -1.
+        finalOrderPosition = item.orderPosition
+      } else {
+        finalOrderPosition = idx
+      }
     }
 
     const actor = req.user as any
