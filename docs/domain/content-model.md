@@ -123,6 +123,9 @@ When any applicable expiry condition is met, the item is automatically hidden fr
 - Example: items ordered A → B → C where B is hidden for site BETA → site BETA sees A → C (not C → A).
 - Admins manage a single unified ordered list. There is no per-site ordering.
 
+### `data.startDate` as a sort key (admin group sort)
+In addition to its role as a visibility gate (hiding an item before its start date — see Expiration Behavior above), `data.startDate` serves a second role: it is the sort key used by the group chronological sort feature (FR-046). When an admin clicks "Sortează cronologic" on a group, items are ordered by `data.startDate` ascending (YYYY-MM-DD string comparison). Items without a startDate are placed at the end. This same key is used for auto-placement when a new item is created inside a group. The two roles (visibility gating and sort key) are independent — an item without a startDate is neither hidden from the public hub nor excluded from group sorting; it simply sorts last.
+
 ## Exclusive Site Scope
 
 Content items support two distinct site scoping concepts that must not be conflated:

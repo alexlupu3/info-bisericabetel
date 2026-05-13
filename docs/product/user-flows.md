@@ -28,6 +28,8 @@ List the highest-priority flows first.
   - To delete a group: admin clicks "Șterge grup" on the group header; all child items are soft-deleted (state → `deleted`, groupId cleared) and the group is hard-deleted. Items are recoverable from `/admin/archive`.
   - To collapse a group: admin clicks the chevron button (▶/▼) on the group header; the item list is hidden and the group cannot receive drops until re-expanded; the drag handle remains active so the collapsed group can still be reordered
   - To collapse or expand all groups at once: admin clicks "▲ Restrânge toate" / "▼ Extinde toate" in the page header (only visible when at least one group exists)
+  - To sort a group chronologically: admin clicks the "Sortează cronologic" button (ArrowUpDown icon) on the group header; all items in the group are immediately reordered by start date ascending (undated items move to the end); the order is persisted via the reorder API; if all items are undated the action is a silent no-op
+  - When adding a new content item inside a group (via the "+ adaugă conținut în grup" inline form): after the item is saved, the group is automatically re-sorted chronologically — the new item is inserted in start-date order among existing items; if the new item has no start date it is appended last
 - Success state: groups are created, populated, reordered, and collapsed without leaving the Content page; no separate Groups page navigation required
 - Failure or edge states:
   - A group is deleted while it still has items (handled: items are soft-deleted and moved to `/admin/archive`; recoverable via restore)
