@@ -93,9 +93,6 @@ function buildMcpServer(): McpServer {
         if (!row) return err(`invalid exclusiveSite "${normalizedExclusive}"`)
       }
 
-      const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
-        .from(contentItems)
-
       const data: Record<string, unknown> = { title }
       if (description !== undefined) data.description = description
       if (thumbnail  !== undefined) data.thumbnail    = thumbnail
@@ -104,15 +101,21 @@ function buildMcpServer(): McpServer {
       if (link       !== undefined) data.link         = link
       if (cta        !== undefined) data.cta          = cta
 
-      const [item] = await db.insert(contentItems).values({
-        type:          'card',
-        sites:         normalizedExclusive ? [] : (sitesList ?? []),
-        exclusiveSite: normalizedExclusive,
-        groupId:       groupId ?? null,
-        data,
-        orderPosition: max + 1,
-        state:         'draft',
-      }).returning()
+      const item = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
+        const [{ max }] = await tx.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
+          .from(contentItems)
+        const [row] = await tx.insert(contentItems).values({
+          type:          'card',
+          sites:         normalizedExclusive ? [] : (sitesList ?? []),
+          exclusiveSite: normalizedExclusive,
+          groupId:       groupId ?? null,
+          data,
+          orderPosition: max + 1,
+          state:         'draft',
+        }).returning()
+        return row
+      })
 
       await logAudit({
         userEmail: MCP_ACTOR,
