@@ -5,10 +5,10 @@ import { contentItems, groups, contentTranslations, languages, sites as sitesTab
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 
-function sortGroupByStartDate<T extends { id: string; data: Record<string, unknown> }>(items: T[]): T[] {
+function sortGroupByStartDate<T extends { id: string; data: unknown }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
-    const da = (a.data.startDate as string | undefined) ?? null
-    const db = (b.data.startDate as string | undefined) ?? null
+    const da = ((a.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
+    const db = ((b.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
     if (!da && !db) return 0
     if (!da) return 1
     if (!db) return -1
@@ -78,20 +78,23 @@ export async function adminContentRoutes(app: FastifyInstance) {
     }
     const finalSites = normalizedExclusive ? [] : sites
 
-    // Assign order_position = max + 1 as a safe initial value
-    const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
-      .from(contentItems)
-
-    const [item] = await db.insert(contentItems).values({
-      type,
-      sites: finalSites,
-      exclusiveSite: normalizedExclusive,
-      groupId: groupId ?? null,
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-      data,
-      orderPosition: max + 1,
-      state: 'draft',
-    }).returning()
+    // Advisory lock 1001 serialises concurrent inserts so MAX+1 is race-free.
+    const item = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
+      const [{ max }] = await tx.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
+        .from(contentItems)
+      const [row] = await tx.insert(contentItems).values({
+        type,
+        sites: finalSites,
+        exclusiveSite: normalizedExclusive,
+        groupId: groupId ?? null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        data,
+        orderPosition: max + 1,
+        state: 'draft',
+      }).returning()
+      return row
+    })
 
     // When inserted into a group, reorder the whole group chronologically by startDate.
     // This ensures programmatic creation (MCP, integrations) places items correctly without
@@ -231,19 +234,22 @@ export async function adminContentRoutes(app: FastifyInstance) {
     const clonedData = { ...(original.data as Record<string, unknown>) }
     for (const f of fieldsToStrip) delete clonedData[f]
 
-    const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
-      .from(contentItems)
-
-    const [item] = await db.insert(contentItems).values({
-      type: original.type,
-      sites: original.sites,
-      exclusiveSite: original.exclusiveSite,
-      groupId: original.groupId,
-      expiresAt: original.expiresAt,
-      data: clonedData,
-      orderPosition: max + 1,
-      state: 'draft',
-    }).returning()
+    const item = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
+      const [{ max }] = await tx.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
+        .from(contentItems)
+      const [row] = await tx.insert(contentItems).values({
+        type: original.type,
+        sites: original.sites,
+        exclusiveSite: original.exclusiveSite,
+        groupId: original.groupId,
+        expiresAt: original.expiresAt,
+        data: clonedData,
+        orderPosition: max + 1,
+        state: 'draft',
+      }).returning()
+      return row
+    })
 
     const actor = req.user as any
     await logAudit({

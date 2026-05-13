@@ -99,6 +99,9 @@
   - **Admin UI:** the `/admin/error-logs` page ("Erori" nav link, super-admin only) shows a table with columns: date/time, site slug, URL, message, stack trace, and device info. Message, stack, and device cells are expandable inline to reveal full content. Site slug input filters the table; prev/next pagination buttons step through pages of 50.
   - **Database:** `error_logs` table — `id` (UUID PK), `message` (TEXT NOT NULL), `stack` (TEXT), `url` (TEXT), `site_slug` (TEXT nullable), `device` (JSONB default `{}`), `occurred_at` (TIMESTAMPTZ). Indexes on `occurred_at` and on `(site_slug, occurred_at)`. Records are never deleted.
 
+### MCP Content Creation
+- FR-046: The system must expose an MCP (Model Context Protocol) server that allows an AI agent to create and manage card content via a chat interface. **[Implemented — 2026-05-13]** The server is the `packages/mcp/` package (`@betel/mcp`) and uses stdio transport. It authenticates with the admin REST API using an admin email+password pair supplied via environment variables (`BETEL_EMAIL`, `BETEL_PASSWORD`; optional `BETEL_API_URL`). The server exposes 7 tools: `list_sites` (public), `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`. `create_card` creates items in draft state; `publish_card` transitions them to published. Only card content items are exposed in this iteration. All writes go through the admin REST API, preserving audit logging (FR-023) and business rule enforcement. See ADR-012 and `docs/architecture/integrations.md` for implementation details.
+
 ## Non-Functional Requirements
 - NFR-001: Both the public hub and the admin tool must be optimized for mobile-first access.
 - NFR-002: The application must minimize friction for first-time visitors opening a shared link or scanned QR code.
@@ -124,6 +127,7 @@
   - Audit log and analytics dashboard are operational
 - What can wait for later phases?
   - Profile-based views (youth, family, elderly, leaders) — Phase 2
-  - External API / integration layer (Zapier, MCP) — Phase 2
+  - MCP server — Phase 2 [done — 2026-05-13]
+  - External API key layer (Zapier, full integration) — Phase 2 [pending]
   - In-app form builder — Phase 3
   - Push notifications — Phase 3
