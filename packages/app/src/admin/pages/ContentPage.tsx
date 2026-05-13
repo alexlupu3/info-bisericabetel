@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock, Link2 } from 'lucide-react'
+import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock, Link2, ArrowUpDown } from 'lucide-react'
 import ShortLinksTab from '../components/content/ShortLinksTab'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -99,6 +99,17 @@ function getInsertPosition(over: Over, activeMidY: number): 'before' | 'after' {
   const rect = over.rect
   const midY = rect.top + rect.height / 2
   return activeMidY < midY ? 'before' : 'after'
+}
+
+function sortByStartDate(items: ContentItem[]): ContentItem[] {
+  return [...items].sort((a, b) => {
+    const da = (a.data.startDate as string | undefined) ?? null
+    const db = (b.data.startDate as string | undefined) ?? null
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    return da < db ? -1 : da > db ? 1 : 0
+  })
 }
 
 /**
@@ -312,6 +323,16 @@ export default function ContentPage() {
   })
   const reorderMut     = useMutation({ mutationFn: api.content.reorder,     onSuccess: data => setContentCache(data.items) })
   const reorderRootMut = useMutation({ mutationFn: api.content.reorderRoot, onSuccess: data => setAllCache(data.items, data.groups) })
+
+  const sortGroupChronologically = (groupId: string, extraItem?: ContentItem) => {
+    setRootEntries(prev => prev.map(e => {
+      if (e.kind !== 'group' || e.id !== groupId) return e
+      const items = extraItem ? [...e.items, extraItem] : e.items
+      const sorted = sortByStartDate(items)
+      reorderMut.mutate(sorted.map(i => i.id))
+      return { ...e, items: sorted }
+    }))
+  }
   const createGroupMut = useMutation({
     mutationFn: ({ title, sites }: { title: string; sites: string[] }) => api.groups.create(title, sites),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup creat'); setCreatingGroup(false) },
@@ -549,7 +570,11 @@ export default function ContentPage() {
           availableSites={availableSites}
           defaultGroupId={creatingInGroup}
           onClose={() => setCreatingInGroup(null)}
-          onSaved={() => { invalidate(); setCreatingInGroup(null) }}
+          onSaved={(newItem) => {
+            if (newItem && creatingInGroup) sortGroupChronologically(creatingInGroup, newItem)
+            invalidate()
+            setCreatingInGroup(null)
+          }}
         />
       )}
 
@@ -604,6 +629,7 @@ export default function ContentPage() {
                         deleteGroupMut.mutate(entry.id)
                     }}
                     onAddContent={() => { setEditing(null); setCreating(false); setCreatingInGroup(entry.id) }}
+                    onSortChronological={() => sortGroupChronologically(entry.id)}
                     groups={groups}
                   />
                 )}
@@ -622,7 +648,7 @@ export default function ContentPage() {
 
 // ── Sortable group block ───────────────────────────────────────────────────────
 
-function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, editingItem, editingFormRef, onEdit, onEditClose, onEditSaved, onEditGroup, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish, onDeleteGroup, onAddContent, groups }: {
+function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, editingItem, editingFormRef, onEdit, onEditClose, onEditSaved, onEditGroup, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish, onDeleteGroup, onAddContent, onSortChronological, groups }: {
   entry: GroupEntry
   availableSites: Site[]
   isCollapsed: boolean
@@ -640,6 +666,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
   onTogglePublish: (id: string, currentState: string) => void
   onDeleteGroup: () => void
   onAddContent: () => void
+  onSortChronological: () => void
   groups: Group[]
 }) {
   const {
@@ -694,6 +721,15 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           className="flex-1 text-xs tracking-widest uppercase font-content font-bold text-left hover:text-[var(--accent)] transition-colors cursor-pointer"
         >{entry.title}</button>
         <SiteCircles sites={entry.sites} exclusiveSite={null} availableSites={availableSites} />
+        <button
+          onClick={onSortChronological}
+          data-testid={`group-sort-chronological-${entry.id}`}
+          title="Sortează cronologic"
+          className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1 rounded"
+          aria-label="Sortează cronologic"
+        >
+          <ArrowUpDown size={14} />
+        </button>
         <button
           onClick={onAddContent}
           data-testid={`group-add-content-${entry.id}`}
@@ -1415,7 +1451,7 @@ const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>>
 // ── Content form ───────────────────────────────────────────────────────────────
 
 function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
-  item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: () => void
+  item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: (newItem?: ContentItem) => void
 }) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'edit' | 'short-links'>('edit')
@@ -1479,6 +1515,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
   const submit = async () => {
     setBusy(true); setError('')
     try {
+      let newItem: ContentItem | undefined
       if (isTranslating) {
         // Filter out empty values
         const data = Object.fromEntries(Object.entries(transForm).filter(([, v]) => v))
@@ -1488,9 +1525,9 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
       } else {
         const payload = formToPayload(form)
         if (item) { await api.content.update(item.id, payload); toast('Salvat') }
-        else       { await api.content.create(payload); toast('Element creat') }
+        else       { newItem = await api.content.create(payload); toast('Element creat') }
       }
-      onSaved()
+      onSaved(newItem)
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 
