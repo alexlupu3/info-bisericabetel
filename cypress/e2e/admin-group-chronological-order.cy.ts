@@ -90,20 +90,23 @@ describe('Chronological ordering within groups', () => {
   })
 
   describe('Auto-placement on create', () => {
-    it('inserts a new item at the correct chronological position after creation', () => {
-      // Group has Jan and May; we create an item for March — should land between them
+    // Ordering is now handled server-side during the POST call.
+    // The frontend simply invalidates and re-fetches; tests verify the DOM
+    // reflects the sorted order returned by the server after creation.
+
+    it('does NOT call the reorder endpoint after creation (server handles it)', () => {
       setup([itemJan, itemMay])
       expandGroup()
 
       const newItem = {
-        id: 'i-new', type: 'card', state: 'draft', sites: [], orderPosition: 99,
+        id: 'i-new', type: 'card', state: 'draft', sites: [], orderPosition: 1,
         groupId: 'g1', expiresAt: null,
         data: { title: 'Ziua Mamei', startDate: '2026-03-08' },
         createdAt: '', updatedAt: '',
       }
 
       cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: newItem }).as('create')
-      cy.intercept(contentOrderRoute, { items: [] }).as('reorder')
+      cy.intercept(contentOrderRoute, cy.spy().as('reorderSpy'))
 
       cy.get('[data-testid="group-add-content-g1"]').click()
       cy.get('[data-testid="create-type-select"]').select('card')
@@ -112,26 +115,67 @@ describe('Chronological ordering within groups', () => {
       cy.get('[data-testid="create-submit-btn"]').click()
 
       cy.wait('@create')
-      cy.wait('@reorder').its('request.body.order').should('deep.equal', [
-        'i-jan',   // 2026-01-01
-        'i-new',   // 2026-03-08
-        'i-may',   // 2026-05-01
-      ])
+      // Give the UI time to settle, then verify no reorder call was made
+      cy.get('@reorderSpy').should('not.have.been.called')
     })
 
-    it('appends a new undated item at the end of the group', () => {
+    it('displays items in chronological order after creating a mid-range dated item', () => {
+      setup([itemJan, itemMay])
+      expandGroup()
+
+      const newItem = {
+        id: 'i-new', type: 'card', state: 'draft', sites: [], orderPosition: 1,
+        groupId: 'g1', expiresAt: null,
+        data: { title: 'Ziua Mamei', startDate: '2026-03-08' },
+        createdAt: '', updatedAt: '',
+      }
+
+      cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: newItem }).as('create')
+      // Server returns items in the sorted order it persisted
+      cy.intercept('GET', '/api/admin/content', {
+        items: [
+          { ...itemJan, orderPosition: 0 },
+          { ...newItem, orderPosition: 1 },
+          { ...itemMay, orderPosition: 2 },
+        ],
+      }).as('contentRefetch')
+
+      cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="create-type-select"]').select('card')
+      cy.get('[data-testid="create-title-input"]').type('Ziua Mamei')
+      cy.get('[data-testid="create-date-input"]').type('2026-03-08')
+      cy.get('[data-testid="create-submit-btn"]').click()
+
+      cy.wait('@create')
+      cy.wait('@contentRefetch')
+
+      cy.get('[data-testid="container-g1"] [data-testid^="content-row-"]')
+        .should('have.length', 3)
+        .then($rows => {
+          const ids = [...$rows].map(el => el.getAttribute('data-testid')!.replace('content-row-', ''))
+          expect(ids).to.deep.equal(['i-jan', 'i-new', 'i-may'])
+        })
+    })
+
+    it('displays undated new item last in the group', () => {
       setup([itemJan, itemMay])
       expandGroup()
 
       const newUndated = {
-        id: 'i-new', type: 'card', state: 'draft', sites: [], orderPosition: 99,
+        id: 'i-new', type: 'card', state: 'draft', sites: [], orderPosition: 2,
         groupId: 'g1', expiresAt: null,
         data: { title: 'Fara data' },
         createdAt: '', updatedAt: '',
       }
 
       cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: newUndated }).as('create')
-      cy.intercept(contentOrderRoute, { items: [] }).as('reorder')
+      cy.intercept('GET', '/api/admin/content', {
+        items: [
+          { ...itemJan, orderPosition: 0 },
+          { ...itemMay, orderPosition: 1 },
+          { ...newUndated, orderPosition: 2 },
+        ],
+      }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
       cy.get('[data-testid="create-type-select"]').select('card')
@@ -139,28 +183,37 @@ describe('Chronological ordering within groups', () => {
       cy.get('[data-testid="create-submit-btn"]').click()
 
       cy.wait('@create')
-      cy.wait('@reorder').its('request.body.order').should('deep.equal', [
-        'i-jan',   // 2026-01-01
-        'i-may',   // 2026-05-01
-        'i-new',   // no date — appended last
-      ])
+      cy.wait('@contentRefetch')
+
+      cy.get('[data-testid="container-g1"] [data-testid^="content-row-"]')
+        .should('have.length', 3)
+        .then($rows => {
+          const ids = [...$rows].map(el => el.getAttribute('data-testid')!.replace('content-row-', ''))
+          expect(ids[2]).to.equal('i-new')   // undated item is last
+        })
     })
 
-    it('places new item after existing items with the same date (stable insertion)', () => {
+    it('displays new same-date item after existing same-date items', () => {
       const sameDate1 = { ...itemJan, id: 'sd-1', orderPosition: 0, data: { title: 'Same1', startDate: '2026-03-01' } }
       const sameDate2 = { ...itemJan, id: 'sd-2', orderPosition: 1, data: { title: 'Same2', startDate: '2026-03-01' } }
       setup([sameDate1, sameDate2])
       expandGroup()
 
       const newSameDate = {
-        id: 'sd-new', type: 'card', state: 'draft', sites: [], orderPosition: 99,
+        id: 'sd-new', type: 'card', state: 'draft', sites: [], orderPosition: 2,
         groupId: 'g1', expiresAt: null,
         data: { title: 'Same3', startDate: '2026-03-01' },
         createdAt: '', updatedAt: '',
       }
 
       cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: newSameDate }).as('create')
-      cy.intercept(contentOrderRoute, { items: [] }).as('reorder')
+      cy.intercept('GET', '/api/admin/content', {
+        items: [
+          { ...sameDate1, orderPosition: 0 },
+          { ...sameDate2, orderPosition: 1 },
+          { ...newSameDate, orderPosition: 2 },
+        ],
+      }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
       cy.get('[data-testid="create-type-select"]').select('card')
@@ -169,11 +222,15 @@ describe('Chronological ordering within groups', () => {
       cy.get('[data-testid="create-submit-btn"]').click()
 
       cy.wait('@create')
-      cy.wait('@reorder').its('request.body.order').then(order => {
-        // New item should come after existing items with the same date
-        expect(order.indexOf('sd-new')).to.be.greaterThan(order.indexOf('sd-1'))
-        expect(order.indexOf('sd-new')).to.be.greaterThan(order.indexOf('sd-2'))
-      })
+      cy.wait('@contentRefetch')
+
+      cy.get('[data-testid="container-g1"] [data-testid^="content-row-"]')
+        .should('have.length', 3)
+        .then($rows => {
+          const ids = [...$rows].map(el => el.getAttribute('data-testid')!.replace('content-row-', ''))
+          expect(ids.indexOf('sd-new')).to.be.greaterThan(ids.indexOf('sd-1'))
+          expect(ids.indexOf('sd-new')).to.be.greaterThan(ids.indexOf('sd-2'))
+        })
     })
   })
 })

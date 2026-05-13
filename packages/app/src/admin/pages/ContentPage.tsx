@@ -570,11 +570,7 @@ export default function ContentPage() {
           availableSites={availableSites}
           defaultGroupId={creatingInGroup}
           onClose={() => setCreatingInGroup(null)}
-          onSaved={(newItem) => {
-            if (newItem && creatingInGroup) sortGroupChronologically(creatingInGroup, newItem)
-            invalidate()
-            setCreatingInGroup(null)
-          }}
+          onSaved={() => { invalidate(); setCreatingInGroup(null) }}
         />
       )}
 
@@ -1451,7 +1447,7 @@ const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>>
 // ── Content form ───────────────────────────────────────────────────────────────
 
 function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
-  item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: (newItem?: ContentItem) => void
+  item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: () => void
 }) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'edit' | 'short-links'>('edit')
@@ -1515,7 +1511,6 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
   const submit = async () => {
     setBusy(true); setError('')
     try {
-      let newItem: ContentItem | undefined
       if (isTranslating) {
         // Filter out empty values
         const data = Object.fromEntries(Object.entries(transForm).filter(([, v]) => v))
@@ -1525,9 +1520,9 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
       } else {
         const payload = formToPayload(form)
         if (item) { await api.content.update(item.id, payload); toast('Salvat') }
-        else       { newItem = await api.content.create(payload); toast('Element creat') }
+        else       { await api.content.create(payload); toast('Element creat') }
       }
-      onSaved(newItem)
+      onSaved()
     } catch (e: any) { setError(e.message) } finally { setBusy(false) }
   }
 

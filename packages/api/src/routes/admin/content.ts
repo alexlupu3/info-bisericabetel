@@ -5,6 +5,17 @@ import { contentItems, groups, contentTranslations, languages, sites as sitesTab
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 
+function sortGroupByStartDate<T extends { id: string; data: Record<string, unknown> }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const da = (a.data.startDate as string | undefined) ?? null
+    const db = (b.data.startDate as string | undefined) ?? null
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    return da < db ? -1 : da > db ? 1 : 0
+  })
+}
+
 type ItemBody = {
   type: string
   sites?: string[]
@@ -67,7 +78,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
     }
     const finalSites = normalizedExclusive ? [] : sites
 
-    // Assign order_position = max + 1
+    // Assign order_position = max + 1 as a safe initial value
     const [{ max }] = await db.select({ max: sql<number>`COALESCE(MAX(order_position), -1)` })
       .from(contentItems)
 
@@ -82,6 +93,26 @@ export async function adminContentRoutes(app: FastifyInstance) {
       state: 'draft',
     }).returning()
 
+    // When inserted into a group, reorder the whole group chronologically by startDate.
+    // This ensures programmatic creation (MCP, integrations) places items correctly without
+    // requiring a separate reorder call from the caller.
+    let finalOrderPosition = item.orderPosition
+    if (groupId) {
+      const groupItems = await db.select()
+        .from(contentItems)
+        .where(and(eq(contentItems.groupId, groupId), ne(contentItems.state, 'deleted')))
+
+      const sorted = sortGroupByStartDate(groupItems)
+      await db.transaction(async tx => {
+        for (let i = 0; i < sorted.length; i++) {
+          await tx.update(contentItems)
+            .set({ orderPosition: i, updatedAt: new Date() })
+            .where(eq(contentItems.id, sorted[i].id))
+        }
+      })
+      finalOrderPosition = sorted.findIndex(s => s.id === item.id)
+    }
+
     const actor = req.user as any
     await logAudit({
       userId: actor.sub,
@@ -91,7 +122,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
       detail: { type, exclusiveSite: normalizedExclusive },
     })
     if (Object.keys(data).length > 0) scheduleContentTranslation(item.id, data)
-    return reply.code(201).send(item)
+    return reply.code(201).send({ ...item, orderPosition: finalOrderPosition })
   })
 
   // Get single
