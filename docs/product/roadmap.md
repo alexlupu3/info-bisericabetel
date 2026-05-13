@@ -27,10 +27,8 @@
 - Content items will need to support audience/profile scoping in addition to site scoping.
 
 ### External API & integration layer
-- Expose a subset of admin functionality (e.g. create/update content items) via API key authentication.
-- Enables integration with 3rd party automation tools such as Zapier (e.g. create a Card draft from a Google Calendar event).
-- Also intended to support an MCP (Model Context Protocol) server so an AI agent can create and manage content via chat.
-- API key management must be part of the super-admin tooling.
+- ~~MCP (Model Context Protocol) server~~ **[done — 2026-05-13]**: AI agent can create and manage card content via chat using `packages/mcp/` (`@betel/mcp`). Stdio transport; authenticates with the admin REST API using email+password JWT. 7 tools: `list_sites`, `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`. See ADR-012 and `docs/architecture/integrations.md`.
+- **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the MCP server. API key management must be part of the super-admin tooling. The MCP server currently uses JWT auth as a temporary measure until this is built.
 
 ## Phase 3 — Future / Out of Scope for Now
 
