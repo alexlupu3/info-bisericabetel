@@ -13,26 +13,37 @@ if (!EMAIL || !PASSWORD) {
 }
 
 let cachedToken: string | null = null
+let loginPromise: Promise<string> | null = null
+
+const FETCH_TIMEOUT_MS = 15_000
+
+function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+}
 
 async function login(): Promise<string> {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
-  })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Login failed (${res.status}): ${body}`)
-  }
-  const { token } = await res.json() as { token: string }
-  cachedToken = token
-  return token
+  if (loginPromise) return loginPromise
+  loginPromise = (async () => {
+    const res = await fetchWithTimeout(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`Login failed (${res.status}): ${body}`)
+    }
+    const { token } = await res.json() as { token: string }
+    cachedToken = token
+    return token
+  })().finally(() => { loginPromise = null })
+  return loginPromise
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   if (!cachedToken) await login()
 
-  const doRequest = (tok: string) => fetch(`${API_URL}${path}`, {
+  const doRequest = (tok: string) => fetchWithTimeout(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -43,6 +54,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 
   let res = await doRequest(cachedToken!)
   if (res.status === 401) {
+    cachedToken = null
     await login()
     res = await doRequest(cachedToken!)
   }
@@ -85,7 +97,7 @@ server.tool(
   async () => {
     const res = await apiFetch('/admin/groups')
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
   },
 )
@@ -99,7 +111,7 @@ server.tool(
   async () => {
     const res = await apiFetch('/admin/media')
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
   },
 )
@@ -113,7 +125,7 @@ server.tool(
   async () => {
     const res = await apiFetch('/admin/content')
     const { ok, data } = await jsonResponse(res) as { ok: boolean; data: { items?: unknown[] } }
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
     const cards = (data.items ?? []).filter((i: any) => i.type === 'card')
     return { content: [{ type: 'text' as const, text: JSON.stringify(cards, null, 2) }] }
   },
@@ -158,7 +170,7 @@ server.tool(
       body: JSON.stringify(body),
     })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error creating card: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error creating card: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: `Card created (draft):\n${JSON.stringify(data, null, 2)}` }] }
   },
 )
@@ -169,7 +181,7 @@ server.tool(
   'update_card',
   'Update fields on an existing card. Only the provided fields are changed.',
   {
-    id: z.string().describe('Card ID to update'),
+    id: z.string().uuid().describe('Card ID to update'),
     title: z.string().optional().describe('New title'),
     description: z.string().optional().describe('New description (Markdown)'),
     thumbnail: z.string().url().optional().describe('New thumbnail URL'),
@@ -200,7 +212,7 @@ server.tool(
       body: JSON.stringify(body),
     })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error updating card: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error updating card: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: `Card updated:\n${JSON.stringify(data, null, 2)}` }] }
   },
 )
@@ -211,12 +223,12 @@ server.tool(
   'publish_card',
   'Publish a card (transition from draft → published so it appears on the public site).',
   {
-    id: z.string().describe('Card ID to publish'),
+    id: z.string().uuid().describe('Card ID to publish'),
   },
   async ({ id }) => {
     const res = await apiFetch(`/admin/content/${id}/publish`, { method: 'POST' })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { content: [{ type: 'text' as const, text: `Error publishing card: ${JSON.stringify(data)}` }] }
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error publishing card: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: `Card published:\n${JSON.stringify(data, null, 2)}` }] }
   },
 )
