@@ -157,6 +157,7 @@ A `captain-definition` file is included at the repo root so the app can be deplo
 | `UPLOADS_DIR` | Absolute path for media storage inside the container (e.g. `/uploads`) |
 | `NODE_ENV` | `production` |
 | `OPEN_ROUTER_API_KEY` | Optional — enables AI auto-translation of content and groups on create/update (Claude Haiku via OpenRouter) |
+| `MCP_SECRET` | Optional — enables the `/mcp` endpoint; set to a strong random string and use the same value as the Bearer token in Claude iOS |
 
 **3. Container HTTP Port** — set to `3100` in the CapRover app settings. CapRover routes external HTTPS traffic through its own load balancer to this port.
 
@@ -189,6 +190,16 @@ The MCP server authenticates with the existing admin API using credentials provi
 | `BETEL_EMAIL` | yes | Admin account email |
 | `BETEL_PASSWORD` | yes | Admin account password |
 | `BETEL_API_URL` | no | Base API URL (default: `http://localhost:3000/api`) |
+
+### Claude iOS (and Claude.ai web) setup
+
+The API exposes an MCP endpoint at `POST /mcp` using the Streamable HTTP transport. Enable it by setting `MCP_SECRET` to a strong random string in your deployment environment.
+
+In Claude iOS: **Settings → Claude for Work → Add Integration**, then enter:
+- **URL**: `https://your-deployed-api.com/mcp`
+- **Authentication**: Bearer token → paste your `MCP_SECRET` value
+
+No separate service to deploy — the MCP endpoint runs inside the existing Fastify API container.
 
 ### Claude Desktop setup
 

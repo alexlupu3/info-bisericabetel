@@ -22,6 +22,7 @@ import { languagesRoutes } from './routes/languages.js'
 import { adminTranslationsRoutes } from './routes/admin/translations.js'
 import { adminErrorLogsRoutes } from './routes/admin/error-logs.js'
 import { shortLinkRedirectRoute, adminShortLinksRoutes } from './routes/short-links.js'
+import { mcpRoutes } from './routes/mcp.js'
 import { runMigrations } from './db/migrate.js'
 
 const PORT = Number(process.env.PORT ?? 3100)
@@ -91,6 +92,7 @@ async function start() {
   await app.register(adminTranslationsRoutes, { prefix: '/api' })
   await app.register(adminShortLinksRoutes, { prefix: '/api' })
   await app.register(adminErrorLogsRoutes, { prefix: '/api' })
+  await app.register(mcpRoutes)
 
   // SPA fallback: serve index.html for any unmatched non-API route
   app.setNotFoundHandler((req, reply) => {
