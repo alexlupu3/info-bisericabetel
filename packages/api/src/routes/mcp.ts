@@ -145,8 +145,9 @@ function buildMcpServer(): McpServer {
     },
     async ({ id, title, description, thumbnail, startDate, endDate, link, cta,
              sites: sitesList, exclusiveSite }) => {
-      const [existing] = await db.select().from(contentItems).where(eq(contentItems.id, id))
-      if (!existing) return err(`card "${id}" not found`)
+      const [existing] = await db.select().from(contentItems)
+        .where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted')))
+      if (!existing) return err(`card "${id}" not found or is not an active card`)
 
       const exclusiveProvided = exclusiveSite !== undefined
       const normalizedExclusive = exclusiveProvided
@@ -187,7 +188,7 @@ function buildMcpServer(): McpServer {
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         updatedAt: new Date(),
-      }).where(eq(contentItems.id, id)).returning()
+      }).where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted'))).returning()
 
       await logAudit({
         userEmail: MCP_ACTOR,
@@ -219,13 +220,15 @@ function buildMcpServer(): McpServer {
       id: z.string().uuid().describe('Card ID to publish'),
     },
     async ({ id }) => {
-      const [existing] = await db.select({ id: contentItems.id })
+      const [existing] = await db.select({ id: contentItems.id, type: contentItems.type, state: contentItems.state })
         .from(contentItems).where(eq(contentItems.id, id))
       if (!existing) return err(`card "${id}" not found`)
+      if (existing.type !== 'card') return err(`item "${id}" is not a card`)
+      if (existing.state !== 'draft') return err(`card "${id}" is not a draft (current state: ${existing.state})`)
 
       const [updated] = await db.update(contentItems)
         .set({ state: 'published', updatedAt: new Date() })
-        .where(eq(contentItems.id, id))
+        .where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), eq(contentItems.state, 'draft')))
         .returning()
 
       await logAudit({ userEmail: MCP_ACTOR, action: 'content.publish', entityId: id, detail: { via: 'mcp' } })
