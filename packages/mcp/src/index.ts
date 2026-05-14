@@ -61,6 +61,24 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
   return res
 }
 
+async function apiFetchFormData(path: string, formData: FormData): Promise<Response> {
+  if (!cachedToken) await login()
+
+  const doRequest = (tok: string) => fetchWithTimeout(`${apiUrl}${path}`, {
+    method: 'POST',
+    body: formData,
+    headers: { 'Authorization': `Bearer ${tok}` },
+  })
+
+  let res = await doRequest(cachedToken!)
+  if (res.status === 401) {
+    cachedToken = null
+    await login()
+    res = await doRequest(cachedToken!)
+  }
+  return res
+}
+
 async function jsonResponse(res: Response): Promise<{ ok: boolean; data: unknown }> {
   try {
     const data = await res.json()
@@ -119,6 +137,33 @@ server.tool(
     const { ok, data } = await jsonResponse(res)
     if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
     return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+  },
+)
+
+// ── upload_media ──────────────────────────────────────────────
+
+server.tool(
+  'upload_media',
+  'Upload an image to the media library from base64-encoded data. Returns the uploaded image URL and ID. Use the URL as the thumbnail when creating or updating cards.',
+  {
+    imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
+    filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
+    mimeType: z.string().optional().describe('MIME type of the image e.g. "image/jpeg" or "image/png". Defaults to "image/jpeg"'),
+  },
+  async ({ imageData, filename, mimeType }) => {
+    const resolvedMime = mimeType ?? 'image/jpeg'
+    if (!resolvedMime.startsWith('image/')) {
+      return { isError: true, content: [{ type: 'text' as const, text: `Unsupported mimeType "${resolvedMime}". Only image/* types are accepted.` }] }
+    }
+    const buffer = Buffer.from(imageData, 'base64')
+    const blob = new Blob([buffer], { type: resolvedMime })
+    const formData = new FormData()
+    formData.append('file', blob, filename ?? 'upload.jpg')
+
+    const res = await apiFetchFormData('/admin/media', formData)
+    const { ok, data } = await jsonResponse(res)
+    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error uploading media: ${JSON.stringify(data)}` }] }
+    return { content: [{ type: 'text' as const, text: `Media uploaded:\n${JSON.stringify(data, null, 2)}` }] }
   },
 )
 

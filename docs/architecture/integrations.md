@@ -46,8 +46,11 @@ Implemented 2026-05-13. The `packages/mcp/` package (`@betel/mcp`) is a stdio MC
 | `create_card`  | Create a new card in draft state                               | `POST /api/admin/content`                       |
 | `update_card`  | Update fields on an existing card (partial update)             | `PATCH /api/admin/content/:id`                  |
 | `publish_card` | Publish a draft card so it appears on the public hub           | `POST /api/admin/content/:id/publish`           |
+| `upload_media` | Upload an image from base64 data; returns media row with URL   | `POST /api/admin/media` (multipart)             |
 
 `create_card` and `update_card` write to the `data` JSONB field of the content item. Supported data fields: `title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta`. Top-level fields `sites[]`, `exclusiveSite`, and `groupId` are also supported.
+
+`upload_media` accepts: `imageData` (required, base64 bytes without `data:` URI prefix), `filename` (optional, for reference only), and `mimeType` (optional, standalone CLI only; defaults to `image/jpeg`; must start with `image/`). The decoded buffer is capped at 5 MB. In the standalone CLI the raw bytes are posted to the API; in the in-process MCP a Sharp pipeline rotates, resizes to ≤ 1980 px, and re-encodes to WebP at 82 % quality before writing to disk. The returned row includes `id` and `url`; the URL can be passed directly as `thumbnail` in `create_card` or `update_card`.
 
 ### Scope and Relationship to the Planned API Key Layer
 

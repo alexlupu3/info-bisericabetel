@@ -71,7 +71,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 | `BETEL_EMAIL`   | —                                | Admin account email for JWT login    |
 | `BETEL_PASSWORD`| —                                | Admin account password for JWT login |
 
-**Tool inventory (7 tools):**
+**Tool inventory (8 tools):**
 
 | Tool           | HTTP method & path                          | Auth       |
 |----------------|---------------------------------------------|------------|
@@ -82,6 +82,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 | `create_card`  | `POST /api/admin/content`                   | Bearer JWT |
 | `update_card`  | `PATCH /api/admin/content/:id`              | Bearer JWT |
 | `publish_card` | `POST /api/admin/content/:id/publish`       | Bearer JWT |
+| `upload_media` | `POST /api/admin/media` (multipart)         | Bearer JWT |
 
 **Token refresh strategy:** the JWT is cached in the module-level `cachedToken` variable. On startup it is `null`; the first API call triggers `login()`. If any subsequent request returns HTTP 401, `login()` is called again before retrying once. This handles the 8-hour JWT expiry transparently for long-running MCP sessions.
 
@@ -95,6 +96,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 - **API key layer deferred**: the planned Phase 2 API key system is unblocked by this decision — it remains on the roadmap. When implemented, the MCP server can be migrated to API key auth by swapping the login call for an API key header.
 - **Credential management**: `BETEL_EMAIL` and `BETEL_PASSWORD` must be kept secret and not committed to version control. The admin account used for MCP should be a dedicated service account to allow audit log attribution and independent revocation (by changing the password).
 - **Cards-only scope**: richtext, poster, and video content types are not exposed. The tool inventory is intentionally minimal for the first release; additional tools can be added without changing the transport or auth layer.
+- **Media upload unblocks poster creation**: the `upload_media` tool (added 2026-05-14) allows an AI agent to upload an image from base64-encoded data and receive back a media URL, which can be passed directly as the `thumbnail` field in `create_card` or `update_card`. This lays the groundwork for future poster creation tooling once the Poster content type is exposed.
 - **Dependency**: the MCP server requires the API process (`packages/api`) to be running and reachable at `BETEL_API_URL`.
 
 See [integrations.md](../architecture/integrations.md) for the full environment variable table and deployment notes.
