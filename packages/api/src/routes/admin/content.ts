@@ -179,13 +179,27 @@ export async function adminContentRoutes(app: FastifyInstance) {
         ? { sites: [] }
         : (sites !== undefined ? { sites } : undefined)
 
+      // Merge incoming data fields into the existing JSONB — null values remove the key.
+      // This gives true PATCH semantics: unmentioned fields are preserved, not cleared.
+      let mergedData: Record<string, unknown> | undefined
+      if (data !== undefined) {
+        mergedData = { ...(existing.data as Record<string, unknown>) }
+        for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+          if (v === null) {
+            delete mergedData[k]
+          } else {
+            mergedData[k] = v
+          }
+        }
+      }
+
       const [updated] = await db.update(contentItems).set({
         ...(type    !== undefined && { type }),
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         ...(groupId !== undefined && { groupId }),
         ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
-        ...(data    !== undefined && { data }),
+        ...(mergedData !== undefined && { data: mergedData }),
         ...(state   !== undefined && { state }),
         updatedAt: new Date(),
       }).where(eq(contentItems.id, id)).returning()
@@ -200,8 +214,9 @@ export async function adminContentRoutes(app: FastifyInstance) {
       })
       if (data !== undefined && Object.keys(data).length > 0) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
-        const changedKeys = Object.keys(data).filter(
-          k => JSON.stringify(oldData[k]) !== JSON.stringify(data[k])
+        const patchData = data as Record<string, unknown>
+        const changedKeys = Object.keys(patchData).filter(
+          k => patchData[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(patchData[k])
         )
         if (changedKeys.length > 0) scheduleContentTranslation(id, updated.data as Record<string, unknown>, changedKeys)
       }

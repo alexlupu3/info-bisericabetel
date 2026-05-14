@@ -1178,27 +1178,27 @@ function formToPayload(f: FormData) {
   // Filter out empty siteLinks entries
   const siteLinks = Object.fromEntries(Object.entries(f.siteLinks).filter(([, v]) => v))
   if (f.type === 'richtext') {
-    if (f.title) data.title = f.title
+    data.title = f.title || null
     data.body = f.body
   } else if (f.type === 'card') {
-    data.title = f.title
-    if (f.description) data.description = f.description
-    if (f.link)        data.link        = f.link
-    if (f.cta)         data.cta         = f.cta
-    if (f.thumbnail)   data.thumbnail   = f.thumbnail
-    if (Object.keys(siteLinks).length) data.siteLinks = siteLinks
+    data.title       = f.title
+    data.description = f.description || null
+    data.link        = f.link        || null
+    data.cta         = f.cta         || null
+    data.thumbnail   = f.thumbnail   || null
+    data.siteLinks   = Object.keys(siteLinks).length ? siteLinks : null
   } else if (f.type === 'poster') {
-    data.imageUrl = f.imageUrl
-    if (f.name) data.name = f.name
-    if (f.link) data.link = f.link
-    if (Object.keys(siteLinks).length) data.siteLinks = siteLinks
+    data.imageUrl  = f.imageUrl
+    data.name      = f.name || null
+    data.link      = f.link || null
+    data.siteLinks = Object.keys(siteLinks).length ? siteLinks : null
   } else if (f.type === 'video') {
-    data.url = f.url
-    if (f.title) data.title = f.title
+    data.url   = f.url
+    data.title = f.title || null
   }
-  // Shared date fields — apply to all content types
-  if (f.date)    data.startDate = f.date
-  if (f.endDate) data.endDate   = f.endDate
+  // Shared date fields — null means "clear the date"
+  data.startDate = f.date    || null
+  data.endDate   = f.endDate || null
   const exclusive = f.exclusiveSite !== null
   return {
     type: f.type,
