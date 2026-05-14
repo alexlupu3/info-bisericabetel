@@ -429,3 +429,38 @@ describe('Content form — partial update regression (bug: date update clears ot
     })
   })
 })
+
+describe('Content API — required-field validation (create + PATCH)', () => {
+  beforeEach(() => {
+    cy.intercept('GET', '/api/auth/me', mockUser)
+    cy.intercept('GET', '/api/admin/groups', { groups: [] })
+    cy.intercept('GET', '/api/sites', { sites: mockSites })
+  })
+
+  it('create: rejects a card without a title', () => {
+    cy.intercept('POST', '/api/admin/content', { statusCode: 400, body: { error: 'title is required for content type "card"' } }).as('create')
+    cy.intercept('GET', '/api/admin/content', { items: [] })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('card')
+    // Leave title empty
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.wait('@create').its('response.statusCode').should('eq', 400)
+  })
+
+  it('PATCH: rejects nulling out the title of an existing card', () => {
+    const card = {
+      id: 'card-req', type: 'card', state: 'draft', sites: [], exclusiveSite: null,
+      orderPosition: 0, groupId: null, expiresAt: null,
+      data: { title: 'My Card' }, createdAt: '', updatedAt: '',
+    }
+    cy.intercept('GET', '/api/admin/content', { items: [card] })
+    cy.intercept('PATCH', '/api/admin/content/card-req', { statusCode: 400, body: { error: 'title is required for content type "card"' } }).as('patch')
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+    cy.get('[data-testid="item-menu-trigger-card-req"]').click()
+    cy.get('[data-testid="item-menu-edit-card-req"]').click()
+    cy.get('[data-testid="create-title-input"]').clear()
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.wait('@patch').its('response.statusCode').should('eq', 400)
+  })
+})
