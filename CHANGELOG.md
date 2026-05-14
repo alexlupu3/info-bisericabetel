@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [1.1.0](https://github.com/alexlupu3/info-bisericabetel/compare/v1.0.0...v1.1.0) (2026-05-14)
+
+### Features
+
+* **api:** add remote MCP endpoint for Claude iOS integration ([82406a6](https://github.com/alexlupu3/info-bisericabetel/commit/82406a6a106147f316ac57d6c64f54b4365a3629))
+* **content:** add chronological ordering for group items ([ee4f318](https://github.com/alexlupu3/info-bisericabetel/commit/ee4f318ca0f289692b792d9d58f7d039816e828a))
+* **mcp:** add MCP server package for content management via Claude ([e9b5c9d](https://github.com/alexlupu3/info-bisericabetel/commit/e9b5c9d5375925f93f4bd7a962ad64057fb6731b))
+
+### Bug Fixes
+
+* **api/mcp:** guard update_card and publish_card against wrong type/state ([0613ab1](https://github.com/alexlupu3/info-bisericabetel/commit/0613ab1b4b2f5e2f1fda69b91fca8487ef7232bc))
+* **api:** eliminate MAX(order_position) concurrency race on content insert ([bbb61f5](https://github.com/alexlupu3/info-bisericabetel/commit/bbb61f55b987dcbcb5d1dcb9ada3f1f45c0f5263))
+* **api:** resolve all TypeScript errors ([192d19c](https://github.com/alexlupu3/info-bisericabetel/commit/192d19c53d51012879e0c7dfee8a19bf7944c355))
+* **content:** address review findings in chronological ordering ([d37f031](https://github.com/alexlupu3/info-bisericabetel/commit/d37f031b59e244121a7e661b552ba0c24c4281d7))
+* **mcp:** address code review findings in stdio MCP server ([a6cf57d](https://github.com/alexlupu3/info-bisericabetel/commit/a6cf57dc0263955616e781943e61ba0adaeba149))
+* **mcp:** security hardening and MCP standard compliance ([e9a0b9a](https://github.com/alexlupu3/info-bisericabetel/commit/e9a0b9ab80f990357c9abe9e0109f390876fd73d))
+* **ui:** set all form inputs to 16px font to prevent iOS auto-zoom ([537e15e](https://github.com/alexlupu3/info-bisericabetel/commit/537e15efe9acd53d3f560cd95710c1cbc7210bbe))
+
+### Code Refactoring
+
+* **content:** move group chronological ordering to API POST handler ([a0b6a55](https://github.com/alexlupu3/info-bisericabetel/commit/a0b6a559bf7a02c0536bb557951b5732609e7907))
+
 ## 1.0.0 (2026-05-12)
 
 ### ⚠ BREAKING CHANGES
