@@ -158,7 +158,13 @@ server.tool(
     const buffer = Buffer.from(imageData, 'base64')
     const blob = new Blob([buffer], { type: resolvedMime })
     const formData = new FormData()
-    formData.append('file', blob, filename ?? 'upload.jpg')
+    const mimeExtMap: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+      'image/webp': 'webp', 'image/avif': 'avif', 'image/tiff': 'tiff',
+    }
+    const ext = mimeExtMap[resolvedMime] ?? resolvedMime.split('/')[1] ?? 'bin'
+    const uploadFilename = filename ?? `upload.${ext}`
+    formData.append('file', blob, uploadFilename)
 
     const res = await apiFetchFormData('/admin/media', formData)
     const { ok, data } = await jsonResponse(res)

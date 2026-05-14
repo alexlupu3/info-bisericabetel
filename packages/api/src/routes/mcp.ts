@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { mkdirSync, statSync } from 'fs'
+import { promises as fsp } from 'fs'
 import { join } from 'path'
 import type { FastifyInstance } from 'fastify'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -83,7 +83,7 @@ function buildMcpServer(): McpServer {
         return err(`Image exceeds the 5 MB limit (decoded size: ${inputBuffer.byteLength} bytes)`)
       }
 
-      mkdirSync(UPLOADS_DIR, { recursive: true })
+      await fsp.mkdir(UPLOADS_DIR, { recursive: true })
       const outFilename = `${randomUUID()}.webp`
       const dest = join(UPLOADS_DIR, outFilename)
 
@@ -97,7 +97,7 @@ function buildMcpServer(): McpServer {
         return err(`Failed to process image: ${e.message}`)
       }
 
-      const { size } = statSync(dest)
+      const { size } = (await fsp.stat(dest))
       const url = `/uploads/${outFilename}`
       const [row] = await db.insert(media).values({
         url,
