@@ -43,6 +43,23 @@ See ADR-006 for the rationale behind collapsing nginx + api into a single contai
 
 The file `nginx/nginx.conf` remains in the repository but is **not used at runtime** — neither in production nor in the local `docker-compose.yml` (the nginx service was removed from compose). It is retained as a reference artifact only. Do not rely on it for production routing logic.
 
+## HTTP Caching Strategy
+
+The Fastify server applies differentiated `Cache-Control` headers when serving the frontend. The rules are implemented in the `setHeaders` callback of the `@fastify/static` plugin and in the `setNotFoundHandler` SPA fallback.
+
+| Files | Cache-Control | Rationale |
+|---|---|---|
+| `assets/*` (Vite hash-busted JS/CSS) | `public, max-age=31536000, immutable` | Content hash guarantees uniqueness; safe to cache permanently |
+| `index.html`, `sw.js`, `registerSW.js`, `workbox-*.js`, `.webmanifest` | `no-cache` | Must revalidate on every load; stale entry points cause users to run old app code |
+| Everything else (fonts, icons, images) | `public, max-age=86400` | Stable assets; 1-day cache is a reasonable balance |
+| SPA fallback (`setNotFoundHandler`) | `no-cache` (set explicitly on the reply) | Bypasses `@fastify/static` `setHeaders` callback; must be set manually |
+
+The PWA service worker uses `registerType: 'autoUpdate'` (set in `vite.config.ts`). When a new version is deployed the service worker silently replaces itself on the user's next page load — no user interaction or hard-reload is required.
+
+**Why this matters:** before this strategy was in place, browsers cached `index.html` and the service worker files without revalidation. Users — especially on mobile — continued running the previous version of the app after deploys, causing new features (e.g. shortlink redirects) to silently fail until a hard reload.
+
+See ADR-013 for the full decision record including options considered and consequences.
+
 ## Local Development
 
 In development, Vite's dev server proxies `/api` requests to `localhost:3100`. This works correctly because all API routes are registered under the `/api` prefix in the Fastify app.

@@ -57,6 +57,24 @@ async function start() {
     root: PUBLIC_DIR,
     wildcard: false,
     decorateReply: false, // already decorated by the uploads plugin above
+    setHeaders: (res, filePath) => {
+      if (filePath.includes('/assets/')) {
+        // Vite hashes these filenames — safe to cache forever
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      } else if (
+        filePath.endsWith('.html') ||
+        filePath.endsWith('sw.js') ||
+        filePath.endsWith('registerSW.js') ||
+        filePath.includes('workbox-') ||
+        filePath.endsWith('.webmanifest')
+      ) {
+        // Always revalidate: entry point + service worker files must stay fresh
+        res.setHeader('Cache-Control', 'no-cache')
+      } else {
+        // Fonts, icons — stable but not hashed; cache for a day
+        res.setHeader('Cache-Control', 'public, max-age=86400')
+      }
+    },
   })
 
   // Expose authenticate decorator used by route preHandlers
@@ -99,6 +117,7 @@ async function start() {
     if (req.url.startsWith('/api')) {
       return reply.code(404).send({ error: 'Not Found' })
     }
+    reply.header('Cache-Control', 'no-cache')
     return reply.sendFile('index.html', PUBLIC_DIR)
   })
 

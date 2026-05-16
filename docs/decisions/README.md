@@ -29,3 +29,5 @@ Use this directory for durable Architecture Decision Records.
 | ADR-009-i18n | i18n strategy | Accepted |
 | ADR-010 | AI auto-translation — fire-and-forget background job | Accepted |
 | ADR-011 | Short link URL resolved dynamically at redirect time | Accepted |
+| ADR-012 | MCP Server via HTTP API with JWT Authentication | Accepted |
+| ADR-013 | HTTP caching strategy for the SPA frontend | Accepted |
