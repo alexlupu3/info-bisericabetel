@@ -362,3 +362,105 @@ describe('Content form — site-exclusive edit mode', () => {
     cy.get('[data-testid="exclusive-badge-vest"]').should('exist')
   })
 })
+
+describe('Content form — partial update regression (bug: date update clears other fields)', () => {
+  const cardWithAllFields = {
+    id: 'card-full', type: 'card', state: 'draft', sites: [], exclusiveSite: null,
+    orderPosition: 0, groupId: null, expiresAt: null,
+    data: {
+      title: 'Easter Service',
+      description: 'Join us for a special service.',
+      thumbnail: '/uploads/easter.webp',
+      startDate: '',
+      endDate: '',
+      link: 'https://example.com',
+      cta: 'Learn more',
+    },
+    createdAt: '', updatedAt: '',
+  }
+
+  beforeEach(() => {
+    cy.intercept('GET', '/api/auth/me', mockUser).as('me')
+    cy.intercept('GET', '/api/admin/groups', { groups: [] })
+    cy.intercept('GET', '/api/sites', { sites: mockSites })
+    cy.intercept('GET', '/api/admin/content', { items: [cardWithAllFields] })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+    cy.wait('@me')
+  })
+
+  it('PATCH request preserves title and description when only the date is edited', () => {
+    cy.intercept('PATCH', '/api/admin/content/card-full', {
+      ...cardWithAllFields,
+      data: { ...cardWithAllFields.data, startDate: '2026-06-01' },
+    }).as('patch')
+
+    cy.get('[data-testid="item-menu-trigger-card-full"]').click()
+    cy.get('[data-testid="item-menu-edit-card-full"]').click()
+    cy.get('[data-testid="edit-form"]').should('be.visible')
+
+    // Change only the start date — leave title and description untouched
+    cy.get('[data-testid="create-date-input"]').type('2026-06-01')
+    cy.get('[data-testid="create-submit-btn"]').click()
+
+    cy.wait('@patch').its('request.body').should(body => {
+      expect(body.data.title).to.eq('Easter Service')
+      expect(body.data.description).to.eq('Join us for a special service.')
+      expect(body.data.thumbnail).to.eq('/uploads/easter.webp')
+      expect(body.data.startDate).to.eq('2026-06-01')
+    })
+  })
+
+  it('PATCH sends null for cleared optional fields so they are removed', () => {
+    cy.intercept('PATCH', '/api/admin/content/card-full', (req) => {
+      req.reply({ ...cardWithAllFields, data: { title: cardWithAllFields.data.title } })
+    }).as('patch')
+
+    cy.get('[data-testid="item-menu-trigger-card-full"]').click()
+    cy.get('[data-testid="item-menu-edit-card-full"]').click()
+    cy.get('[data-testid="edit-form"]').should('be.visible')
+
+    // Clear the description so it should be nulled out in the request
+    cy.get('[data-testid="create-description-input"]').clear()
+    cy.get('[data-testid="create-submit-btn"]').click()
+
+    cy.wait('@patch').its('request.body').should(body => {
+      expect(body.data.title).to.eq('Easter Service')
+      expect(body.data.description).to.eq(null)
+    })
+  })
+})
+
+describe('Content API — required-field validation (create + PATCH)', () => {
+  beforeEach(() => {
+    cy.intercept('GET', '/api/auth/me', mockUser)
+    cy.intercept('GET', '/api/admin/groups', { groups: [] })
+    cy.intercept('GET', '/api/sites', { sites: mockSites })
+  })
+
+  it('create: rejects a card without a title', () => {
+    cy.intercept('POST', '/api/admin/content', { statusCode: 400, body: { error: 'title is required for content type "card"' } }).as('create')
+    cy.intercept('GET', '/api/admin/content', { items: [] })
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('card')
+    // Leave title empty
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.wait('@create').its('response.statusCode').should('eq', 400)
+  })
+
+  it('PATCH: rejects nulling out the title of an existing card', () => {
+    const card = {
+      id: 'card-req', type: 'card', state: 'draft', sites: [], exclusiveSite: null,
+      orderPosition: 0, groupId: null, expiresAt: null,
+      data: { title: 'My Card' }, createdAt: '', updatedAt: '',
+    }
+    cy.intercept('GET', '/api/admin/content', { items: [card] })
+    cy.intercept('PATCH', '/api/admin/content/card-req', { statusCode: 400, body: { error: 'title is required for content type "card"' } }).as('patch')
+    cy.visit(ADMIN_URL, { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', mockToken) } })
+    cy.get('[data-testid="item-menu-trigger-card-req"]').click()
+    cy.get('[data-testid="item-menu-edit-card-req"]').click()
+    cy.get('[data-testid="create-title-input"]').clear()
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.wait('@patch').its('response.statusCode').should('eq', 400)
+  })
+})

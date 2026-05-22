@@ -1,13 +1,20 @@
 import { randomUUID } from 'crypto'
+import { promises as fsp } from 'fs'
+import { join } from 'path'
 import type { FastifyInstance } from 'fastify'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
 import { and, asc, eq, ne, sql } from 'drizzle-orm'
+import sharp from 'sharp'
 import { db } from '../db/client.js'
 import { contentItems, groups, sites, media } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), '..', 'uploads')
+const MAX_WIDTH = 1980
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 const MCP_ACTOR = 'mcp@betel'
 
@@ -53,6 +60,63 @@ function buildMcpServer(): McpServer {
     'List images in the media library. Use the returned URLs as thumbnail values when creating cards.',
     {},
     async () => ok(await db.select().from(media)),
+  )
+
+  // ── upload_media ────────────────────────────────────────────
+
+  server.tool(
+    'upload_media',
+    'Upload an image to the media library from base64-encoded data. Returns the uploaded image URL and ID. Use the URL as the thumbnail when creating or updating cards.',
+    {
+      imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
+      filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
+    },
+    async ({ imageData, filename }) => {
+      let inputBuffer: Buffer
+      try {
+        inputBuffer = Buffer.from(imageData, 'base64')
+      } catch {
+        return err('imageData is not valid base64')
+      }
+
+      if (inputBuffer.byteLength > MAX_UPLOAD_BYTES) {
+        return err(`Image exceeds the 5 MB limit (decoded size: ${inputBuffer.byteLength} bytes)`)
+      }
+
+      await fsp.mkdir(UPLOADS_DIR, { recursive: true })
+      const outFilename = `${randomUUID()}.webp`
+      const dest = join(UPLOADS_DIR, outFilename)
+
+      try {
+        await sharp(inputBuffer)
+          .rotate()
+          .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toFile(dest)
+      } catch (e: any) {
+        return err(`Failed to process image: ${e.message}`)
+      }
+
+      const { size } = (await fsp.stat(dest))
+      const url = `/uploads/${outFilename}`
+      const [row] = await db.insert(media).values({
+        url,
+        filename: outFilename,
+        originalName: filename ?? 'upload',
+        size,
+        mimeType: 'image/webp',
+      }).returning()
+
+      await logAudit({
+        userEmail:  MCP_ACTOR,
+        action:     'media.upload',
+        entityType: 'media',
+        entityId:   row.id,
+        detail:     { via: 'mcp', originalName: filename ?? 'upload' },
+      })
+
+      return ok(row)
+    },
   )
 
   // ── list_cards ──────────────────────────────────────────────

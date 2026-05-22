@@ -33,6 +33,22 @@ async function siteSlugExists(slug: string): Promise<boolean> {
   return !!row
 }
 
+const REQUIRED_FIELDS: Record<string, string> = {
+  card:     'title',
+  richtext: 'body',
+  poster:   'imageUrl',
+  video:    'url',
+}
+
+function missingRequiredField(type: string, data: Record<string, unknown>): string | null {
+  const field = REQUIRED_FIELDS[type]
+  if (!field) return null
+  const val = data[field]
+  return (!val || (typeof val === 'string' && val.trim() === ''))
+    ? `${field} is required for content type "${type}"`
+    : null
+}
+
 type OrderBody = { order: string[] }
 
 function adminOnly(req: any, reply: any, done: any) {
@@ -67,6 +83,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
   app.post<{ Body: ItemBody }>('/admin/content', { preHandler: auth }, async (req, reply) => {
     const { type, sites = [], exclusiveSite = null, groupId = null, expiresAt = null, data = {} } = req.body
     if (!type) return reply.code(400).send({ error: 'type is required' })
+    const reqFieldError = missingRequiredField(type, data)
+    if (reqFieldError) return reply.code(400).send({ error: reqFieldError })
 
     // Normalise exclusiveSite: empty string → null. When set, validate the slug
     // and force sites=[] so the two scoping concepts never coexist on one row.
@@ -179,13 +197,33 @@ export async function adminContentRoutes(app: FastifyInstance) {
         ? { sites: [] }
         : (sites !== undefined ? { sites } : undefined)
 
+      // Merge incoming data fields into the existing JSONB — null values remove the key.
+      // This gives true PATCH semantics: unmentioned fields are preserved, not cleared.
+      let mergedData: Record<string, unknown> | undefined
+      if (data !== undefined) {
+        mergedData = { ...(existing.data as Record<string, unknown>) }
+        for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+          if (v === null) {
+            delete mergedData[k]
+          } else {
+            mergedData[k] = v
+          }
+        }
+      }
+
+      // Validate that the resulting data still satisfies required-field rules.
+      const resultingType = type ?? existing.type
+      const finalData = (mergedData ?? existing.data ?? {}) as Record<string, unknown>
+      const patchFieldError = missingRequiredField(resultingType, finalData)
+      if (patchFieldError) return reply.code(400).send({ error: patchFieldError })
+
       const [updated] = await db.update(contentItems).set({
         ...(type    !== undefined && { type }),
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         ...(groupId !== undefined && { groupId }),
         ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
-        ...(data    !== undefined && { data }),
+        ...(mergedData !== undefined && { data: mergedData }),
         ...(state   !== undefined && { state }),
         updatedAt: new Date(),
       }).where(eq(contentItems.id, id)).returning()
@@ -200,8 +238,9 @@ export async function adminContentRoutes(app: FastifyInstance) {
       })
       if (data !== undefined && Object.keys(data).length > 0) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
-        const changedKeys = Object.keys(data).filter(
-          k => JSON.stringify(oldData[k]) !== JSON.stringify(data[k])
+        const patchData = data as Record<string, unknown>
+        const changedKeys = Object.keys(patchData).filter(
+          k => patchData[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(patchData[k])
         )
         if (changedKeys.length > 0) scheduleContentTranslation(id, updated.data as Record<string, unknown>, changedKeys)
       }
