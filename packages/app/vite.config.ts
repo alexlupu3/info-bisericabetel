@@ -30,7 +30,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        navigateFallbackDenylist: [/^\/admin/],
+        navigateFallbackDenylist: [/^\/admin/, /^\/s\//],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.method === 'GET' && request.url.includes('/api/'),
