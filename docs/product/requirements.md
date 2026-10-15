@@ -126,7 +126,7 @@
   - Super-admin can manage sites and admin accounts
   - Audit log and analytics dashboard are operational
 - What can wait for later phases?
-  - Profile-based views (youth, family, elderly, leaders) — Phase 2
+  - Profile-based views (youth, family, elderly, leaders) — **amânate nedefinit**. Planul existent pentru Audiences rămâne păstrat ca material de referință, dar soluția cu pagini publice separate este considerată nepotrivită pentru experiența actuală. Orice reluare trebuie să propună o soluție integrată în hubul unic, fără o destinație separată pe care utilizatorii să trebuiască să o descopere.
   - MCP server — Phase 2 [done — 2026-05-13]
   - External API key layer (Zapier, full integration) — Phase 2 [pending]
   - In-app form builder — Phase 3

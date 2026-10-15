@@ -20,7 +20,9 @@
 ## Phase 2 — Near Future
 - **Goal:** extend reach and reduce friction for content creation
 
-### Profile-based views
+### Profile-based views — amânat nedefinit / abordare respinsă în forma actuală
+> Planul detaliat pentru Audiences este păstrat pentru referință și nu se șterge. Implementarea ca pagini publice separate (`/v/{slug}`) este amânată nedefinit, deoarece adaugă o destinație nouă pe care utilizatorii trebuie să o descopere și o complexitate operațională disproporționată. Este necesară o soluție mai bună, integrată în hubul unic existent, fără pagini separate și fără a încărca utilizatorii cu un al doilea loc în care să caute informații.
+
 - Church-goer profile types (youth, family, elderly, leaders, etc.) as a second filtering dimension alongside site.
 - A profile-based view hides content not relevant to that profile group.
 - This is distinct from site filtering — profiles are about who the person is, not which campus they attend.

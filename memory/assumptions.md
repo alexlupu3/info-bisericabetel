@@ -13,10 +13,10 @@ Record assumptions explicitly so they can be validated or removed later.
   Risk if false: site-first navigation could add unnecessary complexity
   Validation plan: confirm with real stakeholder and member usage expectations
 
-- Assumption: Profile-based audience scoping (youth, family, elderly, leaders) will be added in Phase 2.
-  Why it exists: explicitly planned by product owner; content items may need an audience field designed in from the start to avoid a breaking schema change later
-  Risk if false: audience field adds schema complexity with no short-term benefit
-  Validation plan: decide before implementation whether to add the audience field as a nullable column in Phase 1 or defer entirely
+- Assumption: Profile-based audience scoping (youth, family, elderly, leaders) will be added in Phase 2. **Status: deferred indefinitely.**
+  Why it exists: the idea was explicitly planned, but the detailed Audiences plan showed substantial schema, permission, admin, analytics, and navigation complexity.
+  Risk if false: audience field adds schema complexity with no short-term benefit; separate audience pages make users search in another destination and conflict with the single-hub goal.
+  Validation plan: do not implement the standalone Audiences plan. Revisit only with a simpler solution integrated into the existing hub, without separate public pages.
 
 - Assumption: The number of church sites will grow over time.
   Why it exists: stated explicitly by the product owner
