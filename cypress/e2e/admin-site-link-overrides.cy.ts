@@ -131,7 +131,7 @@ describe('Admin — per-site link overrides: saving', () => {
     })
   })
 
-  it('omits siteLinks from the payload when all overrides are empty', () => {
+  it('sends siteLinks as null when all overrides are empty', () => {
     cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: {
       id: 'c2', type: 'card', state: 'draft', sites: [], orderPosition: 0,
       groupId: null, expiresAt: null, data: {}, createdAt: '', updatedAt: '',
@@ -144,8 +144,10 @@ describe('Admin — per-site link overrides: saving', () => {
     // Leave overrides empty — do not type into site-link inputs
     cy.get('[data-testid="create-submit-btn"]').click()
 
+    // Explicit null (not an omitted key): PATCH merges data fields, and null
+    // is what removes previously saved overrides (see 7a02dda).
     cy.wait('@create').its('request.body').should(body => {
-      expect(body.data).not.to.have.property('siteLinks')
+      expect(body.data.siteLinks).to.be.null
     })
   })
 
