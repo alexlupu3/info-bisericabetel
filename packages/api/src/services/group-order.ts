@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { contentItems } from '../db/schema.js'
 
@@ -19,18 +19,22 @@ export function sortGroupByStartDate<T extends { id: string; data: unknown }>(it
 // their prior relative order; a just-created item holds MAX+1 and so stays last among ties.
 // Returns the new position of `itemId`, or null if it is not in the group.
 export async function resortGroupChronologically(groupId: string, itemId: string): Promise<number | null> {
-  const groupItems = await db.select()
-    .from(contentItems)
-    .where(and(eq(contentItems.groupId, groupId), ne(contentItems.state, 'deleted')))
-    .orderBy(asc(contentItems.orderPosition))
+  // Take the same advisory lock as content inserts (1001) and read + rewrite the group in one
+  // transaction, so concurrent creates cannot interleave and overwrite each other's ordering.
+  const sorted = await db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
+    const groupItems = await tx.select()
+      .from(contentItems)
+      .where(and(eq(contentItems.groupId, groupId), ne(contentItems.state, 'deleted')))
+      .orderBy(asc(contentItems.orderPosition))
 
-  const sorted = sortGroupByStartDate(groupItems)
-  await db.transaction(async tx => {
-    for (let i = 0; i < sorted.length; i++) {
+    const result = sortGroupByStartDate(groupItems)
+    for (let i = 0; i < result.length; i++) {
       await tx.update(contentItems)
         .set({ orderPosition: i })
-        .where(eq(contentItems.id, sorted[i].id))
+        .where(eq(contentItems.id, result[i].id))
     }
+    return result
   })
   const idx = sorted.findIndex(s => s.id === itemId)
   return idx === -1 ? null : idx
