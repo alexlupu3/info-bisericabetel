@@ -1,49 +1,6 @@
 # Current Decisions
 
-Use this file for recent decisions that need quick visibility. Promote durable decisions to `docs/decisions/` when they become stable or high impact.
+Purpose: a scratch area for decisions that were made recently but are not yet stable enough for an ADR. Durable decisions belong in `docs/decisions/` — see the index in `docs/decisions/README.md`. Do not copy ADR summaries here; once a decision is recorded as an ADR, delete its entry from this file.
 
 ## Entries
-- Date: 2026-03-12
-  Decision: The application will be a church information hub for Biserica Baptista Betel - Cluj-Napoca.
-  Reason: This defines the core product purpose and target organization.
-  Next action: Expand product scope, users, and content ownership details.
-
-- Date: 2026-03-12
-  Decision: The initial user access paths are QR codes and direct links.
-  Reason: The app needs very low-friction entry for members in church contexts.
-  Next action: Decide whether links can preselect a site or content category.
-
-- Date: 2026-03-12
-  Decision: The product must support both site-filtered views and an all-sites view.
-  Reason: The church is multi-site, but members may still want church-wide visibility.
-  Next action: Define how site selection and switching should work in the interface.
-
-- Date: 2026-03-14
-  Decision: A custom Claude Code skill named `frontend-design` will be added to the project. It embeds the church's style guide. This skill must be invoked when building public-facing pages to ensure visual consistency with the church's brand.
-  Why: Keeps the style guide close to the code and makes it available to any AI agent working on the frontend.
-  How to apply: Always invoke the `frontend-design` skill when working on the public hub UI.
-
-- Date: 2026-03-16
-  Decision: Group management is fully consolidated into the Content page. The "Grupuri" nav link has been removed. Admins create groups inline (title only) with a "+ Grup nou" button and delete them with "Șterge grup" on the group header. Items can be moved between groups via multi-container drag and drop. Deleted groups auto-migrate their items to the ungrouped section.
-  Why: Groups serve purely as display containers for content items. Keeping group management on a separate page required unnecessary context switching. Inline management makes the group–item relationship immediately visible and actionable.
-  See: ADR-002 for full options analysis and implementation notes.
-
-- Date: 2026-03-17
-  Decision: A dedicated `media` table tracks all uploaded files. Usage detection queries `content_items` JSONB fields rather than using foreign keys. Poster items gain an admin-only `name` field in `data.name`. A `/media` admin SPA route provides gallery view, usage filtering, and delete of unused images. Image URLs are immutable after upload.
-  Why: FR-017 required a media library for reuse and cleanup. Foreign key approach conflicted with the extensible JSONB content model. JSONB scanning is simpler and sufficient for the current four content types.
-  See: ADR-003 for full options analysis, implementation notes, and known limitations.
-
-- Date: 2026-03-21
-  Decision: The PWA hero header now displays the Betel symbol logo (`/icons/favicon-dark.svg`) above the page title, a subtitle with the app's purpose ("Rămâi la curent cu programul și activitățile bisericii Betel"), and a subtle muted link to `https://bisericabetel.com`.
-  Why: Improves visual identity and gives first-time visitors immediate context about what the app is and who runs it.
-  How: Logo is a white SVG rendered as an `<img>` with CSS class `.betel-logo`. `filter: invert(1)` is applied in light mode; no filter in dark mode. Both system preference and explicit `[data-theme]` overrides are handled in `index.css`.
-
-- Date: 2026-04-06
-  Decision: Merged `packages/pwa` and `packages/admin` into a single `packages/app` package. Admin routes (`/admin/*`) are lazy-loaded via `React.lazy` producing a separate Vite chunk. Public users never download admin JS. Admin surface is scoped via `.admin-theme` CSS class. Single Vite dev server on port 5173.
-  Why: Both packages shared an identical stack (React, TypeScript, Vite, TanStack Query, React Router) and maintained two separate build pipelines, deploy stages, and Nginx location blocks with no real isolation benefit. The original "must not share build artifacts" constraint is now satisfied at runtime by lazy loading rather than by physical package separation.
-  See: ADR-005 for full options analysis and implementation notes.
-
-- Date: 2026-04-21
-  Decision: Site-exclusive content uses a dedicated nullable `exclusive_site TEXT REFERENCES sites(slug)` column on `content_items`, not a boolean flag that reuses `sites[]` as a single-element array.
-  Why: Overloading `sites[]` with a second semantic (surfacing hint vs. hard gate) requires runtime "must be exactly one slug" validation across multiple layers and makes the schema ambiguous. A dedicated column follows established project conventions (`expiresAt`, `groupId`) and keeps semantics unambiguous. Migration: `0008_exclusive_site.sql`.
-  See: ADR-009 for full options analysis and implementation notes.
+_None open._ Earlier entries duplicated ADR-002, ADR-003, ADR-005, and ADR-009 (site-exclusive content), or recorded early product decisions now captured in `docs/product/vision.md` and `docs/product/requirements.md`; they were removed. The `frontend-design` skill convention is documented in `AGENTS.md` and `docs/architecture/overview.md`.
