@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 
-const apiUrl = (process.env.BETEL_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
+const apiUrl = (process.env.BETEL_API_URL || 'http://localhost:3100/api').replace(/\/$/, '')
 const email = process.env.BETEL_EMAIL
 const password = process.env.BETEL_PASSWORD
 
