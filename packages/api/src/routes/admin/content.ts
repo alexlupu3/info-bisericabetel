@@ -4,17 +4,7 @@ import { db } from '../../db/client.js'
 import { contentItems, groups, contentTranslations, languages, sites as sitesTable, analyticsEvents, auditLog } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
-
-function sortGroupByStartDate<T extends { id: string; data: unknown }>(items: T[]): T[] {
-  return [...items].sort((a, b) => {
-    const da = ((a.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    const db = ((b.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    if (!da && !db) return 0
-    if (!da) return 1
-    if (!db) return -1
-    return da < db ? -1 : da > db ? 1 : 0
-  })
-}
+import { resortGroupChronologically } from '../../services/group-order.js'
 
 type ItemBody = {
   type: string
@@ -119,26 +109,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
     // requiring a separate reorder call from the caller.
     let finalOrderPosition = item.orderPosition
     if (groupId) {
-      const groupItems = await db.select()
-        .from(contentItems)
-        .where(and(eq(contentItems.groupId, groupId), ne(contentItems.state, 'deleted')))
-
-      const sorted = sortGroupByStartDate(groupItems)
-      await db.transaction(async tx => {
-        for (let i = 0; i < sorted.length; i++) {
-          await tx.update(contentItems)
-            .set({ orderPosition: i })
-            .where(eq(contentItems.id, sorted[i].id))
-        }
-      })
-      const idx = sorted.findIndex(s => s.id === item.id)
-      if (idx === -1) {
-        // Insertion succeeded but item not found in sibling query — return with the
-        // temporary position rather than propagating -1.
-        finalOrderPosition = item.orderPosition
-      } else {
-        finalOrderPosition = idx
-      }
+      // Fall back to the temporary position if the item is somehow missing from the group.
+      finalOrderPosition = (await resortGroupChronologically(groupId, item.id)) ?? item.orderPosition
     }
 
     const actor = req.user as any

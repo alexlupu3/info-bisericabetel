@@ -11,6 +11,7 @@ import { db } from '../db/client.js'
 import { contentItems, groups, sites, media } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
+import { resortGroupChronologically } from '../services/group-order.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_WIDTH = 1980
@@ -181,6 +182,10 @@ function buildMcpServer(): McpServer {
         return row
       })
 
+      // BR-013: same chronological re-sort as POST /api/admin/content.
+      let orderPosition = item.orderPosition
+      if (groupId) orderPosition = (await resortGroupChronologically(groupId, item.id)) ?? item.orderPosition
+
       await logAudit({
         userEmail: MCP_ACTOR,
         action:    'content.create',
@@ -189,7 +194,7 @@ function buildMcpServer(): McpServer {
       })
       scheduleContentTranslation(item.id, data)
 
-      return ok(item)
+      return ok({ ...item, orderPosition })
     },
   )
 
