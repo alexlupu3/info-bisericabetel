@@ -132,7 +132,7 @@ The project offers two ways to manage content from an MCP client. Both expose th
 | `list_sites` | List church sites and their slugs |
 | `list_groups` | List content groups |
 | `list_media` | List images in the media library |
-| `upload_media` | Upload a base64 image; returns a relative `/uploads/<uuid>.webp` URL. Prefix your public origin (`https://<your-domain>/uploads/…`) before passing it as a card `thumbnail`, which must be an absolute URL (see [integrations.md](docs/architecture/integrations.md#mcp-ai-agent-integration)) |
+| `upload_media` | Upload a base64 image; returns a relative `/uploads/<uuid>.webp` URL that can be passed as-is as a card `thumbnail` (see [integrations.md](docs/architecture/integrations.md#mcp-ai-agent-integration)) |
 | `list_cards` | List card content items |
 | `create_card` | Create a card (in draft state) |
 | `update_card` | Update fields of an existing card |

@@ -105,3 +105,4 @@ See [integrations.md](../architecture/integrations.md) for deployment notes and 
 ## Update History
 
 - 2026-10-17: The "Media upload unblocks poster creation" consequence above is inaccurate. `POST /api/admin/media` (and therefore `upload_media`) returns a relative URL (`/uploads/<uuid>.webp`), while `create_card` / `update_card` validate `thumbnail` with `z.string().url()`, which rejects relative URLs. The returned URL cannot be passed directly; the caller must prefix the public origin until the schemas accept relative media URLs. See [integrations.md](../architecture/integrations.md#mcp-ai-agent-integration).
+- 2026-10-17: Resolved. `create_card` / `update_card` now accept a relative media library path (`/uploads/...`) or an absolute URL as `thumbnail`, so the URL returned by `upload_media` can be passed directly, as the consequence above originally stated.
