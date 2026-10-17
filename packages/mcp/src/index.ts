@@ -17,6 +17,12 @@ let loginPromise: Promise<string> | null = null
 
 const fetchTimeoutMs = 15_000
 
+// Media library URLs are relative (/uploads/<uuid>.webp); external absolute URLs are also accepted.
+const thumbnailSchema = z.string().refine(
+  v => v.startsWith('/uploads/') || URL.canParse(v),
+  'must be a media library path (/uploads/...) or an absolute URL',
+)
+
 function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...options, signal: AbortSignal.timeout(fetchTimeoutMs) })
 }
@@ -144,7 +150,7 @@ server.tool(
 
 server.tool(
   'upload_media',
-  'Upload an image to the media library from base64-encoded data. Returns the uploaded image URL and ID. Use the URL as the thumbnail when creating or updating cards.',
+  'Upload an image to the media library from base64-encoded data. Returns the uploaded image ID and its relative URL (e.g. /uploads/<id>.webp). Pass that URL as-is as the thumbnail when creating or updating cards.',
   {
     imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
     filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
@@ -196,7 +202,7 @@ server.tool(
   {
     title: z.string().describe('Card title (required)'),
     description: z.string().optional().describe('Card body text — supports Markdown'),
-    thumbnail: z.string().url().optional().describe('Image URL from the media library'),
+    thumbnail: thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
     startDate: z.string().optional().describe('Visibility start date, ISO format e.g. 2024-06-01'),
     endDate: z.string().optional().describe('Visibility end date, ISO format e.g. 2024-06-30'),
     link: z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
@@ -241,7 +247,7 @@ server.tool(
     id: z.string().uuid().describe('Card ID to update'),
     title: z.string().optional().describe('New title'),
     description: z.string().optional().describe('New description (Markdown)'),
-    thumbnail: z.string().url().optional().describe('New thumbnail URL'),
+    thumbnail: thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
     startDate: z.string().optional().describe('New start date (ISO)'),
     endDate: z.string().optional().describe('New end date (ISO)'),
     link: z.string().url().optional().describe('New action URL'),
