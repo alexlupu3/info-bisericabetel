@@ -48,7 +48,7 @@ The production frontend has no build-time variables. It calls the API on the sam
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `DB_PASSWORD` | Yes | none | Password for the bundled `db` (PostgreSQL 16) service. The containerised app builds its `DATABASE_URL` from it. |
+| `DB_PASSWORD` | Yes | none | Password for the bundled `db` (PostgreSQL 16) service. The containerised app builds its `DATABASE_URL` from it (`postgresql://betel:${DB_PASSWORD}@db:5432/…`) without escaping, so it must be URL-safe: characters such as `#`, `@`, `/`, `:`, `?` or `%` break startup. Generate it with e.g. `openssl rand -hex 24`. |
 | `APP_HOST_PORT` | No | `8080` | Host port mapped to the app container's port 80. |
 | `DB_HOST_PORT` | No | `5432` | Host port (bound to `127.0.0.1`) for the bundled PostgreSQL. Lets `pnpm dev:api` on the host use it. |
 

@@ -8,11 +8,12 @@ In use since 2026-04-20 (moved from the Anthropic SDK to OpenRouter the same day
 
 - **Service:** `packages/api/src/services/ai-translation.ts`, which calls `https://openrouter.ai/api/v1` (OpenAI-compatible `/chat/completions`) with native `fetch`.
 - **Model:** `anthropic/claude-haiku-4.5` (the exact string in code), chosen for low latency and cost.
-- **Trigger points:** `POST /api/admin/content`, `PATCH /api/admin/content/:id`, `POST /api/admin/content/:id/duplicate`, `POST /api/admin/groups`, `PATCH /api/admin/groups/:id`, the remote MCP `create_card` / `update_card` tools, and the super-admin "generate" action for UI strings (`POST /api/admin/translations/generate`).
-- **Execution model:** fire-and-forget via `setImmediate`. The HTTP response returns before translation runs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)).
+- **Content and group translation — trigger points:** `POST /api/admin/content`, `PATCH /api/admin/content/:id`, `POST /api/admin/content/:id/duplicate`, `POST /api/admin/groups`, `PATCH /api/admin/groups/:id`, and the remote MCP `create_card` / `update_card` tools.
+- **Content and group translation — execution model:** fire-and-forget via `setImmediate`. The HTTP response returns before translation runs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)).
+- **UI string generation:** the super-admin "generate" action (`POST /api/admin/translations/generate`) is **not** fire-and-forget. The handler awaits `generateMissingUiTranslations`, returns `{ generated }` when done, and responds HTTP 500 with the error message if generation fails.
 - **Configuration:** `OPEN_ROUTER_API_KEY` (optional). When it is absent the feature is silently disabled.
 - **Data sent:** the Romanian text fields of the item or group being translated. No user or visitor data is sent.
-- **Failure handling:** errors are logged to stderr and do not affect admin operations.
+- **Failure handling:** for content and group translation, errors are logged to stderr and do not affect admin operations. UI string generation surfaces failures to the caller as HTTP 500 (see above).
 
 ## Google Fonts (Browser)
 
@@ -33,7 +34,8 @@ There are two independent MCP surfaces. Both expose the same eight tools: `list_
 
 Tool notes:
 - `create_card` creates a draft. `publish_card` moves a draft to published. `create_card` / `update_card` write `title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta` into the `data` JSONB column, plus top-level `sites[]` and `exclusiveSite`. `groupId` is accepted on create only (neither surface can move an existing card between groups).
-- `upload_media` takes base64 `imageData` (without a `data:` prefix) and an optional `filename`. The stdio server also accepts `mimeType` (default `image/jpeg`, must be `image/*`) and posts the bytes to `POST /api/admin/media`. The remote endpoint processes the image in-process. Both paths enforce 5 MB and re-encode to WebP (max 1980 px wide, quality 82). The returned `url` can be used as `thumbnail`.
+- `upload_media` takes base64 `imageData` (without a `data:` prefix) and an optional `filename`. The stdio server also accepts `mimeType` (default `image/jpeg`, must be `image/*`) and posts the bytes to `POST /api/admin/media`. The remote endpoint processes the image in-process. Both paths check 5 MB and re-encode to WebP (max 1980 px wide, quality 82). On the remote endpoint the effective limit is lower: Fastify's default 1 MiB `bodyLimit` applies to `/mcp` (no override in `index.ts` or `routes/mcp.ts`), and base64 inflates data by about a third, so images above roughly 750 KB are rejected before the 5 MB check runs.
+- Known issue: both surfaces return a **relative** `url` (`/uploads/<uuid>.webp`), but `create_card` / `update_card` validate `thumbnail` with `z.string().url()`, which rejects relative URLs. Until the schemas accept relative media URLs, prefix the public origin (e.g. `https://<your-domain>/uploads/<uuid>.webp`) before passing it as `thumbnail`. Tracked in `memory/open-questions.md`.
 - Known divergence: creating a card with a `groupId` re-sorts the group chronologically (FR-046) only on the stdio/REST path. See ADR-015.
 
 Credentials (`BETEL_EMAIL` / `BETEL_PASSWORD`, `MCP_SECRET`) are secrets. Never commit them. For the stdio server, use a dedicated admin service account so audit entries are attributable and the account can be revoked independently.

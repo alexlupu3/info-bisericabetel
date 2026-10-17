@@ -23,6 +23,12 @@ Purpose: track unresolved questions that block product or technical decisions, p
   Status: OPEN
   Context: no rate limit on `POST /api/auth/login` and `POST /api/setup`; `mustChangePassword` enforced only in the SPA (FR-021); audit coverage gaps against FR-023 (group create/update/reorder, content reordering, admin user create/delete, site edits, short-link create/delete, admin-UI media upload/delete). Details and mitigations: `docs/architecture/security.md` → "Known risks".
 
+## Known Issues
+- MCP `upload_media` URL rejected as `thumbnail`: both MCP surfaces return a relative `/uploads/<uuid>.webp` URL, but `create_card` / `update_card` validate `thumbnail` with `z.string().url()` (`packages/api/src/routes/mcp.ts`, `packages/mcp/src/index.ts`). Workaround: prefix the public origin. Fix: accept relative media URLs in both schemas. See `docs/architecture/integrations.md` → MCP.
+- Remote MCP upload size: `/mcp` uses Fastify's default 1 MiB `bodyLimit`, so base64 uploads above roughly 750 KB fail despite the 5 MB check. Fix: set a route-level `bodyLimit` on `/mcp` (about 7 MB for a 5 MB image). See ADR-015 → Consequences.
+- BR-013 tie order on create: `POST /api/admin/content` loads group siblings without `ORDER BY` before the stable chronological sort, so equal-`startDate` items follow unspecified DB order. Fix: order the sibling query by `orderPosition`. See `docs/domain/business-rules.md` → BR-013.
+- Permanent delete erases history: `DELETE /api/admin/content/:id/permanent` deletes the item's `analytics_events` and `audit_log` rows. Decide whether audit rows should be kept. See `docs/architecture/security.md` → Audit requirements.
+
 ## Known Leftovers
 - Orphaned `/admin/groups` route: `packages/app/src/admin/AdminApp.tsx` still registers `groups` → `GroupsPage` (`packages/app/src/admin/pages/GroupsPage.tsx`), although group management moved to the Content page (ADR-002) and the route is not linked from the navigation. Decision: remove the route and `GroupsPage`. Status: TO DO (not an open question any more).
 - Archived-item filter (FR-016) and site creation (FR-019) are specified but not implemented; see `docs/product/requirements.md`.

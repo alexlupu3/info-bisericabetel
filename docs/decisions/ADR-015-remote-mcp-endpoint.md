@@ -31,7 +31,7 @@ Option 3. `packages/api/src/routes/mcp.ts` registers an MCP server (`@modelconte
   - `create_card` takes advisory lock `1001` and appends at `MAX(order_position) + 1`, the same global ordering scheme as `POST /api/admin/content`.
   - `exclusiveSite` validation (the slug must exist), forcing `sites = []` when exclusive, and the "`sites` is required when clearing `exclusiveSite`" guard (BR-006 to BR-008).
   - `update_card` and `publish_card` reject items that are not cards, are deleted, or (for publish) are not drafts.
-  - `upload_media` decodes base64, enforces 5 MB, and runs the same `sharp` pipeline (rotate, max 1980 px wide, WebP quality 82) before inserting a `media` row.
+  - `upload_media` decodes base64, checks 5 MB (the effective limit is about 750 KB, see Consequences), and runs the same `sharp` pipeline (rotate, max 1980 px wide, WebP quality 82) before inserting a `media` row.
   - AI auto-translation is scheduled through `scheduleContentTranslation` (ADR-010).
 - **Audit:** writes call `logAudit` with `userEmail: 'mcp@betel'` and no `userId`. `detail.via = 'mcp'` is recorded for `content.create`, `content.update`, `content.publish` and `media.upload`.
 
@@ -43,5 +43,7 @@ Option 3. `packages/api/src/routes/mcp.ts` registers an MCP server (`@modelconte
   - The REST create path runs the per-type required-field check (`missingRequiredField`). The remote tool relies on its own zod schema instead.
 - **Weaker audit attribution.** All remote MCP writes are attributed to the synthetic actor `mcp@betel`, not to a person, so the audit log cannot tell who held the secret. Admin-UI media uploads are not audited at all, while remote MCP uploads are (`media.upload`), so the audit trail differs depending on which path was used.
 - **Shared-secret auth.** `MCP_SECRET` is a single long-lived bearer token with full write access to cards and media. It cannot be scoped or revoked per client; rotating it means changing the environment variable and redeploying. The comparison is a plain string comparison (not constant-time), and `/mcp` has no rate limit. See [security.md](../architecture/security.md).
+- **Upload size is capped by the body limit, not the 5 MB check.** `/mcp` uses Fastify's default 1 MiB `bodyLimit` (no override in `index.ts` or the route), and the image travels base64-encoded inside JSON, so images larger than roughly 750 KB are rejected before the tool's 5 MB check runs.
+- **Uploaded URLs cannot be used directly as thumbnails.** `upload_media` returns a relative `/uploads/<uuid>.webp` URL, but `create_card` / `update_card` validate `thumbnail` with `z.string().url()` (absolute URLs only). Workaround: prefix the public origin. Fix: accept relative media URLs in both MCP servers' schemas.
 - **In-memory session state.** Sessions are lost on every redeploy and are never expired except by `DELETE /mcp` or transport close. This is acceptable for one container with few clients, but it would break with more than one replica.
 - **Follow-up options** (not scheduled): (a) refactor the shared rules (ordering, exclusive-site handling, group re-sort, upload pipeline) into service functions used by both the REST handlers and the MCP tools; or (b) switch the remote tools to call the REST handlers internally (Option 2), using the planned API key layer for authentication.

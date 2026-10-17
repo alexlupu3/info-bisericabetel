@@ -132,7 +132,7 @@ The project offers two ways to manage content from an MCP client. Both expose th
 | `list_sites` | List church sites and their slugs |
 | `list_groups` | List content groups |
 | `list_media` | List images in the media library |
-| `upload_media` | Upload a base64 image; the returned URL can be used as a card `thumbnail` |
+| `upload_media` | Upload a base64 image; returns a relative `/uploads/<uuid>.webp` URL. Prefix your public origin (`https://<your-domain>/uploads/…`) before passing it as a card `thumbnail`, which must be an absolute URL (see [integrations.md](docs/architecture/integrations.md#mcp-ai-agent-integration)) |
 | `list_cards` | List card content items |
 | `create_card` | Create a card (in draft state) |
 | `update_card` | Update fields of an existing card |
@@ -144,13 +144,7 @@ The API serves an MCP endpoint at `/mcp` (Streamable HTTP transport). It is enab
 
 ### Stdio server (`packages/mcp`) for desktop clients
 
-This server is for local MCP clients that can spawn a process, such as Claude Desktop or Claude Code. It does **not** work from the Claude web app. It logs in to the admin API with a regular admin account. See [ADR-012](docs/decisions/ADR-012-mcp-server.md).
-
-| Variable | Required | Default |
-|---|---|---|
-| `BETEL_EMAIL` | yes | none |
-| `BETEL_PASSWORD` | yes | none |
-| `BETEL_API_URL` | no | `http://localhost:3100/api` |
+This server is for local MCP clients that can spawn a process, such as Claude Desktop or Claude Code. It does **not** work from the Claude web app. It logs in to the admin API with a regular admin account. See [ADR-012](docs/decisions/ADR-012-mcp-server.md). Environment variables: [configuration.md → Stdio MCP server](docs/architecture/configuration.md#stdio-mcp-server-packagesmcp).
 
 ```bash
 pnpm --filter @betel/mcp build   # → packages/mcp/dist/index.js

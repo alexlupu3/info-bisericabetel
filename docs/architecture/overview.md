@@ -59,7 +59,7 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
   - `content_items.exclusive_site` gates an item to one site ([ADR-009](../decisions/ADR-009-site-exclusive-content-dedicated-column.md)). `state` takes the values `draft`, `published`, `archived` or `deleted` (soft delete).
   - `languages`, `ui_translations`, `content_translations` and `group_translations` hold i18n data. No translation join is performed for the default locale (`ro`).
   - `short_links` reference a content item and resolve the destination at redirect time ([ADR-011](../decisions/ADR-011-short-link-dynamic-url-resolution.md)).
-  - `analytics_events` and `error_logs` are append-only. `analytics_events.item_id` is a soft reference (no foreign key), and `short_link_id` has an `ON DELETE SET NULL` foreign key, so events survive deletion of the item or short link. Both ingest endpoints (`POST /api/events`, `POST /api/errors`) respond 204 immediately and are rate-limited per IP.
+  - `error_logs` is append-only. `analytics_events` is append-only except that permanently deleting a content item also deletes its events (see [content-model.md](../domain/content-model.md)). `analytics_events.item_id` is a soft reference (no foreign key), so events survive soft deletion of the item; `short_link_id` has an `ON DELETE SET NULL` foreign key, so events survive deletion of a short link. Both ingest endpoints (`POST /api/events`, `POST /api/errors`) respond 204 immediately and are rate-limited per IP.
   - `audit_log` records admin writes (see `security.md` for coverage).
 
 ## File Storage

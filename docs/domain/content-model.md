@@ -81,7 +81,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
   - `PATCH /api/admin/content/:id` also accepts an explicit `state`, so any non-deleted state can be set directly through the API
   - Any non-deleted state → `deleted` ("Șterge" action)
   - `deleted` → `draft` ("Restaurează" action on `/admin/archive`, `POST /api/admin/content/:id/restore`; clears `groupId`)
-  - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`, `DELETE /api/admin/content/:id/permanent`)
+  - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`, `DELETE /api/admin/content/:id/permanent`). This also deletes every `analytics_events` row with that `item_id` and every `audit_log` row with that `entity_id`, so the item's click history and audit trail are erased; only a single new `content.permanent-delete` audit entry remains.
   - Any non-deleted state → new `draft` item created (duplicate action, "Duplică" in context menu — see Duplication below)
 - **Ownership:** managed by any admin; changes are audit-logged
 

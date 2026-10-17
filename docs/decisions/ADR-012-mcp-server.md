@@ -101,3 +101,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 On 2026-05-13 a second MCP surface was added inside the API process: the Streamable HTTP endpoint at `/mcp` (`packages/api/src/routes/mcp.ts`), authenticated with a shared `MCP_SECRET` bearer token and intended for remote clients such as the Claude iOS app. It exposes the same eight tool names but, unlike the stdio server described here, it reads and writes the database directly through Drizzle. It therefore does not inherit the guarantees this ADR relied on (single place for business rules, audit entries attributed to a real admin account); it re-implements them instead. See [ADR-015](ADR-015-remote-mcp-endpoint.md) for that decision and its risks.
 
 See [integrations.md](../architecture/integrations.md) for deployment notes and [configuration.md](../architecture/configuration.md) for the environment variable reference.
+
+## Update History
+
+- 2026-10-17: The "Media upload unblocks poster creation" consequence above is inaccurate. `POST /api/admin/media` (and therefore `upload_media`) returns a relative URL (`/uploads/<uuid>.webp`), while `create_card` / `update_card` validate `thumbnail` with `z.string().url()`, which rejects relative URLs. The returned URL cannot be passed directly; the caller must prefix the public origin until the schemas accept relative media URLs. See [integrations.md](../architecture/integrations.md#mcp-ai-agent-integration).

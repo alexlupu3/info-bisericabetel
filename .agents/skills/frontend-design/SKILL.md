@@ -72,7 +72,7 @@ Use these patterns across hero, section headers, and key modules:
 
 ### Site accents come from data (choose ONE per view)
 
-Each site (location) has its accent colour stored in the database — column `sites.accent`, seeded in `packages/api/src/db/migrations/0000_initial.sql` and editable by admins on the Locations page (`packages/app/src/admin/pages/LocationsPage.tsx`). Sites can be added or recoloured at runtime.
+Each site (location) has its accent colour stored in the database — column `sites.accent`, seeded in `packages/api/src/db/migrations/0000_initial.sql` and editable by the super-admin on the Locations page (`packages/app/src/admin/pages/LocationsPage.tsx`, `PATCH /api/admin/sites/:slug`). Existing sites can be renamed or recoloured at runtime; adding a new site currently needs a migration or a direct DB change (FR-019 is partially implemented). Either way, components must treat the site list as data.
 
 * **Never hard-code site hex values or site slugs** in components or CSS. Read `site.accent` from the sites data (`useSite()` in `packages/app/src/public/hooks/useSite.ts`, `SitesContext` in `packages/app/src/public/context/`), as `packages/app/src/public/components/content/SiteLabel.tsx` does.
 * Theme-level colours are CSS custom properties in `packages/app/src/index.css` (`--accent`, `--bg`, `--surface`, `--border`, `--text`, `--muted`, with light/dark variants and an `.admin-theme` override). Use those tokens (e.g. `text-[var(--accent)]`) rather than literal colours.

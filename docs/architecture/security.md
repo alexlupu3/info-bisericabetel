@@ -37,7 +37,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 
 ### Uploads
 - `POST /api/admin/media` (admin or super-admin): at most 5 MB (`bodyLimit` and multipart `fileSize`), MIME type must start with `image/`, and the file is decoded by `sharp`, auto-rotated, resized to at most 1980 px wide and **re-encoded to WebP**. The original bytes are never stored or served, which strips metadata and neutralises polyglot or non-image payloads. Files are named `<uuid>.webp` and served statically from `/uploads/`.
-- The remote MCP `upload_media` tool applies the same limits and pipeline.
+- The remote MCP `upload_media` tool applies the same pipeline and the same 5 MB check, but `/mcp` keeps Fastify's default 1 MiB `bodyLimit` and the image arrives base64-encoded in JSON, so its effective limit is roughly 750 KB.
 - Any reverse proxy in front of the container must allow request bodies of at least 5 MB.
 
 ### Sensitive data handling
@@ -85,6 +85,8 @@ FR-023 requires every content and configuration change to be logged (who, what, 
 
 Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
 
+`audit_log` is not append-only: permanently deleting a content item (`DELETE /api/admin/content/:id/permanent`) deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, so the item's audit history is erased. See [content-model.md](../domain/content-model.md).
+
 **Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; short-link create and delete; media upload and delete through the admin UI.
 
 ### Known risks and incident concerns
@@ -98,3 +100,4 @@ Currently audited: content create, update, publish, archive, delete, restore, pe
 | `MCP_SECRET` is one shared, full-access, non-expiring token; compared with plain `!==`; no rate limit on `/mcp` | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
 | `POST /api/setup` is unauthenticated until the first user exists | Takeover of a fresh deployment | Create the first super-admin immediately after the first deploy |
 | Audit gaps (see above) and silent audit failures | Incomplete forensic trail | Extend `logAudit` coverage |
+| Permanent delete erases the item's `audit_log` and `analytics_events` rows | Any admin can remove the audit trail and click history of an item by soft-deleting then permanently deleting it | Keep audit rows on permanent delete (or restrict permanent delete to super-admins) |
