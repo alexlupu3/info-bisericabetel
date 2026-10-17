@@ -1,10 +1,17 @@
-## Frontend Design Skill — Betel Edition (coherent with Biserica Betel)
+---
+name: frontend-design
+description: Betel design language for any UI or visual work in packages/app (public hub and admin) - new pages, components, styling, layout, theming, motion. Use before writing or restyling frontend code so the result matches the Biserica Betel editorial, typography-led look instead of generic UI.
+---
+
+# Frontend Design Skill — Betel Edition
+
+> **Local fork.** This skill started from `anthropics/skills` (frontend-design, Apache-2.0, see `LICENSE.txt`) but has been rewritten for this project. It is intentionally not tracked in a skills lock file; do not re-sync it from upstream or local changes will be lost.
 
 This skill produces **production-grade, visually distinctive** frontends that **match the Biserica Betel design language** (editorial, high-contrast, typography-led) instead of generic “AI UI”.
 
 ---
 
-# Design Thinking
+# 1 Design Thinking
 
 Before coding, commit to a BOLD direction, but **inside the Betel brand box**:
 
@@ -19,13 +26,13 @@ Before coding, commit to a BOLD direction, but **inside the Betel brand box**:
 * **Differentiation (Betel-specific “unforgettable”)**:
 
   1. The **signature mixed-type titles** (Bold + Condensed Italic)
-  2. **Location-coded accent** (one accent per page)
+  2. **Site-coded accent** (one accent per view, taken from site data)
 
 **CRITICAL Betel rule:** Creativity is allowed in layout and atmosphere, but **do not change the core identity** (type system, black/white base, minimal accent).
 
 ---
 
-# Non-Negotiables (Brand Lock)
+# 2 Non-Negotiables (Brand Lock)
 
 ### Typography (must use)
 
@@ -56,19 +63,20 @@ Use these patterns across hero, section headers, and key modules:
 
 ---
 
-# 3 Color System (Betel locations)
+# 3 Color System
 
 ### Base palette (default)
 
 * Mostly **black / white / grayscale**
 * Dark UI is common and preferred for hero and giving sections.
 
-### Location accents (choose ONE per page/project)
+### Site accents come from data (choose ONE per view)
 
-* Betel Mănăștur: `#17d3c3`
-* Betel Centru: `#ff6200`
-* Betel Vest: `#a0384b`
-* Betel Est: `#ffd000`
+Each site (location) has its accent colour stored in the database — column `sites.accent`, seeded in `packages/api/src/db/migrations/0000_initial.sql` and editable by admins on the Locations page (`packages/app/src/admin/pages/LocationsPage.tsx`). Sites can be added or recoloured at runtime.
+
+* **Never hard-code site hex values or site slugs** in components or CSS. Read `site.accent` from the sites data (`useSite()` in `packages/app/src/public/hooks/useSite.ts`, `SitesContext` in `packages/app/src/public/context/`), as `packages/app/src/public/components/content/SiteLabel.tsx` does.
+* Theme-level colours are CSS custom properties in `packages/app/src/index.css` (`--accent`, `--bg`, `--surface`, `--border`, `--text`, `--muted`, with light/dark variants and an `.admin-theme` override). Use those tokens (e.g. `text-[var(--accent)]`) rather than literal colours.
+* In the all-sites view there is no single site accent — stay monochrome or use each item's own site accent only on its small label.
 
 **Accent usage rule (strict):**
 
@@ -128,7 +136,7 @@ Betel motion is **subtle and editorial**, not playful-app UI.
 ### Links
 
 * Underline on hover
-* Accent link color only when location-relevant
+* Accent link color only when site-relevant
 
 ### Forms (donate / signup)
 
@@ -150,4 +158,4 @@ Never introduce:
 
 ## The one-sentence “north star”
 
-**Build like a magazine cover: black/white, bold type + condensed italic signature, monochrome imagery, and one location accent used like punctuation.**
+**Build like a magazine cover: black/white, bold type + condensed italic signature, monochrome imagery, and one site accent used like punctuation.**
