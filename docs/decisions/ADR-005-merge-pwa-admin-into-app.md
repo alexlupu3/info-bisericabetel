@@ -1,10 +1,8 @@
 # ADR-005: Merge packages/pwa and packages/admin into packages/app
 
-## Status
-Accepted
-
-## Date
-2026-04-06
+- **Status:** Accepted
+- **Date:** 2026-04-06
+- **Supersedes:** the "must not share build artifacts with the public PWA" constraint (separate `packages/pwa` and `packages/admin`)
 
 ## Context
 
@@ -68,3 +66,6 @@ All admin test files updated from `ADMIN_URL = 'http://localhost:5174/admin/'` t
 - **Reduced build pipeline:** one Vite build instead of two; one rsync target instead of two.
 - **Dev workflow simplified:** `pnpm dev` starts a single server at `http://localhost:5173` serving both surfaces.
 - **Known limitation:** because both surfaces share a single `index.html` entry, there is no separate admin-only cache-busting strategy. A cache-busted admin deploy also re-deploys the public PWA and vice versa. This is acceptable given the manual deploy model.
+
+## Update History
+- 2026-10-17: the rsync/Nginx deploy model and the `deploy:app` script described above were later replaced by the single-container CapRover deployment ([ADR-006](ADR-006-single-container-deployment.md)); no `pnpm deploy*` scripts remain. The service worker denylist now also excludes `/s/*` (short links). The package merge itself is unchanged.

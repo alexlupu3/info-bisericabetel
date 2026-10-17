@@ -1,7 +1,7 @@
 # ADR-004: 50% Vertical Threshold for Drag-and-Drop Insert Position
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-03-24
 
 ## Context
 The Content Page admin uses `@dnd-kit/core` and `@dnd-kit/sortable` for reordering items and groups. The previous implementation always resolved the final insert position via `arrayMove(from, to)` where `to` was the index of the hovered element. This meant the direction of insertion (before vs after the target) was determined solely by `closestCenter` collision detection, which does not distinguish upper vs lower halves of the target. Users found it difficult to predict whether a dragged element would land before or after its target.

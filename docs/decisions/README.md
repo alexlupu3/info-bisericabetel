@@ -1,33 +1,63 @@
 # Decision Records
 
-Use this directory for durable Architecture Decision Records.
+This directory holds the project's durable Architecture Decision Records (ADRs).
 
 ## Naming
-- `ADR-001-short-title.md`
-- `ADR-002-another-title.md`
 
-## Required Sections
-- Status
-- Context
-- Options Considered
-- Decision
-- Consequences
+- `ADR-NNN-short-kebab-title.md`, numbered sequentially with three digits.
+- Use the next free number and never reuse or share a number. If a collision is found, renumber the newer ADR and record that in its metadata (see ADR-014).
+- Add every new ADR to the index below in the same branch.
+
+## Template
+
+```markdown
+# ADR-NNN: Title
+
+- **Status:** Proposed | Accepted | Deprecated | Superseded by ADR-XXX
+- **Date:** YYYY-MM-DD
+- **Supersedes:** ADR-XXX or the constraint/requirement replaced (omit if none)
+- **Related:** links to related ADRs (optional)
+- **Implements:** FR-/NFR- IDs (optional)
+
+## Context
+Why a decision was needed: the problem, forces and constraints.
+
+## Options Considered
+The alternatives, with pros and cons. May be omitted only when there was genuinely one option.
+
+## Decision
+What was chosen and the rules that follow from it.
+
+## Implementation (optional)
+Key files, endpoints, schema changes.
+
+## Consequences
+What becomes easier or harder, risks, follow-ups.
+
+## Update History / Amendments (optional)
+Dated entries for later changes that refine (not reverse) the decision.
+A reversal gets a new ADR that supersedes this one.
+```
+
+Metadata is a bullet list directly under the title. Do not use YAML front matter or `## Status` / `## Date` sections.
 
 ## Index
 
 | ADR | Title | Status |
 |-----|-------|--------|
-| ADR-001 | Project knowledge structure | Accepted |
-| ADR-002 | Group management consolidated into Content page | Accepted |
-| ADR-003 | Image / media library management | Accepted |
-| ADR-004 | Drag-and-drop 50% threshold | Accepted |
-| ADR-005 | Merge PWA + admin into single app package | Accepted |
-| ADR-006 | Single container deployment | Accepted |
-| ADR-007 | Per-site link overrides — client-side resolution in JSONB | Accepted |
-| ADR-008 | Analytics dashboard with Recharts | Accepted |
-| ADR-009 | Site-exclusive content — dedicated nullable column | Accepted |
-| ADR-009-i18n | i18n strategy | Accepted |
-| ADR-010 | AI auto-translation — fire-and-forget background job | Accepted |
-| ADR-011 | Short link URL resolved dynamically at redirect time | Accepted |
-| ADR-012 | MCP Server via HTTP API with JWT Authentication | Accepted |
-| ADR-013 | HTTP caching strategy for the SPA frontend | Accepted |
+| [ADR-001](ADR-001-project-knowledge-structure.md) | Project knowledge structure | Accepted |
+| [ADR-002](ADR-002-group-management-consolidated-into-content-page.md) | Group management consolidated into the Content page | Accepted |
+| [ADR-003](ADR-003-image-library-management.md) | Image / media library management | Accepted |
+| [ADR-004](ADR-004-drag-and-drop-50-percent-threshold.md) | Drag-and-drop 50% threshold | Accepted |
+| [ADR-005](ADR-005-merge-pwa-admin-into-app.md) | Merge PWA and admin into a single app package | Accepted |
+| [ADR-006](ADR-006-single-container-deployment.md) | Single-container deployment | Accepted |
+| [ADR-007](ADR-007-per-site-link-overrides-client-side-resolution.md) | Per-site link overrides resolved client-side in JSONB | Accepted |
+| [ADR-008](ADR-008-analytics-dashboard-recharts.md) | Analytics dashboard with Recharts | Accepted |
+| [ADR-009](ADR-009-site-exclusive-content-dedicated-column.md) | Site-exclusive content: dedicated nullable column | Accepted |
+| [ADR-010](ADR-010-ai-auto-translation-fire-and-forget.md) | AI auto-translation as a fire-and-forget background job | Accepted |
+| [ADR-011](ADR-011-short-link-dynamic-url-resolution.md) | Short link URL resolved dynamically at redirect time | Accepted |
+| [ADR-012](ADR-012-mcp-server.md) | Stdio MCP server via the HTTP API with JWT authentication | Accepted |
+| [ADR-013](ADR-013-http-cache-strategy.md) | HTTP caching strategy for the SPA frontend | Accepted |
+| [ADR-014](ADR-014-i18n-strategy.md) | Internationalization strategy (formerly a duplicate ADR-009) | Accepted |
+| [ADR-015](ADR-015-remote-mcp-endpoint.md) | Remote MCP endpoint inside the API process | Accepted |
+| [ADR-016](ADR-016-postgresql-only.md) | PostgreSQL as the only supported database | Accepted |

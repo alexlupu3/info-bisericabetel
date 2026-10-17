@@ -1,10 +1,7 @@
 # ADR-007: Per-site link overrides resolved client-side in JSONB data
 
-## Status
-Accepted
-
-## Date
-2026-04-15
+- **Status:** Accepted
+- **Date:** 2026-04-15
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR-002: Group Management Consolidated into the Content Page
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-03-16
 
 ## Context
 The admin tool initially provided a separate "Grupuri" (Groups) navigation link and dedicated `/groups` route for creating and managing groups. This required admins to navigate away from the content list to perform group operations, then return to manage content ordering. Groups are closely related to content items — they serve purely as display containers — so this separation created unnecessary context switching.
@@ -35,7 +35,7 @@ Group management is fully integrated into the Content page. The "Grupuri" nav li
 - A `DragOverlay` renders a visual ghost of the dragged item during the operation for a clear affordance.
 - Local state (`ContainerData[]`) tracks items per container and is synced from the server on load. `containersRef` (useRef) mirrors this state to avoid stale closure issues in drag event handlers. `dragOriginRef` tracks which container a drag started in so cross-container moves can be detected correctly when `onDragOver` already performs an optimistic update.
 - The `/groups` route is a documented dead end. It should either be removed in a future cleanup or repurposed. See open questions.
-- **Post-creation group editing** is implemented via an expand-panel interaction on the group header row. An "Editează" button expands a panel directly below the header (above the items list) with a title input and site-scope checkboxes, both pre-filled with current values. Save issues PATCH /admin/groups/:id. Cancel collapses the panel without changes. The group header also displays assigned sites as a text hint when sites are set, giving admins immediate visibility of a group's scope without opening the edit panel.
+- **Post-creation group editing** is implemented via an expand-panel interaction on the group header row. An "Editează" button expands a panel directly below the header (above the items list) with a title input and site-scope checkboxes, both pre-filled with current values. Save issues PATCH /api/admin/groups/:id. Cancel collapses the panel without changes. The group header also displays assigned sites as a text hint when sites are set, giving admins immediate visibility of a group's scope without opening the edit panel.
 - **Group creation includes site-scope selection.** The "+ Grup nou" form contains site-scope checkboxes in addition to the title field. Sites default to empty (= all sites / no restriction). Available sites are loaded from GET /api/sites (not hardcoded) and cached via react-query.
 - **Per-group collapse/expand toggle.** Each group header row now has a chevron button (▶ collapsed / ▼ expanded) placed between the drag handle and the group title. Clicking it hides or shows that group's item list. When collapsed: the item list is not rendered; the group's droppable area is disabled (items cannot be dragged into a collapsed group); the drag handle remains fully functional so collapsed groups can still be reordered. Collapsed state is local, non-persistent — it resets to expanded on page reload.
 - **Toggle-all-groups button.** The Content page header shows a "▲ Restrânge toate" / "▼ Extinde toate" button whenever at least one group exists. If not all groups are collapsed it collapses all; if all are already collapsed it expands all.
@@ -46,8 +46,5 @@ Group management is fully integrated into the Content page. The "Grupuri" nav li
 ## Update History
 - 2026-03-16: ADR written; group creation (title only), deletion, and multi-container drag-and-drop implemented.
 - 2026-03-17: Added expand-panel group editing, site-scope checkboxes in creation form, and API-driven site list.
-- 2026-03-18: Added per-group collapse/expand toggle and a "toggle all groups" button in the page header (see Consequences below).
+- 2026-03-18: Added per-group collapse/expand toggle and a "toggle all groups" button in the page header (see Consequences above).
 - 2026-04-19: Group delete behavior updated — child items are now soft-deleted (state → `deleted`) instead of being migrated to ungrouped. Recoverable from `/admin/archive`.
-
-## Date
-2026-03-16

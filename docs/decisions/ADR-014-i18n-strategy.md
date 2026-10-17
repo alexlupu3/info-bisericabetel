@@ -1,12 +1,10 @@
----
-status: Accepted
-date: 2026-04-19
----
+# ADR-014: Internationalization Strategy
 
-# ADR-009: Internationalization Strategy
-
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-04-19
+- **Supersedes:** NFR-004 (no i18n) and the former "Localization: no i18n system needed" guardrail in `docs/architecture/constraints.md`
+- **Note:** originally numbered ADR-009, which collided with the site-exclusive content ADR; renumbered to ADR-014 on 2026-10-17.
+- **Implements:** FR-047, FR-037 to FR-041
 
 ## Context
 The public hub serves church members from a Romanian-speaking congregation. A request was made to support at least one additional language (English) for the public-facing UI and content. The challenge was to add this capability without complicating URLs, breaking existing behavior for Romanian users, or requiring admin staff to learn a new interface language.
@@ -36,7 +34,7 @@ Key constraints:
 
 UI string translations (small, ~10 strings) are fetched from the API on language change and cached client-side via `LanguageContext`. Content and group translations are fetched per API request with a `?locale=` parameter; when the locale is Romanian (default) the translation join is skipped entirely, preserving current query performance.
 
-## Key Design Rules
+### Key design rules
 1. **Admin UI stays Romanian.** The admin interface is never translated, regardless of the public locale setting. This avoids scope creep and keeps admin tooling simple for the existing team.
 2. **Links and dates are shared across all locales.** Images are shared across locales for Richtext and Embedded YouTube Video types. For Poster and Card types, images (`imageUrl` and `thumbnail` respectively) are locale-overridable — admins can set a different image per locale via image pickers shown in translation mode. When a locale image is set it is stored in `contentTranslations.data` alongside translated text fields and merged at serve time via `{ ...original.data, ...translatedData }`. Clearing a locale image (setting it to empty string) causes the empty value to be filtered out before saving, so the base image is used as fallback. Rationale: locale-specific event posters and promotional images are a valid use case (e.g. a Romanian-language poster vs. an English-language poster for the same event). The per-locale image UX is scoped to Poster and Card only, keeping the feature narrow and avoiding complexity on types that have no image fields.
 3. **Romanian fallback is always transparent.** If a translation record is missing for any field in a non-default locale, the Romanian value is returned without error or UI indicator visible to the public user.
