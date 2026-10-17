@@ -85,7 +85,7 @@ FR-023 requires every content and configuration change to be logged (who, what, 
 
 Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
 
-`audit_log` is not append-only: permanently deleting a content item (`DELETE /api/admin/content/:id/permanent`) deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, so the item's audit history is erased. See [content-model.md](../domain/content-model.md).
+Permanent delete purges an item's history by design: `DELETE /api/admin/content/:id/permanent` deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, which records who removed the item and when. `audit_log` is therefore not append-only for permanently deleted items; this is intended (repository owner decision, 2026-10-17). See [content-model.md](../domain/content-model.md).
 
 **Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; short-link create and delete; media upload and delete through the admin UI.
 
@@ -100,4 +100,3 @@ Currently audited: content create, update, publish, archive, delete, restore, pe
 | `MCP_SECRET` is one shared, full-access, non-expiring token; compared with plain `!==`; no rate limit on `/mcp` | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
 | `POST /api/setup` is unauthenticated until the first user exists | Takeover of a fresh deployment | Create the first super-admin immediately after the first deploy |
 | Audit gaps (see above) and silent audit failures | Incomplete forensic trail | Extend `logAudit` coverage |
-| Permanent delete erases the item's `audit_log` and `analytics_events` rows | Any admin can remove the audit trail and click history of an item by soft-deleting then permanently deleting it | Keep audit rows on permanent delete (or restrict permanent delete to super-admins) |
