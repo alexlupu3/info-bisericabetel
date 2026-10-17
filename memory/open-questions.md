@@ -16,7 +16,7 @@ Purpose: track unresolved questions that block product or technical decisions, p
 - Question: Should the remote `/mcp` endpoint be brought to parity with the REST path, or should the shared rules be extracted so both surfaces use one implementation?
   Owner: repository owner
   Status: OPEN
-  Context: remote `create_card` skips the group chronological re-sort (FR-046 / BR-013) and relies on its own schema instead of the REST required-field check; `/mcp` also has no rate limit and uses one shared, non-expiring secret. Options are listed in ADR-015 → Consequences → "Follow-up options" and depend partly on the planned API key layer (roadmap Phase 2).
+  Context: remote `create_card` relies on its own schema instead of the REST required-field check; `/mcp` also has no rate limit and uses one shared, non-expiring secret. Options are listed in ADR-015 → Consequences → "Follow-up options" and depend partly on the planned API key layer (roadmap Phase 2).
 
 - Question: Which of the known security gaps should be fixed before more admins are onboarded?
   Owner: repository owner
@@ -24,9 +24,6 @@ Purpose: track unresolved questions that block product or technical decisions, p
   Context: no rate limit on `POST /api/auth/login` and `POST /api/setup`; `mustChangePassword` enforced only in the SPA (FR-021); audit coverage gaps against FR-023 (group create/update/reorder, content reordering, admin user create/delete, site edits, short-link create/delete, admin-UI media upload/delete). Details and mitigations: `docs/architecture/security.md` → "Known risks".
 
 ## Known Issues
-- MCP `upload_media` URL rejected as `thumbnail`: both MCP surfaces return a relative `/uploads/<uuid>.webp` URL, but `create_card` / `update_card` validate `thumbnail` with `z.string().url()` (`packages/api/src/routes/mcp.ts`, `packages/mcp/src/index.ts`). Workaround: prefix the public origin. Fix: accept relative media URLs in both schemas. See `docs/architecture/integrations.md` → MCP.
-- Remote MCP upload size: `/mcp` uses Fastify's default 1 MiB `bodyLimit`, so base64 uploads above roughly 750 KB fail despite the 5 MB check. Fix: set a route-level `bodyLimit` on `/mcp` (about 7 MB for a 5 MB image). See ADR-015 → Consequences.
-- BR-013 tie order on create: `POST /api/admin/content` loads group siblings without `ORDER BY` before the stable chronological sort, so equal-`startDate` items follow unspecified DB order. Fix: order the sibling query by `orderPosition`. See `docs/domain/business-rules.md` → BR-013.
 - Permanent delete erases history: `DELETE /api/admin/content/:id/permanent` deletes the item's `analytics_events` and `audit_log` rows. Decide whether audit rows should be kept. See `docs/architecture/security.md` → Audit requirements.
 
 ## Known Leftovers
@@ -35,6 +32,7 @@ Purpose: track unresolved questions that block product or technical decisions, p
 - Vite dev proxy forwards only `/api`, so `/uploads/*` and `/s/:code` do not work on `:5173` (`packages/app/vite.config.ts`; see `docs/architecture/overview.md` → "Development and Testing"). Extending the proxy to those prefixes is a small, unscheduled improvement.
 
 ## Resolved (answers recorded in docs)
+- MCP thumbnail URLs, `/mcp` upload body limit, BR-013 tie order on create and the remote `create_card` group re-sort — fixed 2026-10-17 (see ADR-015 → Update History, BR-013).
 - Exact church sites — dynamic, admin-managed, seeded by migration (see `docs/domain/entities.md` → Site).
 - QR codes / direct links — per-site deep links `/<siteSlug>` with an all-sites switch (FR-003, FR-004).
 - Content ownership — multiple admins plus a super-admin; content changes audit-logged, with known gaps listed in FR-023 (Roles in `docs/product/requirements.md`, FR-023).

@@ -37,8 +37,8 @@ All REST paths below include the `/api` prefix under which every API route is re
 
 ### Uploads
 - `POST /api/admin/media` (admin or super-admin): at most 5 MB (`bodyLimit` and multipart `fileSize`), MIME type must start with `image/`, and the file is decoded by `sharp`, auto-rotated, resized to at most 1980 px wide and **re-encoded to WebP**. The original bytes are never stored or served, which strips metadata and neutralises polyglot or non-image payloads. Files are named `<uuid>.webp` and served statically from `/uploads/`.
-- The remote MCP `upload_media` tool applies the same pipeline and the same 5 MB check, but `/mcp` keeps Fastify's default 1 MiB `bodyLimit` and the image arrives base64-encoded in JSON, so its effective limit is roughly 750 KB.
-- Any reverse proxy in front of the container must allow request bodies of at least 5 MB.
+- The remote MCP `upload_media` tool applies the same pipeline and the same 5 MB check (on the decoded bytes). Because the image arrives base64-encoded in JSON, `POST /mcp` sets a route-level `bodyLimit` of 8 MiB (bearer auth runs in a `preHandler`, after the body is parsed, so unauthenticated callers can also send bodies up to this size).
+- Any reverse proxy in front of the container must allow request bodies of at least 5 MB, or 8 MB for remote MCP uploads to `/mcp`.
 
 ### Sensitive data handling
 - Stored personal data is limited to admin email addresses, password hashes and audit entries. Visitor analytics (`analytics_events`) record event type, site, item, URL and time, with no IP addresses or user identifiers. Frontend error logs (`error_logs`) store message, stack, URL, site and a `device` JSON blob supplied by the client.
