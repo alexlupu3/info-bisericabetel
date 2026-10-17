@@ -17,8 +17,11 @@
   - bookmarked or curated links
   - filtering content by church site
   - an option to view all church-wide content
-- Out of scope:
-  - not defined yet
+- Out of scope (for now — see `docs/product/roadmap.md`):
+  - member accounts or any authentication on the public hub
+  - profile/audience-based views (youth, family, etc.) — deferred indefinitely
+  - in-app forms (external Google Forms links are used instead) and push notifications — Phase 3
+  - public third-party API access (API key layer is pending)
 - Constraints already known:
   - the church operates as a multi-site organization
   - most users will likely arrive from QR codes or direct links

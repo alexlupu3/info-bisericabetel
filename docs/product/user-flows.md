@@ -1,7 +1,7 @@
 # User Flows
 
 ## Core Flows
-List the highest-priority flows first.
+Member-facing flows come first, followed by admin flows.
 
 ### Flow 1 — Member accesses content via QR code or direct link
 - Trigger: a church member scans a QR code or opens a direct link
@@ -15,12 +15,24 @@ List the highest-priority flows first.
   - the QR code leads to outdated or incomplete information
   - the member cannot tell which site the content belongs to
 
-### Flow 2 (Admin) — Managing groups on the Content page
+### Flow 2 — Switching between site-specific and all-sites views
+- Trigger: a member wants to switch between site-specific and all-sites views
+- Steps:
+  - a subtle inline link is always available on the page
+  - if currently on an all-sites view: link reads "view site..." — tapping opens a popup listing all available sites to choose from
+  - if currently on a site-specific view: link reads "view all" — tapping switches directly to the all-sites view
+  - the selected view updates the displayed content accordingly
+- Success state: the member can move between local-site and church-wide content without the switcher dominating the UI
+- Failure or edge states:
+  - the switcher is so subtle the member cannot find it
+  - the site list in the popup is empty or outdated
+
+### Flow 3 (Admin) — Managing groups on the Content page
 - Trigger: an admin wants to create, populate, reorder, or delete a group
 - Steps:
   - The admin opens the Content page in the admin tool
   - Groups are displayed as labeled container sections; ungrouped items appear in a "Fără grup" (ungrouped) section at the bottom
-  - To create a group: admin clicks "+ Grup nou", enters a title, and the group appears immediately as an empty container
+  - To create a group: admin clicks "+ Grup nou", enters a title, optionally ticks site-scope checkboxes (none = all sites), and the group appears immediately as an empty container
   - To assign an item to a group while editing: admin opens the item form and selects the target group from the group dropdown
   - To move an item between groups via drag and drop: admin drags the item from its current container and drops it onto the target container; the order and group assignment are persisted in a single interaction
   - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the same inline edit panel
@@ -98,15 +110,3 @@ List the highest-priority flows first.
 - Failure or edge states:
   - Admin selects a very distant start date — large windows fetch more data but the chart renders the same dual-line format; no practical limit is enforced beyond what the database holds
   - Admin selects today as the start date — current period is a single day, previous period is the single day before it
-
-### Flow 3 — Switching between site-specific and all-sites views
-- Trigger: a member wants to switch between site-specific and all-sites views
-- Steps:
-  - a subtle inline link is always available on the page
-  - if currently on an all-sites view: link reads "view site..." — tapping opens a popup listing all available sites to choose from
-  - if currently on a site-specific view: link reads "view all" — tapping switches directly to the all-sites view
-  - the selected view updates the displayed content accordingly
-- Success state: the member can move between local-site and church-wide content without the switcher dominating the UI
-- Failure or edge states:
-  - the switcher is so subtle the member cannot find it
-  - the site list in the popup is empty or outdated

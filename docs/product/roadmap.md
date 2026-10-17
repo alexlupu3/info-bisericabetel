@@ -6,8 +6,9 @@
   - Public PWA: single-page content hub with per-site filtering, site switcher, preference persistence
   - Four content types: Card, Richtext, Poster, Embedded YouTube Video
   - Groups (Cards and Posters), drag-and-drop ordering, site scoping
-  - Auto-expiry, draft/published/archived publishing states
-  - Admin tool: content management, site management, ~~media library~~ **[done — 2026-03-17]**, preview mode, audit log
+  - Auto-expiry (expired items hidden from the public hub), draft/published/archived publishing states
+  - Admin tool: content management, site management (edit only — site creation not built, FR-019), ~~media library~~ **[done — 2026-03-17]**, audit log
+  - Preview mode (FR-018) — **not implemented**; not currently scheduled
   - Admin accounts: super-admin provisioning flow, forced password change on first login, ~~password reset~~ **[done — 2026-03-21]** (super-admin resets admin passwords via UI; temp password shown once for out-of-band delivery)
   - **Admin email notifications (planned — no release date):** temporary passwords delivered by email on account creation (FR-030); self-service forgot-password / reset-password flow with time-limited email links (FR-031). Requires Resend integration and one-time DNS setup (SPF/DKIM). See `docs/architecture/integrations.md`.
   - ~~Analytics dashboard: site visits, link clicks, by location, lifetime + daily views~~ **[done — 2026-03-19]**
@@ -20,8 +21,8 @@
 ## Phase 2 — Near Future
 - **Goal:** extend reach and reduce friction for content creation
 
-### Profile-based views — amânat nedefinit / abordare respinsă în forma actuală
-> Planul detaliat pentru Audiences este păstrat pentru referință și nu se șterge. Implementarea ca pagini publice separate (`/v/{slug}`) este amânată nedefinit, deoarece adaugă o destinație nouă pe care utilizatorii trebuie să o descopere și o complexitate operațională disproporționată. Este necesară o soluție mai bună, integrată în hubul unic existent, fără pagini separate și fără a încărca utilizatorii cu un al doilea loc în care să caute informații.
+### Profile-based views — deferred indefinitely / current approach rejected
+> The detailed Audiences plan is kept for reference and must not be deleted. Implementing it as separate public pages (`/v/{slug}`) is deferred indefinitely, because it adds a new destination users have to discover and disproportionate operational complexity. A better solution is needed: one integrated into the existing single hub, without separate pages and without making users search in a second place for information.
 
 - Church-goer profile types (youth, family, elderly, leaders, etc.) as a second filtering dimension alongside site.
 - A profile-based view hides content not relevant to that profile group.
@@ -29,8 +30,8 @@
 - Content items will need to support audience/profile scoping in addition to site scoping.
 
 ### External API & integration layer
-- ~~MCP (Model Context Protocol) server~~ **[done — 2026-05-13]**: AI agent can create and manage card content via chat using `packages/mcp/` (`@betel/mcp`). Stdio transport; authenticates with the admin REST API using email+password JWT. 7 tools: `list_sites`, `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`. See ADR-012 and `docs/architecture/integrations.md`.
-- **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the MCP server. API key management must be part of the super-admin tooling. The MCP server currently uses JWT auth as a temporary measure until this is built.
+- ~~MCP (Model Context Protocol) server~~ **[done — 2026-05-13]**: AI agent can create and manage card content via chat using `packages/mcp/` (`@betel/mcp`). Stdio transport (authenticates with the admin REST API using email+password JWT) plus a remote `/mcp` endpoint in the API (Bearer `MCP_SECRET`). 8 tools: `list_sites`, `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`, `upload_media`. See FR-048, ADR-012, ADR-015 and `docs/architecture/integrations.md`.
+- **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the stdio MCP server. API key management must be part of the super-admin tooling. The stdio MCP server currently uses JWT auth (and the remote endpoint a shared `MCP_SECRET`) as a temporary measure until this is built.
 
 ## Phase 3 — Future / Out of Scope for Now
 
