@@ -1,70 +1,46 @@
 # Integrations
 
-## Phase 1 — Launch
-No external service integrations at launch. The system is fully self-contained.
+The system is self-hostable and has no **required** external services. It does have two optional outbound integrations, OpenRouter on the server and Google Fonts in the browser, plus two MCP surfaces for AI agents. All environment variables are documented in [configuration.md](configuration.md). This page links there instead of repeating them.
 
 ## OpenRouter (AI Auto-Translation)
 
-Integrated as of 2026-04-20 (switched from Anthropic SDK to OpenRouter on 2026-04-20). The API is used for background, fire-and-forget translation of content items and group titles into all enabled non-default languages whenever a create or update is performed via the admin API.
+In use since 2026-04-20 (moved from the Anthropic SDK to OpenRouter the same day). Content items and group titles are translated in the background into every enabled non-default language whenever they are created or updated through the admin API or the remote MCP endpoint.
 
-- **Service:** `packages/api/src/services/ai-translation.ts`
-- **Model:** `anthropic/claude-haiku-4-5` via OpenRouter — chosen for low latency and cost efficiency
-- **Trigger points:** `POST /api/admin/content`, `PATCH /api/admin/content/:id`, `POST /api/admin/groups`, `PATCH /api/admin/groups/:id`
-- **Execution model:** `setImmediate` (fire-and-forget) — HTTP response is returned before translation runs; see ADR-010 for the decision rationale
-- **Environment variable:** `OPEN_ROUTER_API_KEY` (optional; feature is silently disabled when absent)
-- **Failure handling:** errors are logged to stderr; they do not affect admin operations or surface to the user
+- **Service:** `packages/api/src/services/ai-translation.ts`, which calls `https://openrouter.ai/api/v1` (OpenAI-compatible `/chat/completions`) with native `fetch`.
+- **Model:** `anthropic/claude-haiku-4.5` (the exact string in code), chosen for low latency and cost.
+- **Trigger points:** `POST /api/admin/content`, `PATCH /api/admin/content/:id`, `POST /api/admin/content/:id/duplicate`, `POST /api/admin/groups`, `PATCH /api/admin/groups/:id`, the remote MCP `create_card` / `update_card` tools, and the super-admin "generate" action for UI strings (`POST /api/admin/translations/generate`).
+- **Execution model:** fire-and-forget via `setImmediate`. The HTTP response returns before translation runs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)).
+- **Configuration:** `OPEN_ROUTER_API_KEY` (optional). When it is absent the feature is silently disabled.
+- **Data sent:** the Romanian text fields of the item or group being translated. No user or visitor data is sent.
+- **Failure handling:** errors are logged to stderr and do not affect admin operations.
 
-See [ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md) for the full decision record.
+## Google Fonts (Browser)
 
-## MCP Server (AI Agent Integration)
+`packages/app/index.html` preconnects to `fonts.googleapis.com` / `fonts.gstatic.com` and loads the **Lato** family (weights 300, 400, 700). Visitors' browsers fetch the font directly from Google, so Google receives their IP address and user agent. If Google Fonts is unreachable, the page falls back to system fonts. Self-hosting the font files would remove this third-party request.
 
-Implemented 2026-05-13. The `packages/mcp/` package (`@betel/mcp`) is a stdio MCP (Model Context Protocol) server that allows an AI agent (e.g. Claude Desktop, Cursor, or similar tooling) to create and manage church content via a natural-language chat interface.
+## MCP (AI Agent Integration)
 
-- **Transport:** stdio — the server is launched as a subprocess by the MCP host. No network port is opened by the MCP server itself.
-- **Authentication:** the server authenticates with the admin REST API using email+password credentials from environment variables. On startup (and on any HTTP 401 response), it calls `POST /api/auth/login` to obtain an 8-hour JWT. The JWT is cached in memory and refreshed automatically on expiry — long-running sessions require no manual intervention.
-- **Data access:** HTTP calls to the existing admin REST API (`packages/api`). The MCP server does not access the database directly. This preserves audit logging and server-side business rule enforcement. See ADR-012 for the full rationale.
-- **Package:** `packages/mcp/src/index.ts` — compiled to `dist/index.js`, exposed as the `betel-mcp` binary.
+There are two independent MCP surfaces. Both expose the same eight tools: `list_sites`, `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`, `upload_media`. Only card content items can be created or edited. Richtext, Poster and Embedded YouTube Video are not exposed.
 
-### Environment Variables
+| | Local stdio server | Remote endpoint |
+|---|---|---|
+| Code | `packages/mcp/src/index.ts` (`@betel/mcp`, binary `betel-mcp`) | `packages/api/src/routes/mcp.ts` |
+| Transport | stdio, launched as a subprocess by the MCP host (Claude Desktop, Cursor, …) | Streamable HTTP at `/mcp` on the app's origin (POST / GET / DELETE), e.g. for the Claude iOS app |
+| Auth | Logs in via `POST /api/auth/login` with `BETEL_EMAIL` / `BETEL_PASSWORD`, caches the 8 h JWT and re-logs in on 401 | `Authorization: Bearer <MCP_SECRET>`. The endpoint is disabled when `MCP_SECRET` is unset |
+| Data access | HTTP calls to the admin REST API (`BETEL_API_URL`, default `http://localhost:3100/api`) | Direct Drizzle access to the database |
+| Business rules and audit | Enforced by the REST handlers. Audit entries are attributed to the configured admin account | Re-implemented in the tool handlers. Audit entries are attributed to the synthetic actor `mcp@betel` |
+| Decision | [ADR-012](../decisions/ADR-012-mcp-server.md) | [ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md) |
 
-| Variable          | Default                        | Required | Purpose                                    |
-|-------------------|--------------------------------|----------|--------------------------------------------|
-| `BETEL_API_URL`   | `http://localhost:3000/api`    | No       | Base URL of the admin REST API             |
-| `BETEL_EMAIL`     | —                              | Yes      | Admin account email for JWT authentication |
-| `BETEL_PASSWORD`  | —                              | Yes      | Admin account password for JWT authentication |
+Tool notes:
+- `create_card` creates a draft. `publish_card` moves a draft to published. `create_card` / `update_card` write `title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta` into the `data` JSONB column, plus top-level `sites[]` and `exclusiveSite`. `groupId` is accepted on create only (neither surface can move an existing card between groups).
+- `upload_media` takes base64 `imageData` (without a `data:` prefix) and an optional `filename`. The stdio server also accepts `mimeType` (default `image/jpeg`, must be `image/*`) and posts the bytes to `POST /api/admin/media`. The remote endpoint processes the image in-process. Both paths enforce 5 MB and re-encode to WebP (max 1980 px wide, quality 82). The returned `url` can be used as `thumbnail`.
+- Known divergence: creating a card with a `groupId` re-sorts the group chronologically (FR-046) only on the stdio/REST path. See ADR-015.
 
-`BETEL_EMAIL` and `BETEL_PASSWORD` must be kept secret and must not be committed to version control. Use a dedicated admin service account (not a personal account) so audit log entries are attributed consistently and credentials can be rotated independently.
+Credentials (`BETEL_EMAIL` / `BETEL_PASSWORD`, `MCP_SECRET`) are secrets. Never commit them. For the stdio server, use a dedicated admin service account so audit entries are attributable and the account can be revoked independently.
 
-### Tool Inventory
-
-| Tool           | Description                                                    | API endpoint                                    |
-|----------------|----------------------------------------------------------------|-------------------------------------------------|
-| `list_sites`   | List all church sites (slugs, names, accent colours)           | `GET /api/sites` (public)                       |
-| `list_groups`  | List all content groups and their IDs                          | `GET /api/admin/groups`                         |
-| `list_media`   | List images in the media library with their URLs               | `GET /api/admin/media`                          |
-| `list_cards`   | List all card content items including drafts and archived      | `GET /api/admin/content` (filtered to `card`)   |
-| `create_card`  | Create a new card in draft state                               | `POST /api/admin/content`                       |
-| `update_card`  | Update fields on an existing card (partial update)             | `PATCH /api/admin/content/:id`                  |
-| `publish_card` | Publish a draft card so it appears on the public hub           | `POST /api/admin/content/:id/publish`           |
-| `upload_media` | Upload an image from base64 data; returns media row with URL   | `POST /api/admin/media` (multipart)             |
-
-`create_card` and `update_card` write to the `data` JSONB field of the content item. Supported data fields: `title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta`. Top-level fields `sites[]`, `exclusiveSite`, and `groupId` are also supported.
-
-`upload_media` accepts: `imageData` (required, base64 bytes without `data:` URI prefix), `filename` (optional, for reference only), and `mimeType` (optional, standalone CLI only; defaults to `image/jpeg`; must start with `image/`). The decoded buffer is capped at 5 MB. In the standalone CLI the raw bytes are posted to the API; in the in-process MCP a Sharp pipeline rotates, resizes to ≤ 1980 px, and re-encodes to WebP at 82 % quality before writing to disk. The returned row includes `id` and `url`; the URL can be passed directly as `thumbnail` in `create_card` or `update_card`.
-
-### Scope and Relationship to the Planned API Key Layer
-
-The initial implementation covers cards only (the most action-oriented content type). Richtext, Poster, and Embedded YouTube Video types are not exposed.
-
-The roadmap originally planned a dedicated API key authentication layer as the foundation for all machine-client integrations (MCP, Zapier, etc.). That layer has not been built yet. The MCP server ships now using JWT auth as a practical shortcut — the API key layer remains a planned Phase 2 item. When implemented, the MCP server can be migrated to API key auth by replacing the login call with an API key header, with no changes to the transport or tool layer.
-
-See [ADR-012](../decisions/ADR-012-mcp-server.md) for the full architectural decision record.
+The roadmap's API key layer for machine clients (MCP, Zapier, …) has not been built. Both MCP surfaces use interim auth schemes until it exists.
 
 ## Future Considerations
-- **CloudFront CDN:** may be used in the future for image and static asset delivery. Not a constraint for Phase 1, but the image handling service should avoid hardcoding asset URLs in a way that would make a CDN migration painful.
-- **Zapier / automation tools:** Phase 2 API key layer will enable third-party integrations (see MCP section above for current status).
-- **Email (Resend):** [Planned — no release date] Transactional email will be handled by [Resend](https://resend.com) — an HTTPS-based API service with a free tier of 3 000 emails/month. Chosen over SMTP because the VPS hosting environment has port 25/587 restrictions that make SMTP unreliable. Implementation plan:
-  - Install the `resend` npm package in `packages/api`.
-  - One-time DNS setup: add SPF and DKIM records on the domain registrar for `info.bisericabetel.ro`.
-  - Two new environment variables required (see `example.env`): `RESEND_API_KEY` and `EMAIL_FROM`.
-  - Used for: (1) delivering temporary passwords on new admin account creation (FR-030), and (2) sending time-limited password reset links (FR-031).
+- **CDN (e.g. CloudFront):** possible future delivery path for images and static assets. Avoid hardcoding absolute asset URLs so a CDN migration stays easy.
+- **Zapier / automation tools:** depend on the planned API key layer.
+- **Email (Resend):** *Planned, no release date, not implemented.* Transactional email would use [Resend](https://resend.com), an HTTPS API chosen over SMTP because the VPS restricts ports 25/587. It is needed for FR-030 (emailing temporary passwords to new admins) and FR-031 (self-service password reset). Implementing it would mean adding the `resend` package to `packages/api`, setting up SPF/DKIM DNS records for the sending domain, and introducing new environment variables (expected: `RESEND_API_KEY`, `EMAIL_FROM`). These variables do not exist yet and are not in `example.env`. Add them to [configuration.md](configuration.md) when the feature is built.

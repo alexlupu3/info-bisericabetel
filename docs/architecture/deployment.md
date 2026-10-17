@@ -7,11 +7,12 @@ Production runs as a **single Docker container** deployed to [CapRover](https://
 - Serves uploaded media files at `/uploads/` via `@fastify/static`
 - Serves the frontend SPA from `dist/public/` via `@fastify/static`
 - Registers all API routes under the `/api` prefix (e.g. `/api/sites`, `/api/auth/login`)
+- Handles short-link redirects at `/s/:code` and, when `MCP_SECRET` is set, the remote MCP endpoint at `/mcp`
 - Falls back to `index.html` for any unmatched non-`/api` route (SPA client-side routing support)
 
-CapRover manages TLS termination and its own reverse proxy in front of the container. The container itself exposes port 3100.
+CapRover manages TLS termination and its own reverse proxy in front of the container. The container listens on port 80 (`PORT=80` is set in the `Dockerfile`).
 
-See ADR-006 for the rationale behind collapsing nginx + api into a single container.
+See [ADR-006](../decisions/ADR-006-single-container-deployment.md) for the rationale behind collapsing nginx + api into a single container.
 
 ## Target Infrastructure
 
@@ -23,42 +24,36 @@ See ADR-006 for the rationale behind collapsing nginx + api into a single contai
 
 ## Deployment Method
 
-- `captain-definition` points to `./Dockerfile`
-- The `Dockerfile` is a multi-stage build: builds the Vite frontend and the esbuild-bundled API, then copies both into a single production image
-- Deployments are triggered manually — no automated CI/CD pipeline
-- Migrations run automatically on API startup — no manual step needed
+- `captain-definition` points to `./Dockerfile`. CapRover builds the image itself from the uploaded source.
+- The `Dockerfile` is a multi-stage build. It builds the Vite frontend and the esbuild-bundled API, copies both into one `node:24-slim` image, and installs the native `sharp` dependency for Linux with `npm install --omit=dev` inside `dist/`.
+- Deployments are triggered manually. There is no CI/CD pipeline. Push the source with the CapRover CLI (`caprover deploy`) from a clean checkout of `main`, or use the CapRover dashboard (tarball upload or a configured Git webhook).
+- Migrations run automatically on API startup. There is no manual step.
+- There are no `pnpm deploy*` scripts. `pnpm deploy` is a pnpm built-in command and is unrelated to this project's deployment.
 
-## Key Environment Variables
+### First-time CapRover setup
 
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | Min 32 chars; signs JWT tokens |
-| `UPLOADS_DIR` | Yes | Absolute path for uploaded media storage |
-| `NODE_ENV` | Yes | Set to `production` |
-| `PORT` | No | Container HTTP port (default: 3100) |
-| `HOST` | No | Bind address (default: `0.0.0.0`) |
+1. **Database:** provision PostgreSQL 16 (CapRover one-click app or an external instance) and set `DATABASE_URL`.
+2. **Environment variables:** set `DATABASE_URL`, `JWT_SECRET` and `UPLOADS_DIR`, plus any optional ones. See [configuration.md](configuration.md) for the full list.
+3. **Container HTTP Port:** set it to `80` in the CapRover app settings. This is CapRover's default.
+4. **Persistent volume:** mount a persistent directory at the path used for `UPLOADS_DIR` (the image default is `/app/uploads`), so uploaded media survives redeploys.
+5. **HTTPS:** enable HTTPS and force-redirect in CapRover.
+6. **First admin:** open `/admin/setup` once, or `POST /api/setup` with `{ "email", "password" }`. The endpoint creates the first super-admin only while the `users` table is empty, and returns 409 afterwards.
 
-## nginx/nginx.conf
+### Health check
 
-The file `nginx/nginx.conf` remains in the repository but is **not used at runtime** — neither in production nor in the local `docker-compose.yml` (the nginx service was removed from compose). It is retained as a reference artifact only. Do not rely on it for production routing logic.
+`GET /health` returns `{ status, version, timestamp }`. `version` is the root `package.json` version, inlined at build time.
+
+## Configuration
+
+All environment variables, their defaults and where they are read are documented in [configuration.md](configuration.md).
+
+## nginx
+
+There is no nginx layer in the project. The unused `nginx/nginx.conf` reference file was removed. CapRover's own nginx sits in front of the container and is managed by CapRover. The API limits media uploads to 5 MB, so CapRover's proxy body-size limit must be at least that.
 
 ## HTTP Caching Strategy
 
-The Fastify server applies differentiated `Cache-Control` headers when serving the frontend. The rules are implemented in the `setHeaders` callback of the `@fastify/static` plugin and in the `setNotFoundHandler` SPA fallback.
-
-| Files | Cache-Control | Rationale |
-|---|---|---|
-| `assets/*` (Vite hash-busted JS/CSS) | `public, max-age=31536000, immutable` | Content hash guarantees uniqueness; safe to cache permanently |
-| `index.html`, `sw.js`, `registerSW.js`, `workbox-*.js`, `.webmanifest` | `no-cache` | Must revalidate on every load; stale entry points cause users to run old app code |
-| Everything else (fonts, icons, images) | `public, max-age=86400` | Stable assets; 1-day cache is a reasonable balance |
-| SPA fallback (`setNotFoundHandler`) | `no-cache` (set explicitly on the reply) | Bypasses `@fastify/static` `setHeaders` callback; must be set manually |
-
-The PWA service worker uses `registerType: 'autoUpdate'` (set in `vite.config.ts`). When a new version is deployed the service worker silently replaces itself on the user's next page load — no user interaction or hard-reload is required.
-
-**Why this matters:** before this strategy was in place, browsers cached `index.html` and the service worker files without revalidation. Users — especially on mobile — continued running the previous version of the app after deploys, causing new features (e.g. shortlink redirects) to silently fail until a hard reload.
-
-See ADR-013 for the full decision record including options considered and consequences.
+Fastify sets differentiated `Cache-Control` headers. Hashed `assets/*` are cached as immutable. `index.html`, the service worker files and the web manifest use `no-cache`. Other static files are cached for one day. The PWA service worker auto-updates. The rules, rationale and consequences are in [ADR-013](../decisions/ADR-013-http-cache-strategy.md). The implementation is in `packages/api/src/index.ts`.
 
 ## Local Development
 
@@ -71,6 +66,10 @@ pnpm dev
 # Start the API server (http://localhost:3100)
 pnpm dev:api
 ```
+
+See the README Quick start for the full setup, including a local PostgreSQL via `docker compose up -d db`.
+
+`docker compose up -d --build` runs the production image locally: the container listens on 80, mapped to host port `APP_HOST_PORT` (default 8080).
 
 ## Environments
 
