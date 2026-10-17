@@ -1,7 +1,7 @@
 # ADR-008: Analytics Dashboard Rebuilt with Recharts and Period Comparison
 
-**Date:** 2026-04-19
-**Status:** Accepted
+- **Status:** Accepted
+- **Date:** 2026-04-19
 
 ## Context
 
@@ -29,17 +29,17 @@ Option B — rebuild with Recharts.
 
 The rebuild introduces a controlled, lightweight dependency (Recharts in `packages/app`) and no new runtime services. The design stays within the existing admin SPA and requires only two new API endpoints. The legacy endpoints are preserved so any external tooling or scripts consuming them continue to work.
 
-## Architecture
+## Implementation
 
 ### New API endpoints (in `packages/api/src/routes/admin/analytics.ts`)
 
 | Endpoint | Description |
 |---|---|
-| `GET /admin/analytics/overview?period=day\|week\|month[&site=slug][&startDate=YYYY-MM-DD]` | Returns current-period and previous-period aggregates for views and clicks, plus per-day breakdowns for both periods. Optional `site` param scopes results to a single site. Optional `startDate` uses a custom date range instead of the period preset (see Amendment — 2026-05-04). |
-| `GET /admin/analytics/sites-comparison?period=day\|week\|month[&startDate=YYYY-MM-DD]` | Returns per-site visit and click totals for the selected period for multi-site comparison. Optional `startDate` uses a custom date range. |
-| `GET /admin/analytics/items[?site=slug]` | Returns content items ranked by total link clicks. Optional `site` param scopes to a single site. |
-| `GET /admin/analytics/items/:itemId/daily[?site=slug]` | Returns daily click counts for a specific item over the last 90 days. Optional `site` param scopes to a single site. |
-| `GET /admin/analytics/items/:itemId/export[?site=slug]` | Returns all historical `link_click` events for a specific item as a downloadable CSV. Optional `site` param scopes to a single site (see Amendment — 2026-05-03). |
+| `GET /api/admin/analytics/overview?period=day\|week\|month[&site=slug][&startDate=YYYY-MM-DD]` | Returns current-period and previous-period aggregates for views and clicks, plus per-day breakdowns for both periods. Optional `site` param scopes results to a single site. Optional `startDate` uses a custom date range instead of the period preset (see Amendment — 2026-05-04). |
+| `GET /api/admin/analytics/sites-comparison?period=day\|week\|month[&startDate=YYYY-MM-DD]` | Returns per-site visit and click totals for the selected period for multi-site comparison. Optional `startDate` uses a custom date range. |
+| `GET /api/admin/analytics/items[?site=slug]` | Returns content items ranked by total link clicks. Optional `site` param scopes to a single site. |
+| `GET /api/admin/analytics/items/:itemId/daily[?site=slug]` | Returns daily click counts for a specific item over the last 90 days. Optional `site` param scopes to a single site. |
+| `GET /api/admin/analytics/items/:itemId/export[?site=slug]` | Returns all historical `link_click` events for a specific item as a downloadable CSV. Optional `site` param scopes to a single site (see Amendment — 2026-05-03). |
 
 Legacy endpoints (`/lifetime`, `/daily`) are preserved unchanged. `/items` was already listed above — it now additionally accepts the `site` query parameter.
 
@@ -84,7 +84,7 @@ When the Clicks metric is active on the trend chart, the aggregate total in the 
 
 ### Decision
 
-Extend the `GET /admin/analytics/overview` response with per-link click breakdown data attached to each current-period bucket, and render it in the `TrendChart` tooltip when the clicks metric is active.
+Extend the `GET /api/admin/analytics/overview` response with per-link click breakdown data attached to each current-period bucket, and render it in the `TrendChart` tooltip when the clicks metric is active.
 
 ### Implementation details
 
@@ -97,7 +97,7 @@ clickBreakdown?: [{ itemId, title, clicks }]  // sorted desc by clicks, capped a
 otherClicks?: number                           // residual count when > 10 links exist
 ```
 
-The `title` field is sourced from `ci.data->>'title'` (Romanian base field) because the admin UI is Romanian-only per ADR-009 rule 1. The breakdown query is not run for the previous period — previous-period tooltip lines remain plain.
+The `title` field is sourced from `ci.data->>'title'` (Romanian base field) because the admin UI is Romanian-only per ADR-014 rule 1. The breakdown query is not run for the previous period — previous-period tooltip lines remain plain.
 
 The constant `MAX_BREAKDOWN_PER_BUCKET = 10` caps the list; if more distinct links exist in a bucket, their aggregate click count is returned as `otherClicks` and displayed as "+ N alte linkuri".
 
@@ -136,7 +136,7 @@ Add a `GET /api/admin/analytics/items/:itemId/export` endpoint that returns all 
 
 **API (`packages/api/src/routes/admin/analytics.ts`)**
 
-New endpoint: `GET /admin/analytics/items/:itemId/export?site=<slug>`
+New endpoint: `GET /api/admin/analytics/items/:itemId/export?site=<slug>`
 
 - Auth: admin/super-admin Bearer token (same guard as all other admin analytics endpoints).
 - Queries `analytics_events` for all `link_click` events matching the item, optionally filtered by `site_slug` when the `site` query param is provided.
@@ -180,13 +180,13 @@ The existing period presets (Zi / Săptămână / Lună) always anchor to the cu
 
 Add a date picker control to the analytics page header. When a date is selected it becomes the start of the current-period window (from that date to today, daily granularity). The previous period window is automatically computed as the same duration of days immediately before the selected start date, preserving the current/previous period comparison. Period presets and the date picker are mutually exclusive: selecting a date deactivates all preset buttons; clicking a preset clears the date.
 
-No new API route was introduced. The existing `GET /admin/analytics/overview` and `GET /admin/analytics/sites-comparison` endpoints were extended with an optional `startDate` query parameter.
+No new API route was introduced. The existing `GET /api/admin/analytics/overview` and `GET /api/admin/analytics/sites-comparison` endpoints were extended with an optional `startDate` query parameter.
 
 ### Implementation details
 
 **API (`packages/api/src/routes/admin/analytics.ts`)**
 
-Both `/admin/analytics/overview` and `/admin/analytics/sites-comparison` accept an optional `startDate` query parameter (ISO date string, `YYYY-MM-DD`).
+Both `/api/admin/analytics/overview` and `/api/admin/analytics/sites-comparison` accept an optional `startDate` query parameter (ISO date string, `YYYY-MM-DD`).
 
 When `startDate` is provided:
 - Current period: from `startDate` to today (inclusive), daily granularity.

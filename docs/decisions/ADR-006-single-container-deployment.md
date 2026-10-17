@@ -1,10 +1,8 @@
 # ADR-006: Single-container deployment — Fastify serves frontend, media, and API
 
-## Status
-Accepted
-
-## Date
-2026-04-06
+- **Status:** Accepted
+- **Date:** 2026-04-06
+- **Supersedes:** the two-container model (`Dockerfile.frontend` + `Dockerfile.api`)
 
 ## Context
 
@@ -47,9 +45,9 @@ The `Dockerfile` was updated to a multi-stage build that:
 ## Consequences
 
 - **One CapRover app** instead of two — simpler provisioning, monitoring, and rollback.
-- **No nginx at runtime** — `nginx/nginx.conf` remains in the repository as a reference artifact but is not used in production. Routing logic formerly in nginx (SPA fallback, `/api` proxy) is now handled by Fastify directly.
-- **CORS is same-origin in production** — frontend and API are served from the same origin. CORS remains enabled in the Fastify config for local development compatibility, but the restriction is relaxed to the app's own public URL.
-- **Development workflow unchanged** — Vite dev server still proxies `/api` to `localhost:3100`. This works correctly because all API routes are registered under the `/api` prefix.
+- **No nginx at runtime** — the former `nginx/nginx.conf` reference file has since been removed from the repository. CapRover's own nginx still sits in front of the container as a TLS-terminating reverse proxy. Routing logic formerly in nginx (SPA fallback, `/api` proxy) is now handled by Fastify directly.
+- **CORS is not needed in production** — frontend and API are served from the same origin, so the browser never makes cross-origin API calls. `@fastify/cors` is nevertheless still registered with `{ origin: true }` (`packages/api/src/index.ts`), which reflects **any** request origin in `Access-Control-Allow-Origin`. It is not restricted to the app's own public URL (an earlier version of this ADR claimed it was). Because admin auth uses a bearer token in the `Authorization` header rather than cookies, this does not by itself expose admin endpoints, but it is broader than necessary; see `docs/architecture/security.md`.
+- **Development workflow unchanged** — Vite dev server still proxies `/api` to `localhost:3100` (the API's local default port; in the container the API listens on port 80, set by `PORT=80` in the `Dockerfile`). This works correctly because all API routes are registered under the `/api` prefix.
 - **`UPLOADS_DIR` env var** — still required; controls where media files are stored on the container's filesystem. A persistent volume must be mounted at this path in CapRover to survive redeploys.
 - **Native dependency note** — `sharp` (image processing) is declared as a production dependency in `dist/package.json` and installed inside the container at build time via `npm install --omit=dev`. No manual intervention needed.
 - **Supersedes:** the two-container model described in the former `Dockerfile.frontend` / `Dockerfile.api` setup. See `docs/architecture/deployment.md` for current deployment details.

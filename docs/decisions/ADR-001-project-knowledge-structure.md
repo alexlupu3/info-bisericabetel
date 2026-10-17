@@ -1,7 +1,7 @@
 # ADR-001: Project Knowledge Structure
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-03-14
 
 ## Context
 The repository needs a durable way to store product context, domain knowledge, technical constraints, and implementation decisions so both humans and AI agents can reference the same source of truth.

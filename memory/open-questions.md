@@ -1,50 +1,35 @@
 # Open Questions
 
-Track unresolved questions that block product or technical decisions.
+Purpose: track unresolved questions that block product or technical decisions, plus known leftovers awaiting cleanup. Resolved questions are removed once their answer is recorded in `docs/` (the resolution notes below point to where).
 
 ## Questions
-- Question: If a future content type stores images under a JSONB field name other than `imageUrl` or `thumbnail`, the media usage detection query in `GET /admin/media` and `DELETE /admin/media/:id` must be updated. Is there a plan to centralize this or enforce a naming convention?
+- Question: If a future content type stores images under a JSONB field name other than `imageUrl` or `thumbnail`, the media usage detection query in `GET /api/admin/media` and `DELETE /api/admin/media/:id` must be updated. Is there a plan to centralize this or enforce a naming convention?
   Owner: repository owner
   Status: OPEN
   Context: Current usage detection scans `data->>'imageUrl'` (Poster) and `data->>'thumbnail'` (Card). Any new image-bearing content type that deviates from these names will appear as "not in use" even when actively referenced, making it deletable and causing broken images. See ADR-003.
 
-- Question: Should the `/groups` route in the admin tool be removed or repurposed now that it is no longer linked in the navigation?
+- Question: Group site scoping (BR-005) is documented but not enforced by `GET /api/content` (FR-008). Build the server-side filter, or drop group `sites` from the admin and the domain model?
   Owner: repository owner
   Status: OPEN
-  Context: The "Grupuri" nav link was removed as part of consolidating group management into the Content page (ADR-002). The route still exists in the router but is unreachable through normal navigation. Options: (a) remove the route entirely, (b) redirect it to /content, (c) repurpose it later for group-level analytics or bulk operations.
+  Context: group `sites` are stored and editable in the admin (FR-026) and shown as a hint on the group header, so admins may believe the scope is applied. See `docs/domain/content-model.md` → "Compound Site Scope".
 
-
-- Question: What are the exact church sites that need to be represented in the product?
+- Question: Should the remote `/mcp` endpoint be brought to parity with the REST path, or should the shared rules be extracted so both surfaces use one implementation?
   Owner: repository owner
-  Status: RESOLVED
-  Answer: currently 4 sites; exact names/identifiers to be entered by admin, not hardcoded. System must support dynamic site creation.
+  Status: OPEN
+  Context: remote `create_card` skips the group chronological re-sort (FR-046 / BR-013) and relies on its own schema instead of the REST required-field check; `/mcp` also has no rate limit and uses one shared, non-expiring secret. Options are listed in ADR-015 → Consequences → "Follow-up options" and depend partly on the planned API key layer (roadmap Phase 2).
 
-- Question: Should QR codes and direct links open a generic home view, a site-specific view, or both depending on the link?
+- Question: Which of the known security gaps should be fixed before more admins are onboarded?
   Owner: repository owner
-  Status: RESOLVED
-  Answer: each site has its own QR code/direct link that opens a pre-filtered site view; users can switch to an all-sites view from there. URL design must support per-site deep links.
+  Status: OPEN
+  Context: no rate limit on `POST /api/auth/login` and `POST /api/setup`; `mustChangePassword` enforced only in the SPA (FR-021); audit coverage gaps against FR-023 (group create/update/reorder, content reordering, admin user create/delete, site edits, short-link create/delete, admin-UI media upload/delete). Details and mitigations: `docs/architecture/security.md` → "Known risks".
 
-- Question: Who will maintain events, announcements, and bookmarked links?
-  Owner: repository owner
-  Status: RESOLVED
-  Answer: multiple admin accounts, each with their own login. A super-admin manages admin accounts and sites. Regular admins can edit any content on any site. All changes are audit-logged.
+## Known Leftovers
+- Orphaned `/admin/groups` route: `packages/app/src/admin/AdminApp.tsx` still registers `groups` → `GroupsPage` (`packages/app/src/admin/pages/GroupsPage.tsx`), although group management moved to the Content page (ADR-002) and the route is not linked from the navigation. Decision: remove the route and `GroupsPage`. Status: TO DO (not an open question any more).
+- Archived-item filter (FR-016) and site creation (FR-019) are specified but not implemented; see `docs/product/requirements.md`.
+- Vite dev proxy forwards only `/api`, so `/uploads/*` and `/s/:code` do not work on `:5173` (`packages/app/vite.config.ts`; see `docs/architecture/overview.md` → "Development and Testing"). Extending the proxy to those prefixes is a small, unscheduled improvement.
 
-- Question (C-1): How is site-scope set for groups — only at creation, or can it be edited post-creation?
-  Owner: repository owner
-  Status: RESOLVED — 2026-03-17
-  Answer: Both. Site-scope checkboxes are included in the "+ Grup nou" creation form. Groups also expose an "Editează" expand-panel on the header row in the Content page, pre-filled with current title and site assignments, allowing post-creation editing. Saving issues PATCH /admin/groups/:id.
-
-- Question (C-2): Where does the list of available sites come from in the admin UI — hardcoded or fetched from the API?
-  Owner: repository owner
-  Status: RESOLVED — 2026-03-17
-  Answer: Fetched from the API. GET /api/sites is called once when ContentPage mounts and cached via react-query (key: `['sites']`). The `SITES` hardcoded constant was removed. The `availableSites` array is threaded as a prop to CreateGroupForm, SortableGroupBlock (edit panel), and ContentForm.
-
-- Question (C-3): When a group has a site scope, how does that interact with item-level site scopes within the group?
-  Owner: repository owner
-  Status: RESOLVED — 2026-03-17
-  Answer: Group scope takes full precedence. If a group is scoped to specific sites, the entire group container (header + all items) is hidden for excluded sites, regardless of individual item site assignments. This is now documented as BR-005 in business-rules.md and in content-model.md under "Compound Site Scope".
-
-- Question (C-4): Should the group header visually indicate which sites a group is scoped to?
-  Owner: repository owner
-  Status: RESOLVED — 2026-03-17
-  Answer: Yes. Assigned sites are displayed as a text hint in the group header row whenever sites are set, giving admins immediate visibility of a group's scope without opening the edit panel.
+## Resolved (answers recorded in docs)
+- Exact church sites — dynamic, admin-managed, seeded by migration (see `docs/domain/entities.md` → Site).
+- QR codes / direct links — per-site deep links `/<siteSlug>` with an all-sites switch (FR-003, FR-004).
+- Content ownership — multiple admins plus a super-admin; content changes audit-logged, with known gaps listed in FR-023 (Roles in `docs/product/requirements.md`, FR-023).
+- Group site scope at creation and post-creation (C-1), sites fetched from `GET /api/sites` (C-2), group scope precedence (C-3 → BR-005), group header site hint (C-4) — see FR-026 and `docs/domain/content-model.md`.

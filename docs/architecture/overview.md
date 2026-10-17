@@ -1,53 +1,81 @@
 # Architecture Overview
 
+For the package-by-package code map, commands and conventions see [`AGENTS.md`](../../AGENTS.md). This page describes the runtime architecture and the principles behind it.
+
 ## System Summary
-- Main application type: mobile-first church information hub (PWA) with an admin tool
-- Primary users: church members accessing content from QR codes or direct links
+- Main application type: mobile-first church information hub (PWA) with an admin tool.
+- Primary users: church members arriving from QR codes, short links or direct links; a small team of admins and super-admins.
 - Core subsystems:
-  - Public PWA: single-page content hub with per-site filtering and site switching
-  - Admin tool: content management, site management, user management, analytics dashboard
-  - Backend API: serves content to the PWA and receives admin operations
-  - Database: stores all content, site configuration, admin accounts, audit logs, analytics events
+  - **Public hub** (`/`, `/:siteSlug`): single-page content hub with per-site filtering, site switching and multiple display languages. No authentication.
+  - **Admin tool** (`/admin/*`): content, groups, media, short links, sites, users, translations, analytics, audit and error logs. Romanian-only UI.
+  - **Backend API** (`/api/*`): Fastify 5 + Drizzle ORM on PostgreSQL. Serves the hub and the admin tool.
+  - **Two MCP surfaces** for AI agents (see `integrations.md`):
+    - `packages/mcp`: a local stdio server that calls the REST API ([ADR-012](../decisions/ADR-012-mcp-server.md)).
+    - `/mcp`: a remote Streamable HTTP endpoint inside the API process that accesses the database directly ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)).
+  - **Database:** PostgreSQL holds all content, site configuration, languages and translations, admin accounts, audit log, analytics events, short links and frontend error logs.
+
+## Runtime Topology
+
+```
+CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PORT=80)
+                           ├─ /api/*        REST API
+                           ├─ /mcp          remote MCP (only when MCP_SECRET is set)
+                           ├─ /s/:code      short-link redirect
+                           ├─ /uploads/*    uploaded media from the UPLOADS_DIR volume
+                           ├─ /health       health check
+                           └─ everything else → built SPA (dist/public), index.html fallback
+                         ──► PostgreSQL (separate CapRover app / compose service)
+```
+
+- One container, one process ([ADR-006](../decisions/ADR-006-single-container-deployment.md)). There is no nginx inside the container. CapRover's reverse proxy terminates TLS in front of it.
+- Inside the container the API listens on port 80 (`PORT=80` in the `Dockerfile`). Locally the API defaults to port 3100. `docker compose` maps host `${APP_HOST_PORT:-8080}` to container port 80.
+- Migrations in `packages/api/src/db/migrations/` are applied automatically at API startup.
+- Optional outbound calls: OpenRouter for AI translation (server side) and Google Fonts (browser side). See `integrations.md`.
+- Environment variables are documented in [configuration.md](configuration.md). Deployment steps are in [deployment.md](deployment.md).
 
 ## Guiding Architectural Principles
 - **No vendor lock-in:** the system must not depend on any specific cloud provider, managed service, or proprietary runtime. It must run on a standard VPS or any comparable Linux host.
-- **Database portability:** use an ORM or connector layer that supports multiple relational databases (PostgreSQL, MySQL, etc.). Schema is defined in code; switching engines should require only configuration changes.
+- **PostgreSQL only:** the database is PostgreSQL, and its specific features (JSONB, partial indexes, advisory locks, time-zone arithmetic) are used deliberately. Database portability is no longer a goal ([ADR-016](../decisions/ADR-016-postgresql-only.md)).
 - **Maintainability first:** structure the codebase so that upgrading dependencies, adding new content types, or adding new features does not require refactoring the entire application.
 - **Extensibility:** new content types and new admin features must be addable in isolation without touching unrelated parts of the system.
 
-## Hosting Direction
-- Target: VPS running CapRover. Production is a single Docker container; CapRover manages TLS and its reverse proxy in front of the container.
-- Must remain self-hostable without proprietary cloud dependencies. See `deployment.md` for environment-specific details.
-
 ## Frontend
-- **Unified package (`packages/app`):** a single React application serving both the public PWA and the admin tool. The public hub is a PWA (Progressive Web App) — installable on mobile, fast loading, optimized for QR code / direct link entry. No authentication required. The admin tool is reached at `/admin/*` and is lazy-loaded via `React.lazy` so public users never download admin JS.
-- **Code splitting:** `packages/app` is built as a single Vite project but produces a separate lazy chunk for `AdminApp`. This replaces the former constraint requiring separate build artifacts — bundle isolation is now enforced at runtime via dynamic import rather than at the package level. See ADR-005.
-- **Admin theme scoping:** admin routes are wrapped in a `<div className="admin-theme">` which sets admin-specific CSS custom properties (dark theme, orange accent) independently of the public PWA design token system. This prevents style leakage between the two surfaces.
-- **PWA service worker:** `navigateFallbackDenylist: [/^\/admin/]` is preserved in the Vite PWA plugin config so the service worker does not intercept admin routes and PWA installability is unaffected.
-- **Style guide skill:** a `frontend-design` Claude Code skill is present in the project and contains the church's style guide. It must be used when building any public-facing UI to ensure brand consistency.
+- **Unified package (`packages/app`):** a single React + Vite application serving both the public hub and the admin tool. The public hub is an installable PWA, optimized for QR code and direct-link entry. The admin tool lives at `/admin/*` and is lazy-loaded via `React.lazy`, so public users never download admin JS ([ADR-005](../decisions/ADR-005-merge-pwa-admin-into-app.md)).
+- **Admin theme scoping:** admin routes are wrapped in `<div className="admin-theme">`, which sets admin-specific CSS custom properties independently of the public design tokens.
+- **PWA service worker:** `registerType: 'autoUpdate'`. Admin routes and short links (`/s/*`) are excluded from the navigation fallback. Caching headers are described in [ADR-013](../decisions/ADR-013-http-cache-strategy.md).
+- **i18n:** public UI strings and content translations are served by the API. The locale preference is stored in `localStorage` and URLs are not localized ([ADR-014](../decisions/ADR-014-i18n-strategy.md)).
+- **Style guide:** the `frontend-design` skill (`.agents/skills/frontend-design/`) contains the church's style guide and must be used for any UI work in `packages/app` (public hub and admin).
 
 ## Backend
-- Fastify (Node.js). In production, the Fastify process is the only runtime: it serves the frontend SPA from `dist/public/`, uploaded media from the `UPLOADS_DIR` volume, and all API routes under the `/api` prefix. The short-link redirect route (`GET /s/:code`) is registered before the SPA static-serving handler so that short link codes are not intercepted by the SPA fallback. A `setNotFoundHandler` SPA fallback returns `index.html` for all other unmatched non-`/api` routes. No nginx layer at runtime.
-- Must be portable and integrate cleanly with a relational database via an ORM/connector layer.
+- Fastify 5 (Node.js), bundled with esbuild. In production the Fastify process is the only runtime. All REST routes are registered under the `/api` prefix. The short-link route (`GET /s/:code`) is registered before the SPA static handler so codes are not swallowed by the SPA fallback. A `setNotFoundHandler` returns `index.html` (with `Cache-Control: no-cache`) for unmatched non-`/api` paths and a JSON 404 for unmatched `/api` paths.
+- Drizzle ORM over `postgres` (postgres-js). Raw SQL through Drizzle's `sql` tag is used where needed.
+- Background work (AI translation) runs in-process as fire-and-forget `setImmediate` jobs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)). There is no queue.
 
 ## Database
-- Relational database via schema-driven ORM or connector (PostgreSQL or MySQL preferred, others supported).
-- Schema defined in code; migrations managed explicitly.
-- A `media` table tracks all uploaded image files (id, url, filename, original_name, size, mime_type, created_at). It is the authoritative record of uploads; usage detection is done by querying JSONB fields on `content_items` rather than via foreign keys (see ADR-003).
-- An `analytics_events` table records all site visit and link click events (id, event_type, site_slug, item_id, url, occurred_at). Indexed on `(event_type, occurred_at)` and `(site_slug, occurred_at)` for efficient aggregation queries, and a partial index on `(item_id, occurred_at)` (migration `0006_analytics_item_idx.sql`) for per-item daily-clicks queries. Events are written asynchronously — the ingest endpoint responds 204 immediately. `item_id` is a soft reference (no FK) — analytics events survive content item deletion.
-- Migration `0007_soft_delete.sql` adds a partial index on `content_items` where `state = 'deleted'` for efficient Archive page queries. The `state` column on `content_items` supports four values: `draft`, `published`, `archived`, `deleted`.
-- Migration `0008_exclusive_site.sql` adds a nullable `exclusive_site TEXT REFERENCES sites(slug)` column on `content_items`, plus a partial index on `(exclusive_site) WHERE exclusive_site IS NOT NULL` for efficient site-specific queries. When set, the value gates the item to that site only — the item is hidden from the all-sites API response. See ADR-009.
-- Migration `0009_i18n.sql` adds four tables for internationalization: `languages` (supported locales, seeded with Romanian default and English), `ui_translations` (translated public UI strings keyed by locale and dot-notation key), `content_translations` (per-field translated text for content items), and `group_translations` (translated group names). When the requested locale is the default (`ro`), no translation join is performed — zero query overhead for Romanian users.
-- Migration `0010_short_links.sql` adds the `short_links` table (`id` UUID PK, `content_item_id` FK → `content_items` with ON DELETE CASCADE, `code` TEXT UNIQUE, `label` TEXT, `site_slug` TEXT nullable, `created_at`) and a nullable `short_link_id UUID` column on `analytics_events`. `short_link_id` is a soft reference (no FK constraint) — analytics events are preserved even when a short link is later deleted. The `short_links` table uses a cascade-delete FK so that permanently hard-deleting a content item removes its short links.
-- An `error_logs` table records frontend errors captured by the React ErrorBoundary (`id` UUID PK, `message` TEXT NOT NULL, `stack` TEXT, `url` TEXT, `site_slug` TEXT nullable, `device` JSONB default `{}`, `occurred_at` TIMESTAMPTZ). Errors are ingested via the public `POST /api/errors` endpoint (no auth, rate-limited to 20/min per IP; responds 204 immediately and inserts asynchronously). Records are indexed on `occurred_at` and on `(site_slug, occurred_at)`. The table is append-only — records are never deleted or updated. Viewed via `GET /api/admin/error-logs` (super-admin only, supports `limit`/`offset` pagination up to 200 and optional `site` filter).
+- PostgreSQL. The schema is defined in `packages/api/src/db/schema.ts`. Migrations are hand-written SQL files applied in order by `db/migrate.ts` and tracked in a `_migrations` table.
+- Notable design choices (details live in the ADRs and in `docs/domain/`):
+  - Content type-specific fields live in a JSONB `data` column. Per-site link overrides are in `data.siteLinks` ([ADR-007](../decisions/ADR-007-per-site-link-overrides-client-side-resolution.md)).
+  - The `media` table is the authoritative record of uploads. Usage is detected by scanning JSONB fields on `content_items` and `content_translations` rather than through foreign keys ([ADR-003](../decisions/ADR-003-image-library-management.md)).
+  - `content_items.exclusive_site` gates an item to one site ([ADR-009](../decisions/ADR-009-site-exclusive-content-dedicated-column.md)). `state` takes the values `draft`, `published`, `archived` or `deleted` (soft delete).
+  - `languages`, `ui_translations`, `content_translations` and `group_translations` hold i18n data. No translation join is performed for the default locale (`ro`).
+  - `short_links` reference a content item and resolve the destination at redirect time ([ADR-011](../decisions/ADR-011-short-link-dynamic-url-resolution.md)).
+  - `analytics_events` and `error_logs` are append-only. `analytics_events.item_id` is a soft reference (no foreign key), and `short_link_id` has an `ON DELETE SET NULL` foreign key, so events survive deletion of the item or short link. Both ingest endpoints (`POST /api/events`, `POST /api/errors`) respond 204 immediately and are rate-limited per IP.
+  - `audit_log` records admin writes (see `security.md` for coverage).
 
 ## File Storage
-- Uploaded images are written to a local `uploads/` directory on the server.
-- Image URLs are immutable after upload — changing a URL would silently break all `content_items` that reference it.
-- Files without a corresponding `media` row are orphans (possible only in the narrow window between a successful disk write and a failed DB insert).
+- Uploaded images are re-encoded to WebP and written to `UPLOADS_DIR`, which must be a persistent volume in production. Fastify serves them at `/uploads/*`.
+- Image URLs are immutable after upload. Changing a URL would silently break every item that references it.
+- Files without a corresponding `media` row are orphans. This is possible only in the narrow window between a successful disk write and a failed DB insert.
+
+## Development and Testing
+- `pnpm dev` runs the Vite dev server on `:5173`; `pnpm dev:api` runs the API on `:3100`. The Vite proxy forwards **only** `/api`, so `/uploads/*` (images) and `/s/:code` (short links) do not work on `:5173`. Open them on the API port, or run the production build, to test those paths.
+- E2E tests use Cypress (`cypress/e2e/`). Every spec stubs the API with `cy.intercept`, so the suite exercises the frontend against fixtures and does not cover the API or database.
+- There is no CI pipeline in the repository. Lint, type-check and tests are run locally before merging.
 
 ## Key Risks
-- Risk: unclear distinction between site-specific and church-wide content could confuse users
-- Risk: QR-code and direct-link entry points require careful routing and default filter behavior
-- Risk: Sunday morning traffic spikes (thousands of users) require the stack to handle concurrency well without expensive infrastructure
-- Risk: extensible content type system must be designed upfront to avoid structural rewrites when new types are added
+- Unclear distinction between site-specific and church-wide content could confuse users.
+- QR-code and direct-link entry points require careful routing and default filter behavior.
+- Sunday morning traffic spikes (thousands of users) require the stack to handle concurrency well without expensive infrastructure.
+- The extensible content type system must stay generic to avoid structural rewrites when new types are added.
+- Two MCP implementations duplicate business rules and can drift apart ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)).
+- Security gaps tracked in `security.md`: permissive CORS, no login rate limiting, and incomplete audit coverage.

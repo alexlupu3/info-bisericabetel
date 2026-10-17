@@ -24,13 +24,17 @@ import { adminErrorLogsRoutes } from './routes/admin/error-logs.js'
 import { shortLinkRedirectRoute, adminShortLinksRoutes } from './routes/short-links.js'
 import { mcpRoutes } from './routes/mcp.js'
 import { runMigrations } from './db/migrate.js'
+// Root package.json carries the release version (bumped by `pnpm release`).
+// esbuild inlines this JSON into the bundle, so it also works in the Docker image.
+import rootPkg from '../../../package.json' with { type: 'json' }
 
-const PORT = Number(process.env.PORT ?? 3100)
-const HOST = process.env.HOST ?? '0.0.0.0'
+// `||` (not `??`) so that empty values from a copied env file fall back to defaults.
+const PORT = Number(process.env.PORT || 3100)
+const HOST = process.env.HOST || '0.0.0.0'
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required')
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? path.join(process.cwd(), '..', 'uploads')
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), '..', 'uploads')
 const PUBLIC_DIR = path.join(__dirname, 'public')
 
 async function start() {
@@ -88,7 +92,7 @@ async function start() {
 
   app.get('/health', async () => ({
     status: 'ok',
-    version: '1.0.0',
+    version: rootPkg.version,
     timestamp: new Date().toISOString(),
   }))
 

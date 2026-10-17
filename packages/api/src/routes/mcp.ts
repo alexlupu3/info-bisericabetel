@@ -12,7 +12,7 @@ import { contentItems, groups, sites, media } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), '..', 'uploads')
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_WIDTH = 1980
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 

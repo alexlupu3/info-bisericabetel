@@ -1,15 +1,10 @@
----
-status: Accepted
-date: 2026-04-20
----
-
 # ADR-010: AI Auto-Translation via Fire-and-Forget Background Job
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-04-20
 
 ## Context
-The i18n strategy (ADR-009) established that content and group translations are stored in `content_translations` / `group_translations` and are served via a `?locale=` join on public API endpoints. Under that model, super-admins are responsible for providing translations through the admin UI.
+The i18n strategy ([ADR-014](ADR-014-i18n-strategy.md)) established that content and group translations are stored in `content_translations` / `group_translations` and are served via a `?locale=` join on public API endpoints. Under that model, super-admins are responsible for providing translations through the admin UI.
 
 In practice, manually entering translations for every new or updated content item and group is tedious and error-prone for a small admin team. The ask was to automate first-pass translation so that new content is immediately available in all enabled languages without admin effort, with the expectation that admins can still override any AI-generated translation through the existing translation UI.
 
@@ -43,7 +38,7 @@ Implementation is in `packages/api/src/services/ai-translation.ts`:
 - `scheduleGroupTranslation(groupId, title)` — called after `POST /api/admin/groups` and `PATCH /api/admin/groups/:id` when `title` is in the update.
 - Both functions use `setImmediate` to defer execution past the current event loop tick (after the HTTP response has been sent).
 - The OpenRouter API key is read from `process.env.OPEN_ROUTER_API_KEY`; if the key is absent the function logs a warning and returns immediately.
-- `anthropic/claude-haiku-4-5` via OpenRouter is used for its speed and low cost. Translation is performed via a standard OpenAI-compatible `/chat/completions` call using native `fetch`.
+- `anthropic/claude-haiku-4.5` via OpenRouter is used for its speed and low cost. Translation is performed via a standard OpenAI-compatible `/chat/completions` call using native `fetch`.
 - Translations are upserted — a subsequent save with changed content will overwrite the previous AI translation for that locale.
 
 ## Consequences

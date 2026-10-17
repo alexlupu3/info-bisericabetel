@@ -7,8 +7,8 @@ import { db } from '../../db/client.js'
 import { media, contentItems, contentTranslations } from '../../db/schema.js'
 import { eq, sql } from 'drizzle-orm'
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), '..', 'uploads')
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024 // 5 MB — matches Nginx client_max_body_size
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024 // 5 MB — enforced by Fastify (bodyLimit + multipart fileSize). A reverse proxy in front (e.g. CapRover's nginx) must allow at least this much.
 const MAX_WIDTH = 1980
 
 function adminOnly(req: any, reply: any, done: any) {

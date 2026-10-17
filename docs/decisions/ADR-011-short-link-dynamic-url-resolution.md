@@ -1,12 +1,7 @@
----
-status: Accepted
-date: 2026-05-06
----
-
 # ADR-011: Short Link URL Resolved Dynamically at Redirect Time
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-05-06
 
 ## Context
 

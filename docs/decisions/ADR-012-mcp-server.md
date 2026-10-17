@@ -1,12 +1,9 @@
----
-status: Accepted
-date: 2026-05-13
----
-
 # ADR-012: MCP Server via HTTP API with JWT Authentication
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-05-13
+- **Related:** [ADR-015](ADR-015-remote-mcp-endpoint.md) — a second, remote MCP surface (`/mcp` in `packages/api`) that does **not** follow this ADR's data-access decision
+- **Implements:** FR-048
 
 ## Context
 
@@ -67,7 +64,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 
 | Variable        | Default                          | Purpose                              |
 |-----------------|----------------------------------|--------------------------------------|
-| `BETEL_API_URL` | `http://localhost:3000/api`      | Base URL of the admin REST API       |
+| `BETEL_API_URL` | `http://localhost:3100/api`      | Base URL of the admin REST API       |
 | `BETEL_EMAIL`   | —                                | Admin account email for JWT login    |
 | `BETEL_PASSWORD`| —                                | Admin account password for JWT login |
 
@@ -87,7 +84,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 **Token refresh strategy:** the JWT is cached in the module-level `cachedToken` variable. On startup it is `null`; the first API call triggers `login()`. If any subsequent request returns HTTP 401, `login()` is called again before retrying once. This handles the 8-hour JWT expiry transparently for long-running MCP sessions.
 
 **`create_card` and `update_card` data fields** operate on the `data` JSONB column of the `content_items` table:
-`title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta`. Top-level fields `sites[]`, `exclusiveSite`, and `groupId` are also accepted.
+`title`, `description`, `thumbnail`, `startDate`, `endDate`, `link`, `cta`. Top-level fields `sites[]` and `exclusiveSite` are also accepted; `groupId` is accepted by `create_card` only.
 
 ## Consequences
 
@@ -99,4 +96,8 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 - **Media upload unblocks poster creation**: the `upload_media` tool (added 2026-05-14) allows an AI agent to upload an image from base64-encoded data and receive back a media URL, which can be passed directly as the `thumbnail` field in `create_card` or `update_card`. This lays the groundwork for future poster creation tooling once the Poster content type is exposed.
 - **Dependency**: the MCP server requires the API process (`packages/api`) to be running and reachable at `BETEL_API_URL`.
 
-See [integrations.md](../architecture/integrations.md) for the full environment variable table and deployment notes.
+## Note: remote MCP endpoint (added later)
+
+On 2026-05-13 a second MCP surface was added inside the API process: the Streamable HTTP endpoint at `/mcp` (`packages/api/src/routes/mcp.ts`), authenticated with a shared `MCP_SECRET` bearer token and intended for remote clients such as the Claude iOS app. It exposes the same eight tool names but, unlike the stdio server described here, it reads and writes the database directly through Drizzle. It therefore does not inherit the guarantees this ADR relied on (single place for business rules, audit entries attributed to a real admin account); it re-implements them instead. See [ADR-015](ADR-015-remote-mcp-endpoint.md) for that decision and its risks.
+
+See [integrations.md](../architecture/integrations.md) for deployment notes and [configuration.md](../architecture/configuration.md) for the environment variable reference.

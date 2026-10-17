@@ -1,12 +1,7 @@
----
-status: Accepted
-date: 2026-05-16
----
-
 # ADR-013: HTTP Caching Strategy for the SPA Frontend
 
-## Status
-Accepted
+- **Status:** Accepted
+- **Date:** 2026-05-16
 
 ## Context
 
