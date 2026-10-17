@@ -62,13 +62,22 @@ describe('Admin — media library', () => {
   })
 
   it('deletes an unused image and refreshes the list', () => {
-    cy.intercept('GET',    '/api/admin/media', { media: [mockMediaItem] })
-    cy.intercept('DELETE', `/api/admin/media/${mockMediaItem.id}`, { statusCode: 204 }).as('delete')
-    cy.intercept('GET',    '/api/admin/media', { media: [] }).as('refreshed')
+    // Stateful mock: Cypress matches the most recently registered intercept first,
+    // so two static GET stubs would serve the empty list on the initial load too.
+    let deleted = false
+    cy.intercept('GET', '/api/admin/media', req => {
+      req.reply({ media: deleted ? [] : [mockMediaItem] })
+    }).as('media')
+    cy.intercept('DELETE', `/api/admin/media/${mockMediaItem.id}`, req => {
+      deleted = true
+      req.reply({ statusCode: 204 })
+    }).as('delete')
 
     cy.visit('/admin/media')
+    cy.get('[data-testid="media-card"]').should('have.length', 1)
     cy.get('[data-testid="delete-media-btn"]').click()
     cy.wait('@delete')
+    cy.wait('@media')
     cy.get('[data-testid="media-card"]').should('not.exist')
   })
 })
