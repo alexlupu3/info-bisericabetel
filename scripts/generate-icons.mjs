@@ -1,14 +1,27 @@
 /**
- * Generates minimal placeholder PWA icons (192x192 and 512x512).
- * Run once: node scripts/generate-icons.mjs
- * Replace with real brand icons before launch.
+ * Generates minimal placeholder PWA icons (192x192 and 512x512) into
+ * packages/app/public/icons/.
+ *
+ * WARNING: this OVERWRITES icon-192.png and icon-512.png in that folder.
+ * The committed icons are the real ones; only use this script to bootstrap
+ * placeholders (e.g. in a fork) or after backing the current icons up.
+ *
+ * `canvas` is intentionally NOT a project dependency (it pulls native
+ * binaries). Add it temporarily, run the script, then remove it again and
+ * do not commit the package.json / pnpm-lock.yaml changes:
+ *
+ *   pnpm add -Dw canvas
+ *   node scripts/generate-icons.mjs
+ *   pnpm remove -w canvas
+ *
+ * Requires Node >= 20.11 (uses import.meta.dirname).
  */
 import { createCanvas } from 'canvas'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 
 const SIZES = [192, 512]
-const OUT_DIR = join(import.meta.dirname, '../packages/pwa/public/icons')
+const OUT_DIR = join(import.meta.dirname, '../packages/app/public/icons')
 
 mkdirSync(OUT_DIR, { recursive: true })
 
