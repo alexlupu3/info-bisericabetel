@@ -222,3 +222,7 @@ When `startDate` is provided:
 **Cypress (`cypress/e2e/admin-analytics.cy.ts`)**
 
 Four new tests: (1) date picker is visible in the analytics page header; (2) selecting a date triggers an API call with the `startDate` query parameter; (3) clearing the date removes the `startDate` parameter from subsequent API calls; (4) clicking a preset period button clears the custom date.
+
+## Amendment — 2026-10-25: Time zone parameter
+
+All admin analytics endpoints (`/daily`, `/overview`, `/sites-comparison`, `/items/:itemId/daily`, `/items/:itemId/export`) accept an optional `tz` query parameter (IANA name; missing means `Europe/Bucharest`; offsets such as `+02:00` return 400). Days, hours, "today", custom `startDate` ranges and the previous-period window are bucketed in that zone, and the admin client sends the browser's zone on every call. The CSV export's first column is `Timestamp (<tz>)` with wall-clock values (`YYYY-MM-DD HH:MM:SS`), and the download is named `clickuri-<itemId>-<date>.csv` (the "Content-Disposition" filename in the 2026-05-03 amendment is superseded). Day buckets are selected as `::date::text`; the earlier `Date`-to-string conversion never matched the `YYYY-MM-DD` keys, so day-bucketed charts rendered empty. See [ADR-017](ADR-017-timezone-policy.md).
