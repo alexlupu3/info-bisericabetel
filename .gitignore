@@ -2,6 +2,11 @@ node_modules/
 dist/
 .env
 .env.local
+.env.*
+!example.env
+
+# Live dumps and upload archives pulled by scripts/seed-from-live.sh
+.local/
 *.local
 cypress/videos/
 cypress/screenshots/
@@ -13,6 +18,7 @@ cypress/downloads/
 # Only explicitly whitelisted scripts are tracked.
 scripts/*
 !scripts/generate-icons.mjs
+!scripts/seed-from-live.sh
 
 # Agent memory (internal tooling state)
 .claude/agent-memory/

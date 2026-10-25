@@ -9,6 +9,12 @@
   "scripts": {
     "dev": "pnpm --filter @betel/app dev",
     "dev:api": "pnpm --filter @betel/api dev",
+    "dev:db": "docker compose up -d --wait db",
+    "seed:dev": "scripts/seed-from-live.sh dev",
+    "staging:up": "docker compose -f docker-compose.staging.yml up -d --build --wait",
+    "staging:down": "docker compose -f docker-compose.staging.yml down",
+    "staging:logs": "docker compose -f docker-compose.staging.yml logs -f app",
+    "seed:staging": "scripts/seed-from-live.sh staging",
     "build": "pnpm --filter @betel/app build",
     "build:api": "pnpm --filter @betel/api build",
     "build:all": "pnpm -r build",

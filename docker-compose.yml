@@ -1,32 +1,20 @@
-# ─── Docker Compose — info.bisericabetel ─────────────────────────────────────
+# ─── Docker Compose: local DEV database — info.bisericabetel ────────────────
 #
 # Local use only. Production runs on CapRover (see docs/architecture/deployment.md).
+# The production-like local staging stack lives in docker-compose.staging.yml.
 #
-# Database only (for `pnpm dev:api` on the host):
+# Dev runs the API and Vite natively with live reload; only PostgreSQL is here:
 #   cp example.env .env          # set JWT_SECRET, DB_PASSWORD, DATABASE_URL
-#   docker compose up -d db      # PostgreSQL on 127.0.0.1:${DB_HOST_PORT:-5432}
-#
-# Full stack in containers (production-like image):
-#   docker compose up -d --build # app on http://localhost:${APP_HOST_PORT:-8080}
-#
-# Ports: the app container listens on 80 (PORT=80, same as the Dockerfile and
-# CapRover). Only the host side of the mapping is configurable.
+#   pnpm dev:db                  # = docker compose up -d db → 127.0.0.1:${DB_HOST_PORT:-5432}
+#   pnpm seed:dev                # optional: replace the dev DB + uploads with a copy of live
+#   pnpm dev:api & pnpm dev      # API on :3100 (tsx watch), app on :5173 (Vite HMR)
 #
 # Variables read from .env (full reference: docs/architecture/configuration.md):
-#   DB_PASSWORD          required — password for the bundled `db` service
-#   JWT_SECRET           required — min 32 chars, signs admin JWTs
-#   OPEN_ROUTER_API_KEY  optional — enables AI auto-translation
-#   MCP_SECRET           optional — enables the remote /mcp endpoint
-#   PUBLIC_BASE_URL      optional here — public origin (default http://localhost:${APP_HOST_PORT:-8080})
-#   SEO_* / GOOGLE_SITE_VERIFICATION  optional — SEO identity (configuration.md)
-#   APP_HOST_PORT        optional — host port for the app (default 8080)
-#   DB_HOST_PORT         optional — host port for PostgreSQL (default 5432)
-#
-# DATABASE_URL from .env is deliberately NOT passed to the app container:
-# it points at localhost for host development. The container always uses the
-# bundled `db` service. To test against an external database, edit
-# DATABASE_URL below.
+#   DB_PASSWORD   required — password for the dev database
+#   DB_HOST_PORT  optional — host port for PostgreSQL (default 5432)
 # ─────────────────────────────────────────────────────────────────────────────
+
+name: betel-dev
 
 services:
   db:
@@ -40,50 +28,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
-    networks:
-      - internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U betel -d info_bisericabetel"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  app:
-    build:
-      context: .
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      HOST: 0.0.0.0
-      PORT: 80
-      DATABASE_URL: postgresql://betel:${DB_PASSWORD}@db:5432/info_bisericabetel
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      UPLOADS_DIR: /uploads
-      OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:-}
-      MCP_SECRET: ${MCP_SECRET:-}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${APP_HOST_PORT:-8080}}
-      SEO_ORG_NAME: ${SEO_ORG_NAME:-}
-      SEO_SITE_NAME: ${SEO_SITE_NAME:-}
-      SEO_SITE_ALTERNATE_NAMES: ${SEO_SITE_ALTERNATE_NAMES:-}
-      SEO_ORG_WEBSITE: ${SEO_ORG_WEBSITE:-}
-      SEO_ORG_SAME_AS: ${SEO_ORG_SAME_AS:-}
-      SEO_ORG_LOGO_PATH: ${SEO_ORG_LOGO_PATH:-}
-      SEO_DEFAULT_COUNTRY: ${SEO_DEFAULT_COUNTRY:-}
-      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
-    volumes:
-      - uploads:/uploads
-    ports:
-      - "${APP_HOST_PORT:-8080}:80"
-    networks:
-      - internal
-    depends_on:
-      db:
-        condition: service_healthy
-
 volumes:
   pgdata:
-  uploads:
-
-networks:
-  internal:
-    driver: bridge

@@ -77,22 +77,21 @@ Attach the JSON reports (not committed) and the median table, with the `lighthou
 
 ## Local Development
 
-In development, Vite's dev server proxies `/api` requests to `localhost:3100`. This works correctly because all API routes are registered under the `/api` prefix in the Fastify app.
+Dev runs the API and Vite natively with live reload; only PostgreSQL runs in Docker. Vite's dev server proxies `/api`, `/uploads` and `/s/` to the API on `localhost:3100`, so images and short links work on `:5173`.
 
 ```bash
-# Start the Vite dev server (PWA + Admin at http://localhost:5173)
-pnpm dev
-
-# Start the API server (http://localhost:3100)
-pnpm dev:api
+pnpm dev:db       # dev PostgreSQL (docker-compose.yml, project betel-dev)
+pnpm seed:dev     # optional: replace the dev DB + uploads with a copy of live
+pnpm dev:api      # API on http://localhost:3100
+pnpm dev          # PWA + Admin on http://localhost:5173
 ```
 
-See the README Quick start for the full setup, including a local PostgreSQL via `docker compose up -d db`.
-
-`docker compose up -d --build` runs the production image locally: the container listens on 80, mapped to host port `APP_HOST_PORT` (default 8080).
+See the README Quick start for the full setup. Variables: [configuration.md](configuration.md).
 
 ## Environments
 
-- **Local:** developer machine — Vite dev server + Fastify running natively
-- **Staging:** not yet configured
-- **Production:** CapRover single-app deployment as described above
+- **Local dev:** native API + Vite with live reload against the dev database (`docker-compose.yml`).
+- **Local staging:** `docker-compose.staging.yml` (project `betel-staging`) runs the production `Dockerfile` image with its own PostgreSQL and uploads volume on `http://localhost:${STAGING_APP_PORT:-8080}`. `pnpm staging:up` always rebuilds. AI translation and `/mcp` are off unless the `STAGING_*` keys are set.
+- **Seeding:** `scripts/seed-from-live.sh <dev|staging>` copies live data into either local environment (live is read-only). See [configuration.md](configuration.md#seeding-from-live-scriptsseed-from-livesh).
+- **Remote staging:** not yet configured.
+- **Production:** CapRover single-app deployment as described above.
