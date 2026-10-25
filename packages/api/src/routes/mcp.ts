@@ -12,6 +12,7 @@ import { contentItems, groups, sites, media } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
 import { resortGroupChronologically } from '../services/group-order.js'
+import { isCalendarDay } from '../services/time.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_WIDTH = 1980
@@ -26,6 +27,10 @@ const thumbnailSchema = z.string().refine(
   v => v.startsWith('/uploads/') || URL.canParse(v),
   'must be a media library path (/uploads/...) or an absolute URL',
 )
+
+// Event dates are calendar days in Romania; a malformed value would otherwise
+// be stored as-is and break date filtering.
+const calendarDaySchema = z.string().refine(isCalendarDay, 'must be a calendar date in YYYY-MM-DD format')
 
 const MCP_ACTOR = 'mcp@betel'
 
@@ -152,8 +157,8 @@ function buildMcpServer(): McpServer {
       title:         z.string().describe('Card title (required)'),
       description:   z.string().optional().describe('Card body text — supports Markdown'),
       thumbnail:     thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
-      startDate:     z.string().optional().describe('Visibility start date, ISO format e.g. 2024-06-01'),
-      endDate:       z.string().optional().describe('Visibility end date, ISO format e.g. 2024-06-30'),
+      startDate:     calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
+      endDate:       calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
       link:          z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
       cta:           z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
       sites:         z.array(z.string()).optional().describe('Site slugs to show on; omit or pass [] for all sites'),
@@ -218,8 +223,8 @@ function buildMcpServer(): McpServer {
       title:         z.string().optional().describe('New title'),
       description:   z.string().optional().describe('New description (Markdown)'),
       thumbnail:     thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
-      startDate:     z.string().optional().describe('New start date (ISO)'),
-      endDate:       z.string().optional().describe('New end date (ISO)'),
+      startDate:     calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
+      endDate:       calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
       link:          z.string().url().optional().describe('New action URL'),
       cta:           z.string().optional().describe('New CTA label'),
       sites:         z.array(z.string()).optional().describe('New site slugs array'),
