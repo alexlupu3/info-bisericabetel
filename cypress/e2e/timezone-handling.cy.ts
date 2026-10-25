@@ -112,4 +112,58 @@ describe('Admin — expired badge and expiresAt follow Bucharest time', () => {
   })
 })
 
+describe('Admin — statistics use the viewer timezone', () => {
+  const mockUser = { id: 'u1', email: 'admin@betel.ro', role: 'admin', mustChangePassword: false }
+  const series = (from: number) => Array.from({ length: 3 }, (_, i) => ({
+    label: `2026-10-${String(from + i).padStart(2, '0')}`, views: 1, clicks: 1,
+  }))
+
+  beforeEach(() => {
+    cy.intercept('GET', '/api/auth/me', mockUser)
+    cy.intercept('GET', '/api/sites', { sites: [] })
+    cy.intercept('GET', '/api/admin/content', { items: [] })
+    cy.intercept('GET', '/api/admin/groups', { groups: [] })
+    cy.intercept('GET', '/api/admin/analytics/overview*', {
+      period: 'week',
+      current: { views: 3, clicks: 3, series: series(1) },
+      previous: { views: 3, clicks: 3, series: series(28) },
+      viewsChange: 0, clicksChange: 0,
+    }).as('overview')
+    cy.intercept({ method: 'GET', pathname: '/api/admin/analytics/items' }, { items: [] })
+    cy.intercept('GET', '/api/admin/analytics/sites-comparison*', { period: 'week', sites: [], series: [] }).as('sitesComparison')
+  })
+
+  function visitAnalytics(now?: number) {
+    if (now) cy.clock(now, ['Date'])
+    cy.visit('/admin/analytics', { onBeforeLoad(win) { win.localStorage.setItem('betel-admin-token', 'mock-jwt-token') } })
+  }
+
+  it('sends the browser timezone with every bucketed request', () => {
+    visitAnalytics()
+    cy.window().then(win => {
+      const tz = encodeURIComponent(win.Intl.DateTimeFormat().resolvedOptions().timeZone)
+      cy.wait('@overview').its('request.url').should('include', `tz=${tz}`)
+      cy.wait('@sitesComparison').its('request.url').should('include', `tz=${tz}`)
+    })
+  })
+
+  it('renders day buckets exactly as returned, without shifting them', () => {
+    visitAnalytics()
+    cy.wait('@overview')
+    cy.get('[data-testid="trend-chart"]').should('contain', '01 oct.').and('contain', '03 oct.')
+  })
+
+  it('limits the start-date picker to today in the viewer timezone', () => {
+    // 00:30 on 2026-10-26 in Bucharest, still 2026-10-25 in UTC
+    const now = Date.UTC(2026, 9, 25, 22, 30)
+    visitAnalytics(now)
+    cy.window().then(win => {
+      const parts = new win.Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })
+        .formatToParts(new Date(now))
+      const get = (t: string) => parts.find(p => p.type === t)!.value
+      cy.get('[data-testid="start-date-input"]').should('have.attr', 'max', `${get('year')}-${get('month')}-${get('day')}`)
+    })
+  })
+})
+
 export {}

@@ -9,6 +9,7 @@ import {
   Legend,
 } from 'recharts'
 import type { SiteComparisonData, Period } from '../../api/client'
+import { formatDayLabel } from '../../../dates'
 
 interface Props {
   data: SiteComparisonData
@@ -21,10 +22,7 @@ function formatLabel(label: string, period: Period): string {
     const hour = label.length <= 2 ? label.padStart(2, '0') : label.slice(11, 13)
     return `${hour}:00`
   }
-  const d = new Date(label)
-  const day = d.getDate().toString().padStart(2, '0')
-  const month = d.toLocaleDateString('ro-RO', { month: 'short' })
-  return `${day} ${month}`
+  return formatDayLabel(label)
 }
 
 interface TooltipPayloadEntry {
