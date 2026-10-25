@@ -19,6 +19,7 @@ cypress/downloads/
 scripts/*
 !scripts/generate-icons.mjs
 !scripts/seed-from-live.sh
+!scripts/seed-from-public.mjs
 
 # Agent memory (internal tooling state)
 .claude/agent-memory/

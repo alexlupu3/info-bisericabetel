@@ -11,6 +11,7 @@ This is the single reference for every environment variable the project reads. O
 | Vite dev server (`pnpm dev`) | Shell environment only. Vite does **not** load the root `.env` into `process.env` for `vite.config.ts`. |
 | `docker compose` (`pnpm dev:db`, `pnpm staging:up`) | Root `.env`, used for `${...}` substitution in `docker-compose.yml` and `docker-compose.staging.yml`. Only the variables listed in the compose file reach a container. |
 | `scripts/seed-from-live.sh` | Root `.env`, sourced by the script (`pnpm seed:dev`, `pnpm seed:staging`). |
+| `scripts/seed-from-public.mjs` | Shell environment only (`pnpm seed:public:dev`, `pnpm seed:public:staging`). |
 | Production (CapRover) | App-level environment variables in the CapRover dashboard. Defaults baked into the `Dockerfile` apply otherwise. |
 | Stdio MCP server (`packages/mcp`) | The `env` block of the MCP client config (e.g. `claude_desktop_config.json`). |
 
@@ -96,6 +97,15 @@ The production `Dockerfile` image with its own PostgreSQL and uploads volume, se
 | `LIVE_DB_NAME` | No | `postgres` | Live database name. |
 
 Dumps are cached in the gitignored `.local/`. Live users, including their password hashes, are copied: log in locally with live credentials. Never commit `.local/`.
+
+## Seeding from the public site (`scripts/seed-from-public.mjs`)
+
+`pnpm seed:public:dev` / `pnpm seed:public:staging` rebuild the target's content from the public API when there is no database access. Only GET requests reach live. Coverage and limits: header of the script.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `LIVE_PUBLIC_URL` | No | `https://info.bisericabetel.com` | Base URL of the public website (also `--base URL`). |
+| `UPLOADS_DIR` | No | `packages/uploads` | Where dev images are written; same meaning as for the API. |
 
 ## Removed variables
 

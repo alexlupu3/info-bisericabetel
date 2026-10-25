@@ -92,6 +92,6 @@ See the README Quick start for the full setup. Variables: [configuration.md](con
 
 - **Local dev:** native API + Vite with live reload against the dev database (`docker-compose.yml`).
 - **Local staging:** `docker-compose.staging.yml` (project `betel-staging`) runs the production `Dockerfile` image with its own PostgreSQL and uploads volume on `http://localhost:${STAGING_APP_PORT:-8080}`. `pnpm staging:up` always rebuilds. AI translation and `/mcp` are off unless the `STAGING_*` keys are set.
-- **Seeding:** `scripts/seed-from-live.sh <dev|staging>` copies live data into either local environment (live is read-only). See [configuration.md](configuration.md#seeding-from-live-scriptsseed-from-livesh).
+- **Seeding:** `scripts/seed-from-live.sh <dev|staging>` copies live data into either local environment (live is read-only). See [configuration.md](configuration.md#seeding-from-live-scriptsseed-from-livesh). Without database access, `scripts/seed-from-public.mjs <dev|staging>` (`pnpm seed:public:dev` / `seed:public:staging`) rebuilds the published, currently visible content and its images from the public API.
 - **Remote staging:** not yet configured.
 - **Production:** CapRover single-app deployment as described above.

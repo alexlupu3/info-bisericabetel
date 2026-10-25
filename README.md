@@ -81,6 +81,8 @@ Both create a **super-admin**. Further admins are created in `/admin/users`.
 
 **Optional: real data.** `pnpm seed:dev` replaces the dev database and uploads with a copy of live (read-only on live). Set `LIVE_SSH` (or `LIVE_DATABASE_URL`) in `.env` first; see [configuration.md](docs/architecture/configuration.md#seeding-from-live-scriptsseed-from-livesh). Live users come along, so log in with live credentials.
 
+Without database access, `pnpm seed:public:dev` rebuilds the dev content from the public website instead: sites, languages, UI strings, currently visible items, their groups and images. Drafts, archived items, users, analytics and short links are not public and are not copied, and local users are kept, so create a local admin first (step 6).
+
 The minimum variables are `DATABASE_URL`, `JWT_SECRET` and (for the compose databases) `DB_PASSWORD`. Every variable is documented in [docs/architecture/configuration.md](docs/architecture/configuration.md).
 
 ## Build
@@ -98,7 +100,7 @@ To run the production image locally, with its own database and uploads, separate
 
 ```bash
 pnpm staging:up      # build + start → http://localhost:8080 (STAGING_APP_PORT)
-pnpm seed:staging    # optional: copy live data into it
+pnpm seed:staging    # optional: copy live data into it (or seed:public:staging)
 pnpm staging:logs    # follow app logs
 pnpm staging:down    # stop (data volumes are kept)
 ```
