@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { sql } from '../../db/client.js'
-import { CHURCH_TIME_ZONE, addDays, calendarDayIn, daysBetween, isCalendarDay, isTimeZone } from '../../services/time.js'
+import { CHURCH_TIME_ZONE, addDays, calendarDayIn, daysBetween, hourSlotsIn, isCalendarDay, isTimeZone } from '../../services/time.js'
 
 // Events are stored as UTC instants and grouped into the viewer's calendar
 // days and hours. The admin app sends its IANA timezone as `tz`; without one
@@ -13,6 +13,11 @@ function resolveTimeZone(raw: string | undefined): string | null {
 
 // The instant at which calendar day `day` begins in `tz`, as a SQL fragment.
 const dayStart = (day: string, tz: string) => sql`(${day}::timestamp AT TIME ZONE ${tz})`
+
+// Epoch seconds of the start of the local hour an event fell in; matches
+// hourSlotsIn().start. Truncating the instant (not the wall-clock time) keeps
+// the two 03:00 hours apart on the day clocks go back.
+const hourStart = (tz: string) => sql`EXTRACT(EPOCH FROM date_trunc('hour', occurred_at, ${tz}))::float8`
 
 const INVALID_TZ = { error: 'Invalid tz. Use an IANA timezone name, e.g. Europe/Bucharest.' }
 
@@ -362,60 +367,50 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       }
 
       if (period === 'day') {
+        const currentSlots = hourSlotsIn(todayStr, tz)
+        const previousSlots = hourSlotsIn(addDays(todayStr, -1), tz)
+
         const rows = await sql<{
-          day: string
-          hour: number
+          hour_start: number
           event_type: string
           count: number
         }[]>`
           SELECT
-            (occurred_at AT TIME ZONE ${tz})::date::text AS day,
-            EXTRACT(HOUR FROM occurred_at AT TIME ZONE ${tz})::int AS hour,
+            ${hourStart(tz)} AS hour_start,
             event_type,
             COUNT(*)::int AS count
           FROM analytics_events
           WHERE occurred_at >= ${dayStart(addDays(todayStr, -1), tz)}
             ${site ? sql`AND site_slug = ${site}` : sql``}
-          GROUP BY day, hour, event_type
-          ORDER BY day ASC, hour ASC
+          GROUP BY hour_start, event_type
         `
 
-        const currentMap = new Map<number, { views: number; clicks: number }>()
-        const previousMap = new Map<number, { views: number; clicks: number }>()
-
-        for (let h = 0; h < 24; h++) {
-          currentMap.set(h, { views: 0, clicks: 0 })
-          previousMap.set(h, { views: 0, clicks: 0 })
-        }
-
+        const countMap = new Map<number, { views: number; clicks: number }>()
         for (const row of rows) {
-          const dayStr = row.day
-          const bucket = dayStr === todayStr ? currentMap : previousMap
-          const entry = bucket.get(row.hour)!
+          const entry = countMap.get(row.hour_start) ?? { views: 0, clicks: 0 }
           if (row.event_type === 'site_visit') entry.views += Number(row.count)
           else if (row.event_type === 'link_click') entry.clicks += Number(row.count)
+          countMap.set(row.hour_start, entry)
         }
 
-        const buildSeries = (map: Map<number, { views: number; clicks: number }>): SeriesEntry[] => {
-          const series: SeriesEntry[] = []
-          for (let h = 0; h < 24; h++) {
-            const entry = map.get(h)!
-            series.push({ label: String(h).padStart(2, '0'), views: entry.views, clicks: entry.clicks })
-          }
-          return series
-        }
+        const buildSeries = (slots: { start: number; label: string }[]): SeriesEntry[] =>
+          slots.map(slot => ({
+            label: slot.label,
+            views: countMap.get(slot.start)?.views ?? 0,
+            clicks: countMap.get(slot.start)?.clicks ?? 0,
+          }))
 
-        const currentSeries = buildSeries(currentMap)
-        const previousSeries = buildSeries(previousMap)
+        const currentSeries = buildSeries(currentSlots)
+        const previousSeries = buildSeries(previousSlots)
 
         const breakdownRows = await sql<{
-          hour: number
+          hour_start: number
           item_id: string | null
           title: string | null
           clicks: number
         }[]>`
           SELECT
-            EXTRACT(HOUR FROM ae.occurred_at AT TIME ZONE ${tz})::int AS hour,
+            ${hourStart(tz)} AS hour_start,
             ae.item_id,
             ci.data->>'title' AS title,
             COUNT(*)::int AS clicks
@@ -424,12 +419,12 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           WHERE ae.event_type = 'link_click'
             AND ae.occurred_at >= ${dayStart(todayStr, tz)}
             ${site ? sql`AND ae.site_slug = ${site}` : sql``}
-          GROUP BY hour, ae.item_id, ci.data->>'title'
+          GROUP BY hour_start, ae.item_id, ci.data->>'title'
         `
 
         const breakdownMap = new Map<string, ClickBreakdownItem[]>()
         for (const row of breakdownRows) {
-          const key = String(row.hour).padStart(2, '0')
+          const key = String(row.hour_start)
           const list = breakdownMap.get(key) ?? []
           list.push({
             itemId: row.item_id,
@@ -438,7 +433,8 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
           })
           breakdownMap.set(key, list)
         }
-        attachBreakdown(currentSeries, breakdownMap, (e) => e.label)
+        // Labels can repeat on DST days, so match breakdowns by slot position.
+        attachBreakdown(currentSeries, breakdownMap, (e) => String(currentSlots[currentSeries.indexOf(e)].start))
 
         const sum = (series: SeriesEntry[], key: 'views' | 'clicks') =>
           series.reduce((acc, s) => acc + s[key], 0)
@@ -707,31 +703,31 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
 
       if (period === 'day') {
         const rows = await sql<{
-          hour: number
+          hour_start: number
           site_slug: string | null
           event_type: string
           count: number
         }[]>`
           SELECT
-            EXTRACT(HOUR FROM occurred_at AT TIME ZONE ${tz})::int AS hour,
+            ${hourStart(tz)} AS hour_start,
             site_slug,
             event_type,
             COUNT(*)::int AS count
           FROM analytics_events
           WHERE occurred_at >= ${dayStart(todayStr, tz)}
-          GROUP BY hour, site_slug, event_type
-          ORDER BY hour ASC
+          GROUP BY hour_start, site_slug, event_type
         `
 
         const pointMap = new Map<number, SeriesPoint>()
-        for (let h = 0; h < 24; h++) {
+        for (const slot of hourSlotsIn(todayStr, tz)) {
           const siteData: Record<string, SitePoint> = {}
           for (const s of sites) siteData[s.slug] = buildPoint()
-          pointMap.set(h, { label: String(h).padStart(2, '0'), sites: siteData, total: buildPoint() })
+          pointMap.set(slot.start, { label: slot.label, sites: siteData, total: buildPoint() })
         }
 
         for (const row of rows) {
-          const point = pointMap.get(row.hour)!
+          const point = pointMap.get(row.hour_start)
+          if (!point) continue
           const count = Number(row.count)
           if (row.event_type === 'site_visit') {
             point.total.views += count

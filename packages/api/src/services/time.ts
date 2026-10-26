@@ -79,12 +79,33 @@ export function invalidEventDate(data: Record<string, unknown>): string | null {
   return null
 }
 
+// ISO 8601 timestamp with an explicit `Z` or `±HH:MM` offset.
+const ZONED_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/
+
 // Parses an `expiresAt` value. A bare calendar day means "visible through the
 // end of that day in Romania", i.e. it expires when the next church-local day
-// begins. Anything else must be a parseable instant. Returns undefined when
-// the value is invalid.
+// begins. Otherwise it must be an ISO timestamp with `Z` or an offset: without
+// one, JS would read it in the server's own timezone. Returns undefined when
+// the value is invalid (including impossible dates such as 2026-02-30, which
+// JS would silently roll over).
 export function parseExpiresAt(value: string): Date | undefined {
   if (isCalendarDay(value)) return startOfDayIn(addDays(value, 1), CHURCH_TIME_ZONE)
+  const m = ZONED_TIMESTAMP.exec(value)
+  if (!m || !isCalendarDay(m[1])) return undefined
   const d = new Date(value)
   return isNaN(d.getTime()) ? undefined : d
+}
+
+// The hours of calendar day `day` in `tz`: 24 normally, 23 or 25 on DST
+// change days, so a repeated wall-clock hour is not merged and a skipped one
+// is not invented. `start` is the slot's first instant in epoch seconds and
+// `label` its local hour ("03"), which repeats on the day clocks go back.
+export function hourSlotsIn(day: string, tz: string): { start: number; label: string }[] {
+  const from = startOfDayIn(day, tz).getTime()
+  const to = startOfDayIn(addDays(day, 1), tz).getTime()
+  const slots: { start: number; label: string }[] = []
+  for (let t = from; t < to; t += 3_600_000) {
+    slots.push({ start: t / 1000, label: String(zonedParts(tz, new Date(t)).hour).padStart(2, '0') })
+  }
+  return slots
 }
