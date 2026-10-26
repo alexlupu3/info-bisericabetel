@@ -34,6 +34,8 @@ const eventItems = [
   { ...baseItem, id: 'single-day', type: 'richtext', data: { body: 'Doar azi', startDate: '2026-10-25' } },
   { ...baseItem, id: 'column-expiry', type: 'richtext', expiresAt: '2026-10-25T22:00:00.000Z', data: { body: 'Expiră la miezul nopții' } },
   { ...baseItem, id: 'ends-tomorrow', type: 'card', data: { title: 'Se termină mâine', startDate: '2026-10-26', endDate: '2026-10-26' } },
+  // expiresAt is independent of the event dates: it can end an event early
+  { ...baseItem, id: 'stopped-early', type: 'card', expiresAt: '2026-10-25T12:00:00.000Z', data: { title: 'Oprit devreme', startDate: '2026-10-25', endDate: '2026-10-27' } },
 ]
 
 describe('Public hub — events expire at the end of the day in Bucharest', () => {
@@ -51,6 +53,15 @@ describe('Public hub — events expire at the end of the day in Bucharest', () =
     cy.contains('Doar azi').should('be.visible')
     cy.contains('Expiră la miezul nopții').should('be.visible')
     cy.contains('Se termină mâine').should('be.visible')
+  })
+
+  it('hides an event whose expiresAt has passed even if its endDate has not', () => {
+    cy.clock(BEFORE_BUCHAREST_MIDNIGHT, ['Date'])
+    cy.visit('/')
+    cy.wait('@content')
+
+    cy.contains('Se termină azi').should('be.visible')
+    cy.contains('Oprit devreme').should('not.exist')
   })
 
   it('hides them once the day is over in Bucharest', () => {
@@ -91,6 +102,7 @@ describe('Admin — expired badge and expiresAt follow Bucharest time', () => {
     cy.get('[data-testid="past-badge-ends-today"]').should('not.exist')
     cy.get('[data-testid="past-badge-single-day"]').should('not.exist')
     cy.get('[data-testid="past-badge-column-expiry"]').should('not.exist')
+    cy.get('[data-testid="past-badge-stopped-early"]').should('be.visible')
   })
 
   it('marks it as expired after Bucharest midnight', () => {

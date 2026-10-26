@@ -107,9 +107,9 @@ The admin form applies progressive disclosure: the end date input is hidden unti
 ### `expiresAt` Column (independent mechanism)
 The `expiresAt` column on `content_items` is a separate, independent expiry mechanism. It is not replaced by the JSONB date fields. Both mechanisms apply independently:
 - The API filters out items where `expiresAt` has passed (existing `gt(contentItems.expiresAt, now)` filter). `expiresAt` is an instant (UTC `TIMESTAMPTZ`); the client compares it as `<= now`, matching the server.
-- On write, a date-only `expiresAt` (`YYYY-MM-DD`) is stored as the start of the following day in Europe/Bucharest (the end of that day in Romania); a full timestamp is stored as given; anything unparseable returns 400. The admin form does not truncate an existing `expiresAt` to a date on save.
+- On write, a date-only `expiresAt` (`YYYY-MM-DD`) is stored as the start of the following day in Europe/Bucharest (the end of that day in Romania); a full timestamp must carry `Z` or an explicit `±HH:MM` offset and is stored as given; anything else (including offsetless timestamps, which would depend on the server's zone, and impossible dates such as `2026-02-30`) returns 400. The admin form does not truncate an existing `expiresAt` to a date on save.
 - The API also filters via the JSONB date range logic described above.
-- For past-item detection in the admin: JSONB dates take precedence over `expiresAt`.
+- Past-item detection in the admin and the public client safety net (`isItemPast()`) treats the two mechanisms the same way the API does: either one alone marks the item as past, so an `expiresAt` earlier than the event's last day still ends it early.
 
 When any applicable expiry condition is met, the item is automatically hidden from the public view; its state is unchanged (a `published` item stays `published`). Expired items remain visible in the admin tool with a past-item badge; to show one again, move or clear its dates / `expiresAt`. Automatic transition to `archived` is planned (FR-014) but not implemented.
 
