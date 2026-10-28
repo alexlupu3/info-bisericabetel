@@ -251,6 +251,8 @@ Measures: inline initial data (removes two round-trips); `<link rel="preload" as
 
 ## 7. Contracts
 
+> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
+
 **Provides**
 
 - `PUBLIC_BASE_URL` and `absoluteUrl(path)` (`packages/api/src/services/public-url.ts`) — consumed by specs 01 (manifest/notification URLs), 02 (feed links), 06 (preview URLs/images). Signature: `absoluteUrl(path: string): string`; throws on non-root-relative, non-http(s) input.

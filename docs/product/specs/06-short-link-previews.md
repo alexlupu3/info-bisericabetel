@@ -303,6 +303,8 @@ No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from s
 
 ## 7. Contracts
 
+> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
+
 **Provides**
 - The crawler/preview behaviour of `/s/:code` and the `short_links.preview_mode` field (README → Ownership: short-link data model and redirect route).
 - `services/preview-image.ts` — the preview-image fallback chain of a content item (`itemImageUrl`, `ogDerivativePath`, `brandDerivativePath`) and the `/uploads/og/*.jpg` derivatives, for spec 03 (`og:image` of hub pages) and spec 02 (`<enclosure>`/media thumbnails) to reuse by reference (README → Fixed contracts: "6 defines the full fallback chain").

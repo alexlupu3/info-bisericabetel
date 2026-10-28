@@ -149,6 +149,14 @@ Spec: [04-event-hours.md](specs/04-event-hours.md); ADR-023.
 - FR-078: The start time does not change expiry (an item stays visible through the end of its day in Romania, BR-015); chronological group sort orders by date, then untimed before timed, then time (BR-013); duplication copies the time (BR-009). **[Planned]**
 - FR-079: `@betel/shared` exports event-time helpers (`invalidStartTime`, `isSingleDayEvent`, `eventStartInstant`, `eventStartIso`, `formatEventWhen`, `formatEventTime`, `eventSortKey`, `compareEventSchedules`) used by the API, the app, feeds, structured data and notifications; `create_card`/`update_card` on both MCP surfaces accept `startTime` (`null` clears on update). **[Planned]**
 
+#### Event Location
+Spec: [07-event-location.md](specs/07-event-location.md).
+- FR-090: Cards support an optional plain-text location `data.location` (max 70 characters after normalisation: control characters removed, whitespace collapsed, trimmed; empty means absent). `POST`/`PATCH /api/admin/content` and `PUT …/translations/:locale` normalise it and reject non-strings, over-long values and locations on non-card items with HTTP 400; `null` clears it. Rules: `docs/domain/content-model.md` — "Event location"; BR-050. **[Planned]**
+- FR-091: The admin content form shows a "Loc de desfășurare (opțional)" input for cards directly below the dates row, with a 70-character `maxLength`, a live counter and a soft hint above 50 characters; the field is translatable in translation mode with the same limit. **[Planned]**
+- FR-092: Public cards render the location as its own row directly below the date/time row (or in its place when the card has no date), in the same muted metadata style, with an inline map-pin glyph in `currentColor` (`aria-hidden`) and a visually-hidden label from i18n key `location.label`; the text wraps and is never a link. **[Planned]**
+- FR-093: The location is translated per locale with Romanian fallback (ADR-014) and by the AI translation job (over-long or empty results are dropped, never stored); duplication copies it (BR-009). **[Planned]**
+- FR-094: `@betel/shared` exports `LOCATION_MAX_LENGTH`, `normalizeLocationText`, `invalidLocation` and `readLocation` (`packages/shared/src/event-location.ts`), used by the API, the app, feeds, structured data, notifications and previews; `create_card`/`update_card` on both MCP surfaces accept `location` (`null` clears on update). **[Planned]**
+
 #### MCP Analytics & Short Links
 Spec: [05-mcp-analytics-short-links.md](specs/05-mcp-analytics-short-links.md); ADR-024.
 - FR-080: Both MCP surfaces expose `get_analytics_overview`: views, clicks, a generic `byEventType` map, per-site breakdown, day/week/month series and previous-period comparison for a Europe/Bucharest date range (default last 30 days, max 366). Optional `site` filter. **[Planned]**

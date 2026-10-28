@@ -34,13 +34,14 @@
 - **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the stdio MCP server. API key management must be part of the super-admin tooling. The stdio MCP server currently uses JWT auth (and the remote endpoint a shared `MCP_SECRET`) as a temporary measure until this is built.
 
 ### Next feature batch [specified — 2026-10-28]
-Six specs ready for parallel implementation; ownership, reserved IDs and delivery order in [`specs/README.md`](specs/README.md).
+Seven specs ready for parallel implementation; ownership, reserved IDs and delivery order in [`specs/README.md`](specs/README.md).
 - **Real PWA** — complete manifest/icons/splash, platform-aware install invite, opt-in push for new events, staged rollout (`off` → `beta` → `all`). [01-pwa.md](specs/01-pwa.md), FR-050–FR-059.
 - **RSS event feed** — `/feed.xml` and `/:siteSlug/feed.xml`, `/llms.txt` for AI agents. [02-rss-feed.md](specs/02-rss-feed.md), FR-060–FR-064.
 - **SEO & crawlability** — server-rendered metadata, JSON-LD, per-item pages `/i/:itemId`, `robots.txt`, `sitemap.xml`. [03-seo.md](specs/03-seo.md), FR-065–FR-074.
 - **Event start time** — optional `HH:mm` on single-day events. [04-event-hours.md](specs/04-event-hours.md), FR-075–FR-079.
 - **MCP analytics & short links** — analytics tools and short-link creation on both MCP surfaces. [05-mcp-analytics-short-links.md](specs/05-mcp-analytics-short-links.md), FR-080–FR-084.
 - **Short-link previews** — messaging apps show the content's title and image; destination preview kept as fallback. [06-short-link-previews.md](specs/06-short-link-previews.md), FR-085–FR-089.
+- **Event location** — optional free-text venue on cards, shown under the date with a map pin. [07-event-location.md](specs/07-event-location.md), FR-090–FR-094.
 
 ## Phase 3 — Future / Out of Scope for Now
 

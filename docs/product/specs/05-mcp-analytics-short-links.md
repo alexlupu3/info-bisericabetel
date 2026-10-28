@@ -381,6 +381,8 @@ No new environment variables. Consumes `PUBLIC_BASE_URL` (03). `MCP_SECRET`, `BE
 
 ## 7. Contracts
 
+> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
+
 **Provides**
 
 - MCP tool surface (both files) — the shared contract module `packages/shared/src/mcp-tools.ts`; other specs add fields there: **04** (`startTime` on `create_card`/`update_card`), **06** (optional preview fields on `create_short_link`).

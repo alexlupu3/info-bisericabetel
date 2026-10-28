@@ -345,6 +345,8 @@ Clicks from the feed land on `/i/<id>`; whether and how item-page views are trac
 
 ## 7. Contracts
 
+> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
+
 **Provides**
 
 - Feed URLs `GET /feed.xml`, `GET /:siteSlug/feed.xml` (fixed by README) with optional `?lang=`; `GET /llms.txt`.

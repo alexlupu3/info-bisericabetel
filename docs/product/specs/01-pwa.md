@@ -322,6 +322,8 @@ The last two are read server-side from `ui_translations` (the Translations page'
 
 ## 7. Contracts
 
+> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
+
 **Provides**
 - Service-worker navigation denylist (`packages/app/src/pwa/denylist.ts`) including every server-rendered path listed by specs 02, 03 and 06 (`/robots.txt`, `/sitemap.xml`, `/feed.xml`, `/:siteSlug/feed.xml`, `/llms.txt`, `/s/*`). If a spec adds a path later, it must be added here.
 - PWA `<head>` tags in `index.html` (manifest, theme-color, `apple-*`, `mobile-web-app-capable`, splash links); spec 03 adds SEO tags next to them and must not remove or reorder these.
