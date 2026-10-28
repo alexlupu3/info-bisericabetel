@@ -180,3 +180,14 @@ Member-facing flows come first, followed by admin flows.
   - The reader polls at its own cadence; unchanged feeds answer `304`
 - Success state: new events show up in the reader within about five minutes of publishing
 - Failure or edge states: the event expired between the poll and the click → the item page's not-found state (404, `noindex`); a reader that sorts by `pubDate` shows newest-created first instead of chronological order
+
+### Flow 14 (AI agent) — Reporting on an event's performance through MCP
+- Trigger: an editor asks the agent (Claude Desktop, Cursor, Claude iOS) how an announcement performed
+- Steps: the agent finds the item id (`list_cards` / `get_top_items`), calls `get_item_stats` for the wanted range, optionally `get_short_link_stats` per channel, and summarises totals, trend vs the previous period and the best channel
+- Success state: numbers match the admin dashboard's totals for the same days in the same time zone (`tz`, default Europe/Bucharest)
+- Edge states: unknown or deleted item → tool error; no events in the previous period → `previous.*ChangePct = null` for that metric; no events in range → zeros
+
+### Flow 15 (AI agent) — Creating a short link through MCP
+- Trigger: an editor asks for a trackable link for a channel (WhatsApp group, flyer QR)
+- Steps: `create_short_link(itemId, label, siteSlug?)`; the agent returns the `url`; the link appears in the content editor's "Link-uri scurte" tab and in `/admin/logs` as `short-link.create`
+- Edge states: item without a link → `warning`, the link redirects to `/` until a link is set; unknown site → error

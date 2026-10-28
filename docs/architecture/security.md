@@ -32,8 +32,9 @@ All REST paths below include the `/api` prefix under which every API route is re
 - `POST /api/errors`: 20 requests per minute per IP.
 - `POST /api/admin/sql`: 30 requests per minute (plugin default key, per IP).
 - `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt`: 120 requests per minute per IP.
+- `POST /mcp`: 120 requests per minute per IP (checked before the secret, so guessing is throttled too).
 
-`POST /api/auth/login`, `POST /api/setup` and `/mcp` are **not** rate-limited.
+`POST /api/auth/login` and `POST /api/setup` are **not** rate-limited.
 
 ### CORS
 `@fastify/cors` is registered with `{ origin: true }`, which reflects **any** request `Origin` back in `Access-Control-Allow-Origin` (credentials are not enabled). In production the SPA and API share one origin, so CORS is not needed at all. This configuration exists for local development convenience and is broader than necessary. Because admin requests authenticate with a bearer header rather than cookies, another site cannot ride an admin's session, but it can freely call the public endpoints from a browser. See [ADR-006](../decisions/ADR-006-single-container-deployment.md).
@@ -104,13 +105,13 @@ The system processes very little personal data (admin accounts, anonymous analyt
 ### Audit requirements
 FR-023 requires every content and configuration change to be logged (who, what, when). `logAudit` (`packages/api/src/db/audit.ts`) writes to `audit_log` and never throws, so an audit failure is silently dropped rather than failing the request. The log is viewable by super-admins at `/api/admin/logs`.
 
-Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; `sql_query` and `sql_query_blocked` (SQL console); and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
+Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; `sql_query` and `sql_query_blocked` (SQL console); `short-link.create` and `short-link.delete` (all paths: admin UI, REST, MCP; `detail.via` is `admin` or `mcp`); and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
 
 Permanent delete purges an item's history by design: `DELETE /api/admin/content/:id/permanent` deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, which records who removed the item and when. `audit_log` is therefore not append-only for permanently deleted items; this is intended (repository owner decision, 2026-10-17). See [content-model.md](../domain/content-model.md).
 
 The SQL console is the exception to the best-effort rule: `sql_query` is written before the query runs and fails closed (see "SQL console").
 
-**Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; short-link create and delete; media upload and delete through the admin UI.
+**Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; media upload and delete through the admin UI.
 
 ### Known risks and incident concerns
 | Risk | Impact | Mitigation / follow-up |
@@ -120,7 +121,7 @@ The SQL console is the exception to the best-effort rule: `sql_query` is written
 | JWT in `localStorage`, 8 h lifetime, no revocation | Stolen token usable until expiry; deleted users keep access until expiry | Keep XSS surface minimal; consider a token version or deny list |
 | `mustChangePassword` enforced only in the SPA | A user with a temporary password can call the API directly | Reject non-change-password requests in `authenticate` when the flag is set |
 | `POST /api/admin/users` accepts any `role` string, and `DELETE /api/admin/users/:id` has no self-delete or last-super-admin guard | Misconfigured roles; accidental lock-out | Validate role against `admin` / `super-admin`; add guards |
-| `MCP_SECRET` is one shared, full-access, non-expiring token; compared with plain `!==`; no rate limit on `/mcp` | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
+| `MCP_SECRET` is one shared, full-access, non-expiring token (compared in constant time; `POST /mcp` rate-limited to 120/min/IP) | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
 | `POST /api/setup` is unauthenticated until the first user exists | Takeover of a fresh deployment | Create the first super-admin immediately after the first deploy |
 | SQL console shares the app's connection pool and `session_user`; it drops to `betel_sql_console` with `SET LOCAL ROLE` | A filter bypass that switches role back (`set_config('role', ...)`, `SET ROLE`, `RESET`, `UPDATE pg_settings`) regains the app's rights | Filter blocks these; use a separate `LOGIN` role and pool (ADR-018 follow-up) |
 | SQL console bypasses API business rules (soft-delete, group-delete cascade, translation jobs, FR-035) | Data written through it can violate domain rules | Prefer admin pages; use writes sparingly |

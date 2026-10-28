@@ -29,6 +29,17 @@ export function isTimeZone(tz: string): boolean {
   }
 }
 
+// Resolves the `tz` parameter of the analytics endpoints and MCP tools (ADR-017):
+// missing → the church's timezone; anything that is not an IANA zone name → null.
+// Offset strings such as "+02:00" are refused because Postgres reads their sign
+// the opposite way to ISO 8601.
+export function resolveTimeZone(raw: string | undefined | null): string | null {
+  if (!raw) return CHURCH_TIME_ZONE
+  return /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(raw) && isTimeZone(raw) ? raw : null
+}
+
+export const INVALID_TZ = 'Invalid tz. Use an IANA timezone name, e.g. Europe/Bucharest.'
+
 function zonedParts(tz: string, at: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz, hourCycle: 'h23',

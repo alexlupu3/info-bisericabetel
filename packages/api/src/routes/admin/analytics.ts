@@ -1,25 +1,20 @@
 import type { FastifyInstance } from 'fastify'
 import { sql } from '../../db/client.js'
-import { CHURCH_TIME_ZONE, addDays, calendarDayIn, daysBetween, hourSlotsIn, isCalendarDay, isTimeZone } from '../../services/time.js'
+import { INVALID_TZ as INVALID_TZ_MESSAGE, addDays, calendarDayIn, daysBetween, hourSlotsIn, isCalendarDay, resolveTimeZone } from '../../services/time.js'
+import { dayStart, getAnalyticsOverview, getItemStats, getShortLinkStats, getTopItems } from '../../services/analytics-stats.js'
+import { parseBoolean } from '../../services/analytics-range.js'
+import { sendServiceError } from '../../services/errors.js'
 
 // Events are stored as UTC instants and grouped into the viewer's calendar
 // days and hours. The admin app sends its IANA timezone as `tz`; without one
-// we fall back to the church's timezone. Offset strings such as "+02:00" are
-// refused because Postgres reads their sign the opposite way to ISO 8601.
-function resolveTimeZone(raw: string | undefined): string | null {
-  if (!raw) return CHURCH_TIME_ZONE
-  return /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(raw) && isTimeZone(raw) ? raw : null
-}
-
-// The instant at which calendar day `day` begins in `tz`, as a SQL fragment.
-const dayStart = (day: string, tz: string) => sql`(${day}::timestamp AT TIME ZONE ${tz})`
+// we fall back to the church's timezone (resolveTimeZone, services/time.ts).
 
 // Epoch seconds of the start of the local hour an event fell in; matches
 // hourSlotsIn().start. Truncating the instant (not the wall-clock time) keeps
 // the two 03:00 hours apart on the day clocks go back.
 const hourStart = (tz: string) => sql`EXTRACT(EPOCH FROM date_trunc('hour', occurred_at, ${tz}))::float8`
 
-const INVALID_TZ = { error: 'Invalid tz. Use an IANA timezone name, e.g. Europe/Bucharest.' }
+const INVALID_TZ = { error: INVALID_TZ_MESSAGE }
 
 function adminOnly(req: any, reply: any, done: any) {
   const role = (req.user as any)?.role
@@ -857,6 +852,54 @@ export async function adminAnalyticsRoutes(app: FastifyInstance) {
       const shortLinks = Array.from(shortLinkMeta.entries()).map(([id, label]) => ({ id, label }))
 
       return { itemId, daily, shortLinks }
+    }
+  )
+
+  // ── Range endpoints (spec 05, BR-040) ─────────────────────────
+  // Explicit from/to calendar days in `tz`; query params mirror the MCP tool inputs 1:1,
+  // so the stdio MCP server is a pure pass-through and REST body == tool output.
+
+  type RangeQuery = { from?: string; to?: string; tz?: string; granularity?: string; compare?: string }
+
+  app.get<{ Querystring: RangeQuery & { site?: string } }>(
+    '/admin/analytics/range', { preHandler: auth }, async (req, reply) => {
+      try {
+        const q = req.query
+        return await getAnalyticsOverview({ ...q, compare: parseBoolean(q.compare, 'compare') })
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
+    }
+  )
+
+  app.get<{ Params: { itemId: string }; Querystring: RangeQuery & { site?: string } }>(
+    '/admin/analytics/items/:itemId/stats', { preHandler: auth }, async (req, reply) => {
+      try {
+        const q = req.query
+        return await getItemStats({ ...q, itemId: req.params.itemId, compare: parseBoolean(q.compare, 'compare') })
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
+    }
+  )
+
+  app.get<{ Querystring: Omit<RangeQuery, 'compare'> & { site?: string; type?: string; limit?: string } }>(
+    '/admin/analytics/top-items', { preHandler: auth }, async (req, reply) => {
+      try {
+        return await getTopItems(req.query)
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
+    }
+  )
+
+  app.get<{ Querystring: Omit<RangeQuery, 'compare'> & { code?: string; itemId?: string } }>(
+    '/admin/analytics/short-links', { preHandler: auth }, async (req, reply) => {
+      try {
+        return await getShortLinkStats(req.query)
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
     }
   )
 }

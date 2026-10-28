@@ -13,15 +13,10 @@ Purpose: track unresolved questions that block product or technical decisions, p
   Status: OPEN
   Context: group `sites` are stored and editable in the admin (FR-026) and shown as a hint on the group header, so admins may believe the scope is applied. See `docs/domain/content-model.md` → "Compound Site Scope".
 
-- Question: Should the remote `/mcp` endpoint be brought to parity with the REST path, or should the shared rules be extracted so both surfaces use one implementation?
-  Owner: repository owner
-  Status: OPEN
-  Context: remote `create_card` relies on its own schema instead of the REST required-field check; `/mcp` also has no rate limit and uses one shared, non-expiring secret. Options are listed in ADR-015 → Consequences → "Follow-up options" and depend partly on the planned API key layer (roadmap Phase 2).
-
 - Question: Which of the known security gaps should be fixed before more admins are onboarded?
   Owner: repository owner
   Status: OPEN
-  Context: no rate limit on `POST /api/auth/login` and `POST /api/setup`; `mustChangePassword` enforced only in the SPA (FR-021); audit coverage gaps against FR-023 (group create/update/reorder, content reordering, admin user create/delete, site edits, short-link create/delete, admin-UI media upload/delete). Details and mitigations: `docs/architecture/security.md` → "Known risks".
+  Context: no rate limit on `POST /api/auth/login` and `POST /api/setup`; `mustChangePassword` enforced only in the SPA (FR-021); audit coverage gaps against FR-023 (group create/update/reorder, content reordering, admin user create/delete, site edits, admin-UI media upload/delete). Details and mitigations: `docs/architecture/security.md` → "Known risks".
 
 ## Known Issues
 - None currently.
@@ -32,6 +27,7 @@ Purpose: track unresolved questions that block product or technical decisions, p
 - Vite dev proxy forwards only `/api`, `/robots.txt`, `/sitemap.xml` (spec 03), `/feed.xml`, `/:siteSlug/feed.xml` and `/llms.txt` (spec 02), so `/uploads/*` and `/s/:code` do not work on `:5173` (`packages/app/vite.config.ts`; see `docs/architecture/overview.md` → "Development and Testing"). Extending the proxy to those prefixes is a small, unscheduled improvement.
 
 ## Resolved (answers recorded in docs)
+- Remote `/mcp` parity with the REST path — shared contract + service layer, ADR-024 (spec 05, 2026-10-29): one tool contract in `packages/shared/src/mcp-tools.ts`, analytics and short-link logic in services shared with REST, `/mcp` secret compared in constant time and rate-limited. Card/media rules remain re-implemented until migrated to services.
 - Permanent delete erasing an item's analytics events and audit history — intended behaviour, confirmed by the repository owner 2026-10-17 (see `docs/architecture/security.md` → Audit requirements, `docs/domain/content-model.md`).
 - MCP thumbnail URLs, `/mcp` upload body limit, BR-013 tie order on create and the remote `create_card` group re-sort — fixed 2026-10-17 (see ADR-015 → Update History, BR-013).
 - Exact church sites — dynamic, admin-managed, seeded by migration (see `docs/domain/entities.md` → Site).

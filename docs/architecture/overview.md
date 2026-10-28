@@ -83,5 +83,5 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 - QR-code and direct-link entry points require careful routing and default filter behavior.
 - Sunday morning traffic spikes (thousands of users) require the stack to handle concurrency well without expensive infrastructure.
 - The extensible content type system must stay generic to avoid structural rewrites when new types are added.
-- Two MCP implementations duplicate business rules and can drift apart ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)).
+- Two MCP implementations duplicate the card/media business rules and can drift apart ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)); tool schemas are shared and the analytics/short-link tools use shared services ([ADR-024](../decisions/ADR-024-mcp-shared-tool-contract-and-service-layer.md)).
 - Security gaps tracked in `security.md`: permissive CORS, no login rate limiting, and incomplete audit coverage.

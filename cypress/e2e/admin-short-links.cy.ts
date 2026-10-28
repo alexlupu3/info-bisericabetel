@@ -32,6 +32,9 @@ const mockShortLink1 = {
   siteSlug: null,
   createdAt: '2026-01-01T00:00:00Z',
   clickCount: 12,
+  // Fields added by spec 05 (shared short-link service); the tab must tolerate them.
+  url: 'https://info.bisericabetel.com/s/abc123',
+  itemTitle: 'Program Duminică',
 }
 
 const mockShortLink2 = {
@@ -42,6 +45,15 @@ const mockShortLink2 = {
   siteSlug: 'centru',
   createdAt: '2026-01-02T00:00:00Z',
   clickCount: 5,
+  url: 'https://info.bisericabetel.com/s/def456',
+  itemTitle: 'Program Duminică',
+}
+
+// POST response shape since spec 05: the list fields plus the resolved destination.
+const createdShortLink1 = {
+  ...mockShortLink1,
+  clickCount: 0,
+  destination: 'https://betel.ro/program',
 }
 
 function setup() {
@@ -97,7 +109,7 @@ describe('Admin — Short Links tab', () => {
     cy.intercept('GET', '/api/admin/content/*/short-links', { shortLinks: [] }).as('shortLinks')
     cy.intercept('POST', '/api/admin/content/*/short-links', {
       statusCode: 201,
-      body: { ...mockShortLink1, clickCount: 0 },
+      body: createdShortLink1,
     }).as('create')
 
     openShortLinksTab()
@@ -134,7 +146,7 @@ describe('Admin — Short Links tab', () => {
     cy.intercept('GET', '/api/admin/content/*/short-links', { shortLinks: [] }).as('shortLinks')
     cy.intercept('POST', '/api/admin/content/*/short-links', {
       statusCode: 201,
-      body: { ...mockShortLink2, clickCount: 0 },
+      body: { ...mockShortLink2, clickCount: 0, destination: 'https://betel.ro/centru/program' },
     }).as('create')
 
     openShortLinksTab()
@@ -150,6 +162,26 @@ describe('Admin — Short Links tab', () => {
 
     cy.get('[data-testid="short-link-create-btn"]').click()
     cy.wait('@create').its('request.body').should('deep.include', { siteSlug: 'centru' })
+  })
+
+  it('copies the short link of a row (regression: extra url/itemTitle fields)', () => {
+    cy.intercept('GET', '/api/admin/content/*/short-links', {
+      shortLinks: [mockShortLink1],
+    }).as('shortLinks')
+
+    openShortLinksTab()
+    cy.wait('@shortLinks')
+
+    cy.window().then(win => {
+      cy.stub(win.navigator.clipboard, 'writeText').as('writeText').resolves()
+    })
+    cy.get('[data-testid="short-link-row-sl-1"]').within(() => {
+      cy.get('button[aria-label="Copiază link"]').click()
+    })
+    cy.location('origin').then(origin => {
+      cy.get('@writeText').should('have.been.calledOnceWith', `${origin}/s/abc123`)
+    })
+    cy.contains('Link copiat').should('be.visible')
   })
 
   it('deletes a short link after confirmation', () => {

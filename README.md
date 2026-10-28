@@ -126,7 +126,7 @@ There are no `pnpm deploy*` scripts. `pnpm deploy` is a pnpm built-in command an
 
 ## MCP
 
-The project offers two ways to manage content from an MCP client. Both expose the same 8 tools:
+The project offers two ways to manage content and read analytics from an MCP client. Both expose the same 14 tools, declared once in `packages/shared/src/mcp-tools.ts` ([ADR-024](docs/decisions/ADR-024-mcp-shared-tool-contract-and-service-layer.md)):
 
 | Tool | Description |
 |---|---|
@@ -138,6 +138,12 @@ The project offers two ways to manage content from an MCP client. Both expose th
 | `create_card` | Create a card (in draft state) |
 | `update_card` | Update fields of an existing card |
 | `publish_card` | Publish a draft card |
+| `get_analytics_overview` | Views, clicks, per-site breakdown, time series and previous-period comparison for a date range |
+| `get_item_stats` | Clicks of one item by source (website / each short link), site and day |
+| `get_top_items` | Items ranked by clicks in a date range |
+| `get_short_link_stats` | Clicks per short link (by code, by item, or all) |
+| `create_short_link` | Create a tracked short link for an item; returns its public URL |
+| `list_short_links` | List short links with their URL and click count |
 
 ### Remote endpoint (`/mcp`) for Claude web, iOS and other remote clients
 
@@ -148,8 +154,9 @@ The API serves an MCP endpoint at `/mcp` (Streamable HTTP transport). It is enab
 This server is for local MCP clients that can spawn a process, such as Claude Desktop or Claude Code. It does **not** work from the Claude web app. It logs in to the admin API with a regular admin account. See [ADR-012](docs/decisions/ADR-012-mcp-server.md). Environment variables: [configuration.md → Stdio MCP server](docs/architecture/configuration.md#stdio-mcp-server-packagesmcp).
 
 ```bash
-pnpm --filter @betel/mcp build   # → packages/mcp/dist/index.js
+pnpm --filter @betel/mcp build   # → packages/mcp/dist/index.js (esbuild bundle)
 pnpm --filter @betel/mcp dev     # run from source with tsx
+pnpm --filter @betel/mcp parity  # compare tools/list with the remote /mcp (add --calls for responses)
 ```
 
 Claude Desktop (`claude_desktop_config.json`):
