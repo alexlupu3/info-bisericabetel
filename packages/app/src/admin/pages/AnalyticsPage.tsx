@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Period } from '../api/client'
 import { PeriodSelector, SiteFilter, StatCard, TrendChart, ItemsTable, ItemDailyModal, SitesComparisonChart } from '../components/analytics'
+import { calendarDay } from '../../dates'
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('week')
@@ -38,7 +39,7 @@ export default function AnalyticsPage() {
     setStartDate('')
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = calendarDay()
 
   return (
     <div className="p-6 space-y-8">

@@ -41,7 +41,7 @@ The rebuild introduces a controlled, lightweight dependency (Recharts in `packag
 | `GET /api/admin/analytics/items/:itemId/daily[?site=slug]` | Returns daily click counts for a specific item over the last 90 days. Optional `site` param scopes to a single site. |
 | `GET /api/admin/analytics/items/:itemId/export[?site=slug]` | Returns all historical `link_click` events for a specific item as a downloadable CSV. Optional `site` param scopes to a single site (see Amendment — 2026-05-03). |
 
-Legacy endpoints (`/lifetime`, `/daily`) are preserved unchanged. `/items` was already listed above — it now additionally accepts the `site` query parameter.
+Legacy endpoints (`/lifetime`, `/daily`) are preserved unchanged (`/daily` later gained the `tz` parameter — see the 2026-10-25 amendment). `/items` was already listed above — it now additionally accepts the `site` query parameter.
 
 ### Database
 
@@ -140,8 +140,8 @@ New endpoint: `GET /api/admin/analytics/items/:itemId/export?site=<slug>`
 
 - Auth: admin/super-admin Bearer token (same guard as all other admin analytics endpoints).
 - Queries `analytics_events` for all `link_click` events matching the item, optionally filtered by `site_slug` when the `site` query param is provided.
-- Sets `Content-Type: text/csv` and `Content-Disposition: attachment; filename="clicks-<itemId>.csv"`.
-- CSV columns: `Timestamp`, `Site`, `Titlu`, `URL`.
+- Sets `Content-Type: text/csv` and `Content-Disposition: attachment; filename="clicks-<itemId>.csv"` (superseded: see the 2026-10-25 amendment).
+- CSV columns: `Timestamp`, `Site`, `Titlu`, `URL` (superseded: see the 2026-10-25 amendment for the current columns).
 - No time range limit — the full historical dataset is returned.
 - CSV serialization is done inline with manual string concatenation; no CSV library dependency was introduced.
 
@@ -222,3 +222,7 @@ When `startDate` is provided:
 **Cypress (`cypress/e2e/admin-analytics.cy.ts`)**
 
 Four new tests: (1) date picker is visible in the analytics page header; (2) selecting a date triggers an API call with the `startDate` query parameter; (3) clearing the date removes the `startDate` parameter from subsequent API calls; (4) clicking a preset period button clears the custom date.
+
+## Amendment — 2026-10-25: Time zone parameter
+
+All admin analytics endpoints (`/daily`, `/overview`, `/sites-comparison`, `/items/:itemId/daily`, `/items/:itemId/export`) accept an optional `tz` query parameter (IANA name; missing means `Europe/Bucharest`; offsets such as `+02:00` return 400). Days, hours, "today", custom `startDate` ranges and the previous-period window are bucketed in that zone, and the admin client sends the browser's zone on every call. The CSV columns are now `Timestamp (<tz>)`, `Site`, `Titlu`, `URL`, `Sursa`, `Cod link scurt`, with wall-clock timestamps (`YYYY-MM-DD HH:MM:SS`), and the download is named `clickuri-<itemId>-<date>.csv` (the "Content-Disposition" filename in the 2026-05-03 amendment is superseded). Day buckets are selected as `::date::text`; the earlier `Date`-to-string conversion never matched the `YYYY-MM-DD` keys, so day-bucketed charts rendered empty. Hourly series (`period=day`) contain one slot per real hour of the local day — 23 or 25 on DST change days, so an hour label can repeat. See [ADR-017](ADR-017-timezone-policy.md).

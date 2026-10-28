@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'recharts'
 import { api } from '../../api/client'
+import { formatDayLabel } from '../../../dates'
 
 interface Props {
   itemId: string
@@ -61,13 +62,6 @@ function CustomTooltip({
       )}
     </div>
   )
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  const day = d.getDate().toString().padStart(2, '0')
-  const month = d.toLocaleDateString('ro-RO', { month: 'short' })
-  return `${day} ${month}`
 }
 
 export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Props) {
@@ -124,7 +118,7 @@ export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Pro
                   dataKey="date"
                   stroke="var(--muted)"
                   tick={{ fontSize: 11, fill: 'var(--muted)' }}
-                  tickFormatter={formatDate}
+                  tickFormatter={formatDayLabel}
                 />
                 <YAxis
                   stroke="var(--muted)"

@@ -17,6 +17,22 @@ let loginPromise: Promise<string> | null = null
 
 const fetchTimeoutMs = 15_000
 
+// Media library URLs are relative (/uploads/<uuid>.webp); external absolute URLs are also accepted.
+const thumbnailSchema = z.string().refine(
+  v => v.startsWith('/uploads/') || URL.canParse(v),
+  'must be a media library path (/uploads/...) or an absolute URL',
+)
+
+// Event dates are calendar days in Romania (YYYY-MM-DD). Mirrors the API's
+// isCalendarDay (packages/api/src/services/time.ts): impossible dates such as
+// 2026-02-30 are rejected here rather than after a round trip to the API.
+const calendarDaySchema = z.string().refine(v => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+  if (!m) return false
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  return d.toISOString().slice(0, 10) === v
+}, 'must be a real calendar date in YYYY-MM-DD format')
+
 function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...options, signal: AbortSignal.timeout(fetchTimeoutMs) })
 }
@@ -144,7 +160,7 @@ server.tool(
 
 server.tool(
   'upload_media',
-  'Upload an image to the media library from base64-encoded data. Returns the uploaded image URL and ID. Use the URL as the thumbnail when creating or updating cards.',
+  'Upload an image to the media library from base64-encoded data. Returns the uploaded image ID and its relative URL (e.g. /uploads/<id>.webp). Pass that URL as-is as the thumbnail when creating or updating cards.',
   {
     imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
     filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
@@ -196,9 +212,9 @@ server.tool(
   {
     title: z.string().describe('Card title (required)'),
     description: z.string().optional().describe('Card body text — supports Markdown'),
-    thumbnail: z.string().url().optional().describe('Image URL from the media library'),
-    startDate: z.string().optional().describe('Visibility start date, ISO format e.g. 2024-06-01'),
-    endDate: z.string().optional().describe('Visibility end date, ISO format e.g. 2024-06-30'),
+    thumbnail: thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
+    startDate: calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
+    endDate: calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
     link: z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
     cta: z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
     sites: z.array(z.string()).optional().describe('Site slugs to show this card on; omit or pass [] for all sites'),
@@ -241,9 +257,9 @@ server.tool(
     id: z.string().uuid().describe('Card ID to update'),
     title: z.string().optional().describe('New title'),
     description: z.string().optional().describe('New description (Markdown)'),
-    thumbnail: z.string().url().optional().describe('New thumbnail URL'),
-    startDate: z.string().optional().describe('New start date (ISO)'),
-    endDate: z.string().optional().describe('New end date (ISO)'),
+    thumbnail: thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
+    startDate: calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
+    endDate: calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
     link: z.string().url().optional().describe('New action URL'),
     cta: z.string().optional().describe('New CTA label'),
     sites: z.array(z.string()).optional().describe('New site slugs array'),

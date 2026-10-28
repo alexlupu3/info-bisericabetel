@@ -14,6 +14,7 @@
     "build:all": "pnpm -r build",
     "test": "cypress run",
     "test:open": "cypress open",
+    "test:unit": "pnpm --filter @betel/api test",
     "lint": "pnpm -r lint",
     "release": "release-it",
     "release:dry": "release-it --dry-run"

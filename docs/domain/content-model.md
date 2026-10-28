@@ -81,7 +81,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
   - `PATCH /api/admin/content/:id` also accepts an explicit `state`, so any non-deleted state can be set directly through the API
   - Any non-deleted state → `deleted` ("Șterge" action)
   - `deleted` → `draft` ("Restaurează" action on `/admin/archive`, `POST /api/admin/content/:id/restore`; clears `groupId`)
-  - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`, `DELETE /api/admin/content/:id/permanent`). This also deletes every `analytics_events` row with that `item_id` and every `audit_log` row with that `entity_id`, so the item's click history and audit trail are erased; only a single new `content.permanent-delete` audit entry remains.
+  - `deleted` → removed from DB ("Șterge definitiv" action on `/admin/archive`, `DELETE /api/admin/content/:id/permanent`). This also deletes every `analytics_events` row with that `item_id` and every `audit_log` row with that `entity_id`, so the item's click history and audit trail are removed with it; only a single new `content.permanent-delete` audit entry remains. This is intended: permanent delete removes every trace of the item except the record of its deletion.
   - Any non-deleted state → new `draft` item created (duplicate action, "Duplică" in context menu — see Duplication below)
 - **Ownership:** managed by any admin; changes are audit-logged
 
@@ -96,17 +96,20 @@ The public API applies date filtering uniformly across all types using this prio
 2. If only a `startDate` is set → item is hidden after `startDate`
 3. If no JSONB dates are set → no date-based filtering from this mechanism
 
-"After" is evaluated against `(NOW() AT TIME ZONE 'Europe/Bucharest')::date` rather than the server's `CURRENT_DATE`. The production API container runs in UTC; without this, items the admin (Romania-local) already shows as expired would keep rendering on the public hub for the few hours each evening between Bucharest midnight and UTC midnight. The public client mirrors this with a defense-in-depth `isItemPast()` filter that uses the visitor's local calendar day, so the public view stays consistent with the admin's expired-badge regardless of any server-side drift.
+Both fields are `YYYY-MM-DD` calendar days (BR-015); the admin API (`POST` / `PATCH /api/admin/content`) and both MCP surfaces reject anything else.
 
-The admin past-item badge (`isItemPast()`) follows the same priority: `endDate` → `startDate`.
+"After" means after the **end of that day in Romania** (`Europe/Bucharest`), regardless of the visitor's, editor's or server's time zone (BR-015, [ADR-017](../decisions/ADR-017-timezone-policy.md)). The public API compares `left(data->>'endDate', 10)` (else `startDate`) as text against `to_char(NOW() AT TIME ZONE 'Europe/Bucharest', 'YYYY-MM-DD')`. It is a text comparison on purpose: a malformed legacy value cannot make the query throw, which would otherwise take down the whole public feed.
+
+The public client's defence-in-depth filter (`public/api/filter.ts`) and the admin past-item badge share one `isItemPast()` (`packages/app/src/content-expiry.ts`). It uses the same Bucharest calendar day, so the public hub and the admin agree wherever the viewer is. Card dates are displayed as the stored calendar day, without time zone shifting.
 
 The admin form applies progressive disclosure: the end date input is hidden until a start date is provided.
 
 ### `expiresAt` Column (independent mechanism)
 The `expiresAt` column on `content_items` is a separate, independent expiry mechanism. It is not replaced by the JSONB date fields. Both mechanisms apply independently:
-- The API filters out items where `expiresAt` has passed (existing `gt(contentItems.expiresAt, now)` filter).
+- The API filters out items where `expiresAt` has passed (existing `gt(contentItems.expiresAt, now)` filter). `expiresAt` is an instant (UTC `TIMESTAMPTZ`); the client compares it as `<= now`, matching the server.
+- On write, a date-only `expiresAt` (`YYYY-MM-DD`) is stored as the start of the following day in Europe/Bucharest (the end of that day in Romania); a full timestamp must carry `Z` or an explicit `±HH:MM` offset and is stored as given; anything else (including offsetless timestamps, which would depend on the server's zone, and impossible dates such as `2026-02-30`) returns 400. The admin form does not truncate an existing `expiresAt` to a date on save.
 - The API also filters via the JSONB date range logic described above.
-- For past-item detection in the admin: JSONB dates take precedence over `expiresAt`.
+- Past-item detection in the admin and the public client safety net (`isItemPast()`) treats the two mechanisms the same way the API does: either one alone marks the item as past, so an `expiresAt` earlier than the event's last day still ends it early.
 
 When any applicable expiry condition is met, the item is automatically hidden from the public view; its state is unchanged (a `published` item stays `published`). Expired items remain visible in the admin tool with a past-item badge; to show one again, move or clear its dates / `expiresAt`. Automatic transition to `archived` is planned (FR-014) but not implemented.
 

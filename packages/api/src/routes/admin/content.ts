@@ -4,17 +4,8 @@ import { db } from '../../db/client.js'
 import { contentItems, groups, contentTranslations, languages, sites as sitesTable, analyticsEvents, auditLog } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
-
-function sortGroupByStartDate<T extends { id: string; data: unknown }>(items: T[]): T[] {
-  return [...items].sort((a, b) => {
-    const da = ((a.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    const db = ((b.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    if (!da && !db) return 0
-    if (!da) return 1
-    if (!db) return -1
-    return da < db ? -1 : da > db ? 1 : 0
-  })
-}
+import { resortGroupChronologically } from '../../services/group-order.js'
+import { invalidEventDate, parseExpiresAt } from '../../services/time.js'
 
 type ItemBody = {
   type: string
@@ -85,6 +76,10 @@ export async function adminContentRoutes(app: FastifyInstance) {
     if (!type) return reply.code(400).send({ error: 'type is required' })
     const reqFieldError = missingRequiredField(type, data)
     if (reqFieldError) return reply.code(400).send({ error: reqFieldError })
+    const dateError = invalidEventDate(data)
+    if (dateError) return reply.code(400).send({ error: dateError })
+    const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
+    if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
     // Normalise exclusiveSite: empty string → null. When set, validate the slug
     // and force sites=[] so the two scoping concepts never coexist on one row.
@@ -106,7 +101,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
         sites: finalSites,
         exclusiveSite: normalizedExclusive,
         groupId: groupId ?? null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        expiresAt: parsedExpiresAt,
         data,
         orderPosition: max + 1,
         state: 'draft',
@@ -119,26 +114,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
     // requiring a separate reorder call from the caller.
     let finalOrderPosition = item.orderPosition
     if (groupId) {
-      const groupItems = await db.select()
-        .from(contentItems)
-        .where(and(eq(contentItems.groupId, groupId), ne(contentItems.state, 'deleted')))
-
-      const sorted = sortGroupByStartDate(groupItems)
-      await db.transaction(async tx => {
-        for (let i = 0; i < sorted.length; i++) {
-          await tx.update(contentItems)
-            .set({ orderPosition: i })
-            .where(eq(contentItems.id, sorted[i].id))
-        }
-      })
-      const idx = sorted.findIndex(s => s.id === item.id)
-      if (idx === -1) {
-        // Insertion succeeded but item not found in sibling query — return with the
-        // temporary position rather than propagating -1.
-        finalOrderPosition = item.orderPosition
-      } else {
-        finalOrderPosition = idx
-      }
+      // Fall back to the temporary position if the item is somehow missing from the group.
+      finalOrderPosition = (await resortGroupChronologically(groupId, item.id)) ?? item.orderPosition
     }
 
     const actor = req.user as any
@@ -168,6 +145,11 @@ export async function adminContentRoutes(app: FastifyInstance) {
       if (!existing) return reply.code(404).send({ error: 'Not found' })
 
       const { type, sites, exclusiveSite, groupId, expiresAt, data, state } = req.body
+
+      const dateError = data ? invalidEventDate(data as Record<string, unknown>) : null
+      if (dateError) return reply.code(400).send({ error: dateError })
+      const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
+      if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
       // Normalise exclusiveSite from the request and decide what the resulting state will be.
       // Treat empty string as null; only validate when it's actually changing to a non-null value.
@@ -222,7 +204,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         ...(groupId !== undefined && { groupId }),
-        ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
+        ...(expiresAt !== undefined && { expiresAt: parsedExpiresAt }),
         ...(mergedData !== undefined && { data: mergedData }),
         ...(state   !== undefined && { state }),
         updatedAt: new Date(),
