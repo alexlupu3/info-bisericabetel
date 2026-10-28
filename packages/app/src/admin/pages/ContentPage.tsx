@@ -24,6 +24,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isItemPast } from '../../content-expiry'
+import { compareEventSchedules, type EventSchedule } from '@betel/shared'
 import { api, type ContentItem, type Group, type Site } from '../api/client'
 import { useToast } from '../context/ToastContext'
 
@@ -102,15 +103,10 @@ function getInsertPosition(over: Over, activeMidY: number): 'before' | 'after' {
   return activeMidY < midY ? 'before' : 'after'
 }
 
+// Client-side preview of the server's chronological sort (BR-013): same shared comparator.
 function sortByStartDate(items: ContentItem[]): ContentItem[] {
-  return [...items].sort((a, b) => {
-    const da = (a.data.startDate as string | undefined) ?? null
-    const db = (b.data.startDate as string | undefined) ?? null
-    if (!da && !db) return 0
-    if (!da) return 1
-    if (!db) return -1
-    return da < db ? -1 : da > db ? 1 : 0
-  })
+  return [...items].sort((a, b) =>
+    compareEventSchedules(a.data as EventSchedule, b.data as EventSchedule))
 }
 
 /**
@@ -1132,7 +1128,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
 
 type FormData = {
   type: string; sites: string[]; exclusiveSite: string | null; expiresAt: string; groupId: string
-  title: string; body: string; description: string; date: string; endDate: string; link: string; cta: string; imageUrl: string; url: string
+  title: string; body: string; description: string; date: string; endDate: string; startTime: string; link: string; cta: string; imageUrl: string; url: string
   name: string; thumbnail: string
   siteLinks: Record<string, string>
 }
@@ -1152,6 +1148,7 @@ function itemToForm(item?: ContentItem | null): FormData {
     date:        d.startDate ?? '',
     link:        d.link  ?? '',
     endDate:     d.endDate ?? '',
+    startTime:   d.startTime ?? '',
     cta:         d.cta   ?? '',
     imageUrl:    d.imageUrl   ?? '',
     url:         d.url        ?? '',
@@ -1187,6 +1184,9 @@ function formToPayload(f: FormData) {
   // Shared date fields — null means "clear the date"
   data.startDate = f.date    || null
   data.endDate   = f.endDate || null
+  // The start time only exists on single-day events (BR-035); otherwise always clear it.
+  const singleDay = !!f.date && (!f.endDate || f.endDate === f.date)
+  data.startTime = singleDay && f.startTime ? f.startTime : null
   const exclusive = f.exclusiveSite !== null
   return {
     type: f.type,
@@ -1746,19 +1746,45 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
         </>)}
 
         {/* Shared date fields — available for all content types */}
-        <div className="flex gap-3">
-          <div className="flex-1">
+        <div className="flex flex-wrap gap-3">
+          <div className="flex-1 min-w-[10rem]">
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Dată (opțional)</label>
-            <input type="date" value={form.date} onChange={e => set({ date: e.target.value, endDate: e.target.value ? form.endDate : '' })}
+            <input type="date" value={form.date}
+              onChange={e => {
+                const v = e.target.value
+                set({
+                  date: v,
+                  endDate: v ? form.endDate : '',
+                  startTime: v && (!form.endDate || form.endDate === v) ? form.startTime : '',
+                })
+              }}
               data-testid="create-date-input"
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
           </div>
           {form.date && (
-            <div className="flex-1">
+            <div className="flex-1 min-w-[10rem]">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Până la (opțional)</label>
-              <input type="date" value={form.endDate} min={form.date} onChange={e => set({ endDate: e.target.value })}
+              <input type="date" value={form.endDate} min={form.date}
+                onChange={e => {
+                  const v = e.target.value
+                  set({ endDate: v, startTime: !v || v === form.date ? form.startTime : '' })
+                }}
                 data-testid="create-end-date-input"
                 className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              {form.endDate && form.endDate !== form.date && (
+                <p data-testid="start-time-multiday-hint" className="mt-1 text-xs text-[var(--muted)] font-content">
+                  Ora de început se poate seta doar pentru evenimente de o singură zi.
+                </p>
+              )}
+            </div>
+          )}
+          {form.date && (!form.endDate || form.endDate === form.date) && (
+            <div className="flex-1 min-w-[10rem]">
+              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Ora de început (opțional)</label>
+              <input type="time" step="60" value={form.startTime} onChange={e => set({ startTime: e.target.value })}
+                data-testid="create-start-time-input"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              <p className="mt-1 text-xs text-[var(--muted)] font-content">Ora României, doar pentru evenimente de o singură zi.</p>
             </div>
           )}
         </div>

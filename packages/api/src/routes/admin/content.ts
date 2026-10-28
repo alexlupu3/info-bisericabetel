@@ -6,6 +6,7 @@ import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 import { resortGroupChronologically } from '../../services/group-order.js'
 import { invalidEventDate, parseExpiresAt } from '../../services/time.js'
+import { invalidStartTime } from '@betel/shared'
 
 type ItemBody = {
   type: string
@@ -78,6 +79,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
     if (reqFieldError) return reply.code(400).send({ error: reqFieldError })
     const dateError = invalidEventDate(data)
     if (dateError) return reply.code(400).send({ error: dateError })
+    const timeError = invalidStartTime(data)
+    if (timeError) return reply.code(400).send({ error: timeError })
     const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
     if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
@@ -198,6 +201,10 @@ export async function adminContentRoutes(app: FastifyInstance) {
       const finalData = (mergedData ?? existing.data ?? {}) as Record<string, unknown>
       const patchFieldError = missingRequiredField(resultingType, finalData)
       if (patchFieldError) return reply.code(400).send({ error: patchFieldError })
+      // The start time is checked on the merged result, so a PATCH that makes a timed
+      // event multi-day (or clears its date) must also clear startTime (BR-035).
+      const patchTimeError = invalidStartTime(finalData)
+      if (patchTimeError) return reply.code(400).send({ error: patchTimeError })
 
       const [updated] = await db.update(contentItems).set({
         ...(type    !== undefined && { type }),

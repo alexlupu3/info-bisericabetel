@@ -215,13 +215,15 @@ server.tool(
     thumbnail: thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
     startDate: calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
     endDate: calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
+    // No local clock regex: the API validates startTime (BR-035) and its 400 is relayed.
+    startTime: z.string().optional().describe('Start time HH:mm (24-hour, Romania local time). Only for single-day events: requires startDate and no endDate (or endDate equal to startDate).'),
     link: z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
     cta: z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
     sites: z.array(z.string()).optional().describe('Site slugs to show this card on; omit or pass [] for all sites'),
     exclusiveSite: z.string().optional().describe('Restrict card to exactly one site (mutually exclusive with sites[])'),
     groupId: z.string().uuid().optional().describe('ID of the group to attach this card to'),
   },
-  async ({ title, description, thumbnail, startDate, endDate, link, cta, sites, exclusiveSite, groupId }) => {
+  async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite, groupId }) => {
     const body = {
       type: 'card',
       sites: sites ?? [],
@@ -233,6 +235,7 @@ server.tool(
         ...(thumbnail !== undefined && { thumbnail }),
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
+        ...(startTime !== undefined && { startTime }),
         ...(link !== undefined && { link }),
         ...(cta !== undefined && { cta }),
       },
@@ -260,18 +263,20 @@ server.tool(
     thumbnail: thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
     startDate: calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
     endDate: calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
+    startTime: z.string().nullable().optional().describe('New start time HH:mm (Romania local time), or null to clear. Only for single-day events.'),
     link: z.string().url().optional().describe('New action URL'),
     cta: z.string().optional().describe('New CTA label'),
     sites: z.array(z.string()).optional().describe('New site slugs array'),
     exclusiveSite: z.string().optional().describe('New exclusive site slug; pass empty string to clear'),
   },
-  async ({ id, title, description, thumbnail, startDate, endDate, link, cta, sites, exclusiveSite }) => {
+  async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite }) => {
     const dataFields: Record<string, unknown> = {}
     if (title !== undefined) dataFields.title = title
     if (description !== undefined) dataFields.description = description
     if (thumbnail !== undefined) dataFields.thumbnail = thumbnail
     if (startDate !== undefined) dataFields.startDate = startDate
     if (endDate !== undefined) dataFields.endDate = endDate
+    if (startTime !== undefined) dataFields.startTime = startTime // null clears it on the API
     if (link !== undefined) dataFields.link = link
     if (cta !== undefined) dataFields.cta = cta
 

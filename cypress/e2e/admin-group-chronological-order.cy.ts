@@ -1,6 +1,6 @@
 /**
  * Chronological ordering of content within groups:
- * - sort button reorders existing items by startDate (undated items go last)
+ * - sort button reorders existing items by startDate, then startTime (untimed first; undated items go last)
  * - creating a new item inside a group auto-inserts it at the correct chronological position
  */
 const ADMIN_URL = '/admin/'
@@ -72,6 +72,20 @@ describe('Chronological ordering within groups', () => {
         expect(order).to.include('nd-1')
         expect(order).to.include('nd-2')
       })
+    })
+
+    it('breaks same-date ties by start time, untimed first (BR-013)', () => {
+      const late    = { ...itemMarch, id: 't-18', orderPosition: 0, data: { title: 'Seara', startDate: '2026-03-01', startTime: '18:00' } }
+      const undated = { ...itemNoDt,  id: 't-nd', orderPosition: 1 }
+      const early   = { ...itemMarch, id: 't-09', orderPosition: 2, data: { title: 'Dimineata', startDate: '2026-03-01', startTime: '09:00' } }
+      const untimed = { ...itemMarch, id: 't-un', orderPosition: 3, data: { title: 'Toata ziua', startDate: '2026-03-01' } }
+      setup([late, undated, early, untimed])
+
+      cy.intercept(contentOrderRoute, { items: [] }).as('reorder')
+
+      cy.get('[data-testid="group-sort-chronological-g1"]').click()
+
+      cy.wait('@reorder').its('request.body.order').should('deep.equal', ['t-un', 't-09', 't-18', 't-nd'])
     })
 
     it('handles a group with all undated items without error', () => {
@@ -190,6 +204,44 @@ describe('Chronological ordering within groups', () => {
         .then($rows => {
           const ids = [...$rows].map(el => el.getAttribute('data-testid')!.replace('content-row-', ''))
           expect(ids[2]).to.equal('i-new')   // undated item is last
+        })
+    })
+
+    it('displays a new earlier-time item before an existing later-time item on the same date', () => {
+      const evening = { ...itemJan, id: 'tm-18', orderPosition: 0, data: { title: 'Seara', startDate: '2026-03-01', startTime: '18:00' } }
+      setup([evening])
+      expandGroup()
+
+      const morning = {
+        id: 'tm-09', type: 'card', state: 'draft', sites: [], orderPosition: 0,
+        groupId: 'g1', expiresAt: null,
+        data: { title: 'Dimineata', startDate: '2026-03-01', startTime: '09:00' },
+        createdAt: '', updatedAt: '',
+      }
+
+      cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: morning }).as('create')
+      cy.intercept('GET', '/api/admin/content', {
+        items: [
+          { ...morning, orderPosition: 0 },
+          { ...evening, orderPosition: 1 },
+        ],
+      }).as('contentRefetch')
+
+      cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="create-type-select"]').select('card')
+      cy.get('[data-testid="create-title-input"]').type('Dimineata')
+      cy.get('[data-testid="create-date-input"]').type('2026-03-01')
+      cy.get('[data-testid="create-start-time-input"]').type('09:00')
+      cy.get('[data-testid="create-submit-btn"]').click()
+
+      cy.wait('@create').its('request.body.data.startTime').should('eq', '09:00')
+      cy.wait('@contentRefetch')
+
+      cy.get('[data-testid="container-g1"] [data-testid^="content-row-"]')
+        .should('have.length', 2)
+        .then($rows => {
+          const ids = [...$rows].map(el => el.getAttribute('data-testid')!.replace('content-row-', ''))
+          expect(ids).to.deep.equal(['tm-09', 'tm-18'])
         })
     })
 

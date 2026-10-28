@@ -13,6 +13,7 @@ import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
 import { resortGroupChronologically } from '../services/group-order.js'
 import { isCalendarDay } from '../services/time.js'
+import { invalidStartTime, isClockTime } from '@betel/shared'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_WIDTH = 1980
@@ -31,6 +32,10 @@ const thumbnailSchema = z.string().refine(
 // Event dates are calendar days in Romania; a malformed value would otherwise
 // be stored as-is and break date filtering.
 const calendarDaySchema = z.string().refine(isCalendarDay, 'must be a calendar date in YYYY-MM-DD format')
+
+// Event start time (BR-035). Built on the shared helper, never on a copied regex.
+// Spec 05 moves this into the shared tool contract (packages/shared/src/mcp-tools.ts).
+const clockTimeSchema = z.string().refine(isClockTime, 'must be a 24-hour clock time in HH:mm format')
 
 const MCP_ACTOR = 'mcp@betel'
 
@@ -159,13 +164,14 @@ function buildMcpServer(): McpServer {
       thumbnail:     thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
       startDate:     calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
       endDate:       calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
+      startTime:     clockTimeSchema.optional().describe('Start time HH:mm (24-hour, Romania local time). Only for single-day events: requires startDate and no endDate (or endDate equal to startDate).'),
       link:          z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
       cta:           z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
       sites:         z.array(z.string()).optional().describe('Site slugs to show on; omit or pass [] for all sites'),
       exclusiveSite: z.string().optional().describe('Restrict card to exactly one site (mutually exclusive with sites[])'),
       groupId:       z.string().uuid().optional().describe('ID of the group to attach this card to'),
     },
-    async ({ title, description, thumbnail, startDate, endDate, link, cta,
+    async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta,
              sites: sitesList, exclusiveSite, groupId }) => {
       const normalizedExclusive = exclusiveSite?.length ? exclusiveSite : null
       if (normalizedExclusive) {
@@ -178,8 +184,11 @@ function buildMcpServer(): McpServer {
       if (thumbnail  !== undefined) data.thumbnail    = thumbnail
       if (startDate  !== undefined) data.startDate    = startDate
       if (endDate    !== undefined) data.endDate      = endDate
+      if (startTime  !== undefined) data.startTime    = startTime
       if (link       !== undefined) data.link         = link
       if (cta        !== undefined) data.cta          = cta
+      const timeError = invalidStartTime(data)
+      if (timeError) return err(timeError)
 
       const item = await db.transaction(async (tx) => {
         await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
@@ -225,12 +234,13 @@ function buildMcpServer(): McpServer {
       thumbnail:     thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
       startDate:     calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
       endDate:       calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
+      startTime:     clockTimeSchema.nullable().optional().describe('New start time HH:mm (Romania local time), or null to clear. Only for single-day events.'),
       link:          z.string().url().optional().describe('New action URL'),
       cta:           z.string().optional().describe('New CTA label'),
       sites:         z.array(z.string()).optional().describe('New site slugs array'),
       exclusiveSite: z.string().optional().describe('New exclusive site slug; pass empty string to clear'),
     },
-    async ({ id, title, description, thumbnail, startDate, endDate, link, cta,
+    async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta,
              sites: sitesList, exclusiveSite }) => {
       const [existing] = await db.select().from(contentItems)
         .where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted')))
@@ -262,13 +272,20 @@ function buildMcpServer(): McpServer {
       if (thumbnail   !== undefined) dataFields.thumbnail   = thumbnail
       if (startDate   !== undefined) dataFields.startDate   = startDate
       if (endDate     !== undefined) dataFields.endDate     = endDate
+      if (startTime   !== undefined) dataFields.startTime   = startTime
       if (link        !== undefined) dataFields.link        = link
       if (cta         !== undefined) dataFields.cta         = cta
 
+      // Merge over the stored data; a null value removes the key (PATCH semantics).
       const hasDataChanges = Object.keys(dataFields).length > 0
-      const mergedData = hasDataChanges
-        ? { ...(existing.data as object), ...dataFields }
-        : existing.data
+      const mergedData: Record<string, unknown> = { ...(existing.data as Record<string, unknown>) }
+      for (const [k, v] of Object.entries(dataFields)) {
+        if (v === null) delete mergedData[k]
+        else mergedData[k] = v
+      }
+      // Validate the resulting data: a time may not survive on a multi-day or undated card.
+      const timeError = invalidStartTime(mergedData)
+      if (hasDataChanges && timeError) return err(timeError)
 
       const [updated] = await db.update(contentItems).set({
         ...(hasDataChanges && { data: mergedData }),
@@ -287,10 +304,10 @@ function buildMcpServer(): McpServer {
       if (hasDataChanges) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
         const changedKeys = Object.keys(dataFields).filter(
-          k => JSON.stringify(oldData[k]) !== JSON.stringify(dataFields[k]),
+          k => dataFields[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(dataFields[k]),
         )
         if (changedKeys.length > 0) {
-          scheduleContentTranslation(id, mergedData as Record<string, unknown>, changedKeys)
+          scheduleContentTranslation(id, mergedData, changedKeys)
         }
       }
 

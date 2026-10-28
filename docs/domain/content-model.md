@@ -17,6 +17,7 @@ Single source for the content model: content types and fields, the publishing st
   - Thumbnail (image)
   - Start date — stored in `data.startDate` (see Expiration Behavior)
   - End date — stored in `data.endDate` (see Expiration Behavior)
+  - Start time — stored in `data.startTime` (`HH:mm`, Romania local time); single-day events only (see Event start time)
   - Link (URL) — stored in `data.link`; the default/fallback link used when no per-site override applies
   - Call to action text
   - Site link overrides — stored in `data.siteLinks: Record<string, string>`; optional map of site slug → URL that overrides the default link for a specific site view. Resolved client-side at render time (see Link Resolution Rule below).
@@ -27,6 +28,7 @@ Single source for the content model: content types and fields, the publishing st
   - Content (Markdown) `*`
   - Start date — stored in `data.startDate`; when no end date is set, the item is hidden after this date (see Expiration Behavior)
   - End date — stored in `data.endDate`; the item is hidden after this date (requires start date to be set first)
+  - Start time — stored in `data.startTime` (`HH:mm`, Romania local time); single-day events only (see Event start time)
 
 ### Poster
 - Purpose: display a visual announcement or promotional image with an optional link
@@ -36,6 +38,7 @@ Single source for the content model: content types and fields, the publishing st
   - Site link overrides — stored in `data.siteLinks: Record<string, string>`; optional map of site slug → URL that overrides the default link for a specific site view. Resolved client-side at render time (see Link Resolution Rule below).
   - Start date — stored in `data.startDate`; when no end date is set, the item is hidden after this date (see Expiration Behavior)
   - End date — stored in `data.endDate`; the item is hidden after this date (requires start date to be set first)
+  - Start time — stored in `data.startTime` (`HH:mm`, Romania local time); single-day events only (see Event start time)
   - Name (admin-only) — a human-readable label used in the media library to identify which content item is using an image. Stored in `data.name`. Never shown on the public hub. Optional; falls back to the item's UUID if absent.
 
 ### Embedded YouTube Video
@@ -44,6 +47,7 @@ Single source for the content model: content types and fields, the publishing st
   - Video link (YouTube URL) `*`
   - Start date — stored in `data.startDate`; when no end date is set, the item is hidden after this date (see Expiration Behavior)
   - End date — stored in `data.endDate`; the item is hidden after this date (requires start date to be set first)
+  - Start time — stored in `data.startTime` (`HH:mm`, Romania local time); single-day events only (see Event start time)
 
 ## Link Resolution Rule (Cards and Posters)
 
@@ -104,6 +108,11 @@ The public client's defence-in-depth filter (`public/api/filter.ts`) and the adm
 
 The admin form applies progressive disclosure: the end date input is hidden until a start date is provided.
 
+### Event start time (`data.startTime`)
+Optional on all types. A string `HH:mm` (24-hour, `00:00`–`23:59`) meaning the wall-clock time in `Europe/Bucharest` on `data.startDate`. Allowed only when `startDate` is set and the item is single-day (`endDate` absent or equal to `startDate`); the admin API and both MCP surfaces validate the resulting data and answer 400 otherwise (BR-035). Absent means "all day / time unknown" and every consumer renders date-only. The time is shared across locales and sites, like the dates. It does **not** affect expiry (BR-015 still applies through the end of the day) and is a secondary sort key for chronological group ordering (BR-013). The instant it denotes is derived with `eventStartInstant()` / `eventStartIso()` from `@betel/shared` (`packages/shared/src/event-time.ts`), which also provides the per-locale "when" formatter used by public cards, feeds, structured data and notifications. The admin form shows the time input only while the item is single-day and clears it otherwise.
+
+Public cards render the date line through `formatEventWhen()`: "14 noiembrie · 18:00" (`ro`), "November 14 · 6:00 PM" (`en`), both parts from `Intl` in the visitor's language, the time always on the Romanian wall clock. Posters, richtext and video items store the time but do not display dates or times.
+
 ### `expiresAt` Column (independent mechanism)
 The `expiresAt` column on `content_items` is a separate, independent expiry mechanism. It is not replaced by the JSONB date fields. Both mechanisms apply independently:
 - The API filters out items where `expiresAt` has passed (existing `gt(contentItems.expiresAt, now)` filter). `expiresAt` is an instant (UTC `TIMESTAMPTZ`); the client compares it as `<= now`, matching the server.
@@ -131,7 +140,7 @@ When any applicable expiry condition is met, the item is automatically hidden fr
 - Admins manage a single unified ordered list. There is no per-site ordering.
 
 ### `data.startDate` as a sort key (admin group sort)
-In addition to its role in expiry (hiding an item after its start date when no end date is set — see Expiration Behavior above), `data.startDate` serves a second role: it is the sort key used by the group chronological sort feature (FR-046). When an admin clicks "Sortează cronologic" on a group, items are ordered by `data.startDate` ascending (YYYY-MM-DD string comparison). Items without a startDate are placed at the end. This same key is used for auto-placement when a new item is created inside a group. The two roles (expiry and sort key) are independent — an item without a startDate is neither hidden from the public hub nor excluded from group sorting; it simply sorts last. Full sort rules: BR-013.
+In addition to its role in expiry (hiding an item after its start date when no end date is set — see Expiration Behavior above), `data.startDate` serves a second role: it is the sort key used by the group chronological sort feature (FR-046). When an admin clicks "Sortează cronologic" on a group, items are ordered by `data.startDate` ascending (`eventSortKey()`: `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when a start time exists, so untimed items on a date sort before timed ones). Items without a startDate are placed at the end. This same key is used for auto-placement when a new item is created inside a group. The two roles (expiry and sort key) are independent — an item without a startDate is neither hidden from the public hub nor excluded from group sorting; it simply sorts last. Full sort rules: BR-013.
 
 ## Exclusive Site Scope
 
@@ -177,7 +186,7 @@ Admins can duplicate any content item (all four types) via the "Duplică" option
 
 **What is copied:**
 - `type`, `sites[]`, `exclusiveSite`, `groupId`, `expiresAt`
-- All `data` JSONB fields **except** media attachment fields (see below)
+- All `data` JSONB fields **except** media attachment fields (see below); `startTime` is copied with the other date fields.
 
 **What is not copied (media attachments):**
 - `data.thumbnail` — Card thumbnail image

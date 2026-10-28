@@ -1,10 +1,10 @@
 # ADR-023: Event start time as Bucharest wall-clock `HH:mm`; event-time helpers in `@betel/shared`
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented 2026-10-28)
 - **Date:** 2026-10-28
 - **Related:** [ADR-017](ADR-017-timezone-policy.md) (time zone policy), [ADR-014](ADR-014-i18n-strategy.md), [ADR-012](ADR-012-mcp-server.md), [ADR-015](ADR-015-remote-mcp-endpoint.md), [ADR-024](ADR-024-mcp-shared-tool-contract-and-service-layer.md) (shared MCP tool contract)
-- **Implements:** FR-075 – FR-079 (proposed, spec 04); rules in BR-035 (proposed — not yet in `business-rules.md`, added with the implementation) and BR-013 (existing, amended)
-- **Spec:** `docs/product/specs/04-event-hours.md`
+- **Implements:** FR-075 – FR-079; rules in BR-035 and BR-013 (amended)
+- **Spec:** spec 04 "Event hours" (removed from `docs/product/specs/` when it shipped; see git history)
 
 ## Context
 

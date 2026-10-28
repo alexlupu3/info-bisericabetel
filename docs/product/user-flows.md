@@ -128,3 +128,17 @@ Member-facing flows come first, followed by admin flows.
   - Query longer than 10 seconds (`timeout`) — cancelled
   - The console role is not installed (`unavailable`, HTTP 503) — a superuser must run migration `0012_sql_console_role.sql`
   - The audit entry cannot be written — HTTP 500 and the query is not run
+
+### Flow 9 (Admin) — Setting the start time of a single-day event
+
+- Trigger: an admin publishes a card for an event that happens at a specific hour on one day
+- Steps:
+  - The admin opens the content form and sets "Dată"
+  - "Până la" and "Ora de început (opțional)" appear
+  - The admin enters the hour (24-hour, Romania time) and saves
+  - The public card shows the date followed by the time in the visitor's language ("14 noiembrie · 18:00")
+- Success state: the time is stored on the item, shared across languages, and used for chronological ordering inside groups
+- Failure or edge states:
+  - The admin later sets "Până la" to a different day — the time input disappears, the time is cleared on save and a hint explains that times apply to single-day events only
+  - The admin clears "Dată" — end date and time are cleared together
+  - The event's hour passes — the card stays visible until the end of the day in Romania (BR-015)

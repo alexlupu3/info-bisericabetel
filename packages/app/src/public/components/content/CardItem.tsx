@@ -3,7 +3,7 @@ import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
-import { formatCalendarDay } from '../../../dates'
+import { eventStartIso, formatEventWhen, isSingleDayEvent, type EventSchedule } from '@betel/shared'
 
 type CardData = {
   title: string
@@ -12,6 +12,7 @@ type CardData = {
   startDate?: string
   date?: string       // legacy field — new cards use startDate
   endDate?: string
+  startTime?: string  // HH:mm, Romania wall clock; single-day events only (BR-035)
   link?: string
   cta?: string
   siteLinks?: Record<string, string>
@@ -41,7 +42,9 @@ export default function CardItem({
   const d = item.data as CardData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
   const { dateLocale } = useLanguage()
-  const dateStr = formatDateRange(d.startDate ?? d.date, d.endDate, dateLocale)
+  const schedule: EventSchedule = { startDate: d.startDate ?? d.date, endDate: d.endDate, startTime: d.startTime }
+  const whenStr = formatEventWhen(schedule, dateLocale)
+  const whenIso = isSingleDayEvent(schedule) ? safeStartIso(schedule) : undefined
 
   if (variant === 'horizontal') {
     const article = (
@@ -57,9 +60,9 @@ export default function CardItem({
         )}
         <div className="p-5 flex flex-col justify-between flex-1 gap-3">
           <div>
-            {dateStr && (
+            {whenStr && (
               <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-                {dateStr}
+                {whenIso ? <time dateTime={whenIso}>{whenStr}</time> : whenStr}
               </p>
             )}
             <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
@@ -113,9 +116,9 @@ export default function CardItem({
         </div>
       )}
       <div className="p-4">
-        {dateStr && (
+        {whenStr && (
           <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-            {dateStr}
+            {whenIso ? <time dateTime={whenIso}>{whenStr}</time> : whenStr}
           </p>
         )}
         <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
@@ -156,9 +159,11 @@ export default function CardItem({
   return article
 }
 
-function formatDateRange(start?: string, end?: string, dateLocale = 'ro-RO') {
-  if (!start) return null
-  const fmt = (d: string) =>
-    formatCalendarDay(d, dateLocale, { day: 'numeric', month: 'long' })
-  return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start)
+// ISO value for <time dateTime>; undefined for a malformed legacy row instead of throwing.
+function safeStartIso(schedule: EventSchedule): string | undefined {
+  try {
+    return eventStartIso(schedule.startDate!, schedule.startTime)
+  } catch {
+    return undefined
+  }
 }

@@ -5,7 +5,9 @@
 // stays visible until the end of its last day in Romania, wherever the server
 // or the visitor happens to be.
 
-export const CHURCH_TIME_ZONE = 'Europe/Bucharest'
+import { CHURCH_TIME_ZONE } from '@betel/shared'
+
+export { CHURCH_TIME_ZONE }
 
 const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/
 
