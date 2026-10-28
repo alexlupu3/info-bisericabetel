@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Related:** [ADR-017](ADR-017-timezone-policy.md) (time zone policy — on `fix/timezone-handling`), [ADR-014](ADR-014-i18n-strategy.md), [ADR-012](ADR-012-mcp-server.md), [ADR-015](ADR-015-remote-mcp-endpoint.md)
+- **Related:** [ADR-017](ADR-017-timezone-policy.md) (time zone policy), [ADR-014](ADR-014-i18n-strategy.md), [ADR-012](ADR-012-mcp-server.md), [ADR-015](ADR-015-remote-mcp-endpoint.md)
 - **Implements:** FR-075 – FR-079 (rules in BR-035, BR-013)
 - **Spec:** `docs/product/specs/04-event-hours.md`
 

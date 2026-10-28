@@ -3,7 +3,7 @@
 - **Owner area:** short-link route, short-link data model, admin short-link UI (see `README.md` → Ownership)
 - **FR range:** FR-085 – FR-089
 - **ADR:** [ADR-025](../../decisions/ADR-025-short-link-preview-by-user-agent.md) (Proposed)
-- **Migration:** `0013_short_link_preview_mode.sql` (provisional number)
+- **Migration:** `0014_short_link_preview_mode.sql` (provisional number)
 - **Status:** spec, not implemented
 
 ## 1. Summary
@@ -244,7 +244,7 @@ Why letter-box over a blur instead of `cover` cropping: event posters are mostly
 
 A few hundred bytes; no CSS, no fonts, no script. The body is only ever seen through `?preview=1` or by a spoofed crawler.
 
-### 6.7 Data model — migration `0013_short_link_preview_mode.sql`
+### 6.7 Data model — migration `0014_short_link_preview_mode.sql`
 
 ```sql
 ALTER TABLE short_links
@@ -321,7 +321,7 @@ No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from s
 
 - No feature flag: the behaviour only engages for crawler UAs; humans are untouched. Existing links move to `preview_mode = 'content'` via the migration default (Open question 1). If the product owner prefers opt-in, change the migration default to `'destination'` and the create-form default to `'content'`.
 - Deploy order: 03 (or T2's stop-gap `public-url.ts`) → this spec. `PUBLIC_BASE_URL` must be set in CapRover before deploy; without it the route logs a warning and keeps redirecting.
-- Migration `0013` is additive; renumber if another spec merges first (README numbering note).
+- Migration `0014` is additive; renumber if another spec merges first (README numbering note).
 - Rollback: redeploy the previous image; the column is ignored by old code. Derivative files in `uploads/og/` are harmless leftovers.
 - After deploy: run the manual checks in §9 against production with the Sharing Debugger before announcing to admins.
 
@@ -364,7 +364,7 @@ curl -sI http://localhost:3100/uploads/og/brand-3b82f6.jpg; curl -sI http://loca
 
 | # | Task | Files | Depends on |
 |---|---|---|---|
-| T1 | Data model and admin API: migration `0013`, schema, shared type, `previewMode` in GET/POST, new PATCH, new `…/preview` endpoint (returns `resolvePreview` output). | `packages/api/src/db/migrations/0013_short_link_preview_mode.sql`, `packages/api/src/db/schema.ts`, `packages/shared/src/index.ts`, `packages/api/src/routes/short-links.ts` (admin section), `packages/app/src/admin/api/client.ts` (types + `shortLinks.update`, `shortLinks.preview`) | T2 for the preview endpoint body (can stub) |
+| T1 | Data model and admin API: migration `0014`, schema, shared type, `previewMode` in GET/POST, new PATCH, new `…/preview` endpoint (returns `resolvePreview` output). | `packages/api/src/db/migrations/0014_short_link_preview_mode.sql`, `packages/api/src/db/schema.ts`, `packages/shared/src/index.ts`, `packages/api/src/routes/short-links.ts` (admin section), `packages/app/src/admin/api/client.ts` (types + `shortLinks.update`, `shortLinks.preview`) | T2 for the preview endpoint body (can stub) |
 | T2 | Preview services: `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`, escaping; `preview-image.ts` chain helpers; stop-gap `public-url.ts` if 03 is absent. | `packages/api/src/services/share-preview.ts`, `packages/api/src/services/preview-image.ts`, (`packages/api/src/services/public-url.ts` only if missing) | 03 (`absoluteUrl`), 04 (formatter) — both with documented stop-gaps |
 | T3 | Derivative generation and route; media delete cleanup. | `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts`, `packages/api/src/index.ts` (register after `/uploads/` static), `packages/api/src/routes/admin/media.ts` | none |
 | T4 | Public route branch: crawler/`?preview` detection, HTML response with headers, skip click logging for crawlers, `no-store` on the redirect, `?lang`. | `packages/api/src/routes/short-links.ts` (public section) | T1 (column), T2, T3 |

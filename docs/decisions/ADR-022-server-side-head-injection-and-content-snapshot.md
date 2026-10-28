@@ -73,7 +73,7 @@ Rules that follow:
 - `packages/api/src/routes/pages.ts` (`/`, `/:siteSlug`, `/i/:itemId`), `routes/robots.ts`, `routes/sitemap.ts`; registration order in `packages/api/src/index.ts`.
 - `packages/shared/src/seo.ts` (title/description builders used by both sides), `packages/shared/src/i18n-defaults.ts` (Romanian UI defaults).
 - `packages/app/src/main.tsx` (inline-data seeding), `public/pages/ItemPage.tsx`, `HomePage.tsx` (`document.title`/canonical sync).
-- No database migration (an optional `0014_site_address_fields.sql` belongs to spec 03 task T8, not to this decision).
+- No database migration (an optional `0015_site_address_fields.sql` belongs to spec 03 task T8, not to this decision).
 
 ## Consequences
 

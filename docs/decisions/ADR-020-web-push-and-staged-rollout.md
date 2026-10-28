@@ -48,7 +48,7 @@ Constraints and forces:
 
 ## Implementation
 
-- Migration `0012_pwa.sql` (provisional): `app_settings`, `push_subscriptions`, `push_notifications` (+ unique partial index on `content_item_id` for `kind = 'new_event'`).
+- Migration `0013_pwa.sql` (provisional): `app_settings`, `push_subscriptions`, `push_notifications` (+ unique partial index on `content_item_id` for `kind = 'new_event'`).
 - `packages/api/src/services/app-settings.ts`, `services/push.ts`, `routes/pwa.ts`, `routes/push.ts`, `routes/admin/pwa.ts`; hooks in `routes/admin/content.ts` (publish + PATCH) and `routes/mcp.ts` (`publish_card`); worker/sweep started from `index.ts` after migrations.
 - `packages/app/src/public/pwa/*`, `components/pwa/*`, `src/sw.ts` handlers (ADR-019), `admin/pages/PwaPage.tsx`.
 - Full design: `docs/product/specs/01-pwa.md`.

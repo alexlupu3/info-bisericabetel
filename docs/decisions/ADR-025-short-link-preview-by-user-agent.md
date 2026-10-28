@@ -46,7 +46,7 @@ Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and 
 - `packages/api/src/services/share-preview.ts` — `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`.
 - `packages/api/src/services/preview-image.ts` — image chain and derivative paths.
 - `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts` — derivative generation and `GET /uploads/og/:name`.
-- `packages/api/src/db/migrations/0013_short_link_preview_mode.sql`, `schema.ts`, `packages/shared/src/index.ts`.
+- `packages/api/src/db/migrations/0014_short_link_preview_mode.sql`, `schema.ts`, `packages/shared/src/index.ts`.
 - `packages/app/src/admin/components/content/ShortLinksTab.tsx` — share-card preview, mode selector, language variants.
 
 ## Consequences

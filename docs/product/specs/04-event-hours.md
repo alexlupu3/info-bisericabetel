@@ -5,7 +5,7 @@
 - **ADR:** [ADR-023](../../decisions/ADR-023-event-start-time-wall-clock.md) (Proposed)
 - **Migration:** none (JSONB field)
 - **Provides to:** 1 PWA (notification text), 2 RSS (item text, instants), 3 SEO (JSON-LD `startDate`), 5 MCP (card tool field delta)
-- **Depends on:** `fix/timezone-handling` (unmerged at the time of writing — see "Current state")
+- **Depends on:** the timezone policy from `fix/timezone-handling`, merged to `main` in PR #17 (see "Current state")
 
 ## 1. Summary
 
@@ -38,13 +38,13 @@ Events on the hub are day-granular: a card says "14 noiembrie" and nothing else,
 - **Translation.** `TRANSLATABLE_FIELDS` in `ContentPage.tsx` lists text keys only; `scheduleContentTranslation()` (`packages/api/src/services/ai-translation.ts`) passes the whole `data` object to the model with a prompt rule to translate natural-language fields only, exactly as it already does for `startDate`.
 - **MCP.** `create_card` / `update_card` exist on both surfaces (`packages/api/src/routes/mcp.ts` writes the DB directly; `packages/mcp/src/index.ts` calls the HTTP API) with `startDate` / `endDate` as plain optional strings.
 - **Shared package.** `packages/shared/src/index.ts` holds types only. It is a workspace dependency of `@betel/app` and `@betel/api` (`"exports": { ".": "./src/index.ts" }`). Verified while writing this spec: a runtime import from `@betel/shared` type-checks under the API's `NodeNext` tsconfig, runs under `tsx`, and is inlined by the API's `esbuild --bundle` build, so shared runtime helpers need no build changes. `@betel/mcp` does not depend on it (and does not need to for this spec).
-- **`fix/timezone-handling` branch (unmerged).** Six commits (`fb3a114` … `9a7044a`) on top of `main` that this spec builds on:
+- **Timezone policy (`fix/timezone-handling`, merged to `main` in PR #17).** This spec builds on:
   - `packages/api/src/services/time.ts`: `CHURCH_TIME_ZONE`, `isCalendarDay()`, `invalidEventDate()` (returns a 400 message for malformed `startDate`/`endDate`), `startOfDayIn()` (DST-aware), `parseExpiresAt()`; wired into `POST`/`PATCH /api/admin/content` and the remote MCP zod schemas (`calendarDaySchema`).
   - `packages/app/src/dates.ts` (`formatCalendarDay()` — formats a `YYYY-MM-DD` in UTC so the day never shifts) and `packages/app/src/content-expiry.ts` (`isItemPast()` shared by admin badge and public safety net). `CardItem` now uses `formatCalendarDay`.
-  - Docs: **ADR-017 "Time zone policy"** and **BR-015** (event days belong to the church; stored timestamps are UTC). Note: `docs/product/specs/README.md` says ADR-017 "is an unused gap and stays unused" — that is no longer true once this branch merges (coordination issue, reported to the coordinator; this spec references ADR-017/BR-015 as the timezone policy).
+  - Docs: **ADR-017 "Time zone policy"** and **BR-015** (event days belong to the church; stored timestamps are UTC). This spec references ADR-017/BR-015 as the timezone policy.
   - `pnpm test:unit` (`tsx --test` in `@betel/api`) for pure helpers.
 
-  This spec assumes that branch is merged first (or its validation seam is reproduced); task T0 in the work breakdown covers both cases.
+  All of this is on `main`; task T0 only confirms the baseline.
 
 ## 4. User flows
 
@@ -99,7 +99,7 @@ No migration. Existing rows have no `startTime` and are unaffected. `content_tra
 
 ### 6.2 API
 
-**Validation seam** (after `invalidEventDate()` from `fix/timezone-handling`):
+**Validation seam** (after `invalidEventDate()` in `packages/api/src/services/time.ts` on `main`):
 
 - `POST /api/admin/content`: `invalidStartTime(data)` → `400 { error }`.
 - `PATCH /api/admin/content/:id`: compute `mergedData` as today (null deletes), then `invalidStartTime(finalData)` → `400 { error }`. Validating the merged result is what makes "admin later adds a different endDate" or "clears startDate" deterministic: the admin form sends `startTime: null` alongside, so it succeeds; a raw API/MCP caller that forgets gets a 400 rather than a silently inconsistent row. (Rejected alternative: auto-clear `startTime` server-side. It hides data loss from the caller and makes PATCH non-idempotent in a surprising way; open question Q2.)
@@ -268,7 +268,7 @@ export function eventSortKey(schedule: EventSchedule): string | null
 export function compareEventSchedules(a: EventSchedule, b: EventSchedule): number
 ```
 
-Implementation notes (for the developer; mirror `startOfDayIn()` / `offsetMs()` in `packages/api/src/services/time.ts` on `fix/timezone-handling` so the two agree):
+Implementation notes (for the developer; mirror `startOfDayIn()` / `offsetMs()` in `packages/api/src/services/time.ts` on `main` so the two agree):
 
 - Offset: `Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year, month, day, hour, minute, second }).formatToParts(at)` → wall-clock parts → `Date.UTC(parts) - at` (rounded to the second).
 - Instant from wall clock: `wall = Date.UTC(y, m-1, d, hh, mm)`; `guess = wall - offset(wall)`; `result = wall - offset(guess)`. This yields the behaviour documented on `eventStartInstant` for the 2026-03-29 gap and the 2026-10-25 overlap.
@@ -290,7 +290,7 @@ Expected outputs (also the unit-test table):
 
 (Exact Intl spellings — "09:30" vs "9:30" for `ro-RO` with `hour: 'numeric'` — must be asserted from the real ICU output when the tests are written; the table shows the intent, not golden strings.)
 
-Why `packages/shared`: the same rule must run in the browser (admin preview, card rendering), the API (validation, sort, feeds, JSON-LD, notifications) and must not drift into three copies as the `startDate` comparator already has (two copies today). The package is already a dependency of both and bundles cleanly (see Current state). ADR-023 records this and the wall-clock storage decision. `CHURCH_TIME_ZONE` will then exist in three places (`api/services/time.ts`, `app/dates.ts`, shared); task T7 makes the first two re-export the shared constant once `fix/timezone-handling` is merged.
+Why `packages/shared`: the same rule must run in the browser (admin preview, card rendering), the API (validation, sort, feeds, JSON-LD, notifications) and must not drift into three copies as the `startDate` comparator already has (two copies today). The package is already a dependency of both and bundles cleanly (see Current state). ADR-023 records this and the wall-clock storage decision. `CHURCH_TIME_ZONE` will then exist in three places (`api/services/time.ts`, `app/dates.ts`, shared); task T7 makes the first two re-export the shared constant.
 
 ### 6.6 Configuration
 
@@ -318,7 +318,7 @@ One extra five-character key per item in `GET /api/content`. Formatter instances
 
 **Consumes**
 
-- Timezone policy and `YYYY-MM-DD` validation from `fix/timezone-handling` (ADR-017, BR-015, `invalidEventDate()`): this spec's validation runs after it and assumes dates are canonical.
+- Timezone policy and `YYYY-MM-DD` validation on `main` (PR #17; ADR-017, BR-015, `invalidEventDate()`): this spec's validation runs after it and assumes dates are canonical.
 - "What is an event / which are upcoming": unchanged domain docs (`content-model.md` → Expiration Behavior). This spec does not redefine upcoming-ness.
 - Nothing from specs 1, 2, 3, 5, 6.
 
@@ -328,7 +328,7 @@ Matches the README ownership table: this spec owns `data.startTime`, the formatt
 
 - **Flags:** none. The field is optional; nothing changes for items without it.
 - **Migration:** none.
-- **Deploy order:** (1) merge `fix/timezone-handling`; (2) this feature (shared + API + app ship together in the single container, ADR-006); (3) stdio MCP package rebuilt from the same commit (`packages/mcp`, consumed via `pnpm --filter @betel/mcp build`). An older stdio MCP against a newer API keeps working (it just cannot set the field); a newer stdio MCP against an older API has its `startTime` stored unvalidated — acceptable for the minutes a deploy takes, and the next admin save normalises it.
+- **Deploy order:** (1) `fix/timezone-handling` — done, merged in PR #17; (2) this feature (shared + API + app ship together in the single container, ADR-006); (3) stdio MCP package rebuilt from the same commit (`packages/mcp`, consumed via `pnpm --filter @betel/mcp build`). An older stdio MCP against a newer API keeps working (it just cannot set the field); a newer stdio MCP against an older API has its `startTime` stored unvalidated — acceptable for the minutes a deploy takes, and the next admin save normalises it.
 - **Rollback:** redeploy the previous image. Stored `startTime` values are ignored by the previous `CardItem` and sort code and survive for a later re-deploy. No data to revert.
 
 ## 9. Testing
@@ -337,7 +337,7 @@ Cypress specs stub the API, so backend behaviour is verified by unit tests (help
 
 ### 9.1 Unit (new `pnpm test:unit` coverage)
 
-`packages/shared/src/event-time.test.ts` (`node:test` via `tsx`, same runner as `packages/api/src/services/time.test.ts` on the fix branch):
+`packages/shared/src/event-time.test.ts` (`node:test` via `tsx`, same runner as `packages/api/src/services/time.test.ts` on `main`):
 
 - `isClockTime`: accepts `00:00`, `23:59`, `09:05`; rejects `24:00`, `9:05`, `18:00:00`, `""`, `18.00`, numbers.
 - `invalidStartTime`: the three messages and their precedence; `null`/`undefined` pass; `endDate === startDate` passes.
@@ -362,7 +362,7 @@ Public (setup as in `content-types.cy.ts`, `stubI18nRoutes()` from `cypress/supp
 8. **English:** `localStorage betel-lang = 'en'` → contains `November 14` and `6:00 PM`.
 9. **No time:** `{ startDate: '2099-11-14' }` → `14 noiembrie`, no separator, `time[datetime="2099-11-14"]`.
 10. **Multi-day with stray time** (defensive; API should never store it): `{ startDate, endDate: '2099-11-16', startTime: '18:00' }` → renders the range only, no time, no `<time>`.
-11. **Expiry unchanged (regression):** with `cy.clock` at 20:00 Bucharest on a day, a card `{ startDate: today, startTime: '18:00' }` is still visible (pattern from `timezone-handling.cy.ts` on the fix branch).
+11. **Expiry unchanged (regression):** with `cy.clock` at 20:00 Bucharest on a day, a card `{ startDate: today, startTime: '18:00' }` is still visible (pattern from `timezone-handling.cy.ts` on `main`).
 
 Group sort (extend `cypress/e2e/admin-group-chronological-order.cy.ts`):
 
@@ -384,7 +384,7 @@ With `pnpm dev:api` and an admin token:
 
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
-| T0 | **Baseline.** Merge `fix/timezone-handling` into `main` (ADR-017, BR-015, `services/time.ts`, `app/dates.ts`, `content-expiry.ts`, `pnpm test:unit`). If it cannot be merged first, cherry-pick `fb3a114` (`invalidEventDate` seam) or reproduce the two validation call sites and the `formatCalendarDay` helper; the spec below assumes they exist. Also amend `docs/product/specs/README.md`'s "ADR-017 is an unused gap" note. | (branch merge) | — |
+| T0 | **Baseline — done.** `fix/timezone-handling` is merged to `main` (PR #17: ADR-017, BR-015, `services/time.ts`, `app/dates.ts`, `content-expiry.ts`, `pnpm test:unit`); start from `main`. | — | — |
 | T1 | **Shared helpers.** Create `packages/shared/src/event-time.ts` per §6.5; `export * from './event-time'` in `packages/shared/src/index.ts`; add `packages/shared/tsconfig.json` (extends `../../tsconfig.base.json`, `include: ["src"]`, `noEmit`), `lint` (`tsc --noEmit`) and `test` (`tsx --test 'src/**/*.test.ts'`) scripts plus `tsx`, `typescript`, `@types/node` devDependencies to `packages/shared/package.json`; extend root `test:unit` to `pnpm --filter @betel/shared --filter @betel/api test`; write `event-time.test.ts` (§9.1). Run `pnpm lint` in all packages to confirm app (`bundler`) and api (`NodeNext`) both resolve the new module. | `packages/shared/src/event-time.ts`, `packages/shared/src/index.ts`, `packages/shared/src/event-time.test.ts`, `packages/shared/package.json`, `packages/shared/tsconfig.json`, `package.json`, `pnpm-lock.yaml` | T0 |
 | T2 | **API validation + sort.** Call `invalidStartTime` in `POST` and `PATCH` handlers (after `invalidEventDate`, on `data` / `finalData`); switch `sortGroupByStartDate()` to `compareEventSchedules`; remote MCP `clockTimeSchema`, `startTime` on `create_card`/`update_card`, `null` deletion in `update_card`'s merge, `invalidStartTime` before insert/update. Manual checklist §9.3. | `packages/api/src/routes/admin/content.ts`, `packages/api/src/services/group-order.ts`, `packages/api/src/routes/mcp.ts` | T1 |
 | T3 | **Admin form.** `FormData.startTime`, `itemToForm`, `formToPayload`, dates row with the time input, hint, handlers in §6.3, `sortByStartDate` → `compareEventSchedules`. Cypress §9.2 items 1–6 and 12–13. | `packages/app/src/admin/pages/ContentPage.tsx`, `cypress/e2e/event-start-time.cy.ts`, `cypress/e2e/admin-group-chronological-order.cy.ts` | T1 |
@@ -409,7 +409,7 @@ T2, T3, T4 and T5 can run in parallel once T1 is merged (T1 is small; land it fi
 
 ## 12. Doc integration
 
-Ready-to-paste snippets for the coordinator (not applied by this spec). Assumes `fix/timezone-handling` (BR-015, ADR-017) has been merged, which the coordination README requires before any of these features. BR-035 comes from this spec's reserved BR block.
+Ready-to-paste snippets for the coordinator (not applied by this spec). `fix/timezone-handling` (BR-015, ADR-017) is merged to `main` (PR #17). BR-035 comes from this spec's reserved BR block.
 
 ### `docs/product/requirements.md` — under "### Content Model", after FR-011
 
@@ -487,4 +487,4 @@ Code map: add `| Shared runtime helpers (event time) | packages/shared/src/event
 
 ### `docs/product/specs/README.md`
 
-Fix the numbering note: "ADR-017 is taken by the timezone policy (`fix/timezone-handling`)" instead of "an unused gap". Add to "Fixed contracts → Event time": the helper names in §6.5 and the three error strings in §6.2.
+The ADR-017 numbering note is already fixed. Add to "Fixed contracts → Event time": the helper names in §6.5 and the three error strings in §6.2.

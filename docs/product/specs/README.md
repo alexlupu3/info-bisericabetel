@@ -8,17 +8,17 @@ Specs live in this folder until they are implemented. Each spec proposes its edi
 
 | # | Spec | Owner area | FR range | ADR range | Migration (provisional) |
 |---|------|-----------|----------|-----------|-------------------------|
-| 1 | [01-pwa.md](01-pwa.md) — real PWA: manifest, splash, icons, install invite, push notifications, staged rollout | PWA / service worker / push | FR-050 – FR-059 | ADR-019, ADR-020 | `0012` |
+| 1 | [01-pwa.md](01-pwa.md) — real PWA: manifest, splash, icons, install invite, push notifications, staged rollout | PWA / service worker / push | FR-050 – FR-059 | ADR-019, ADR-020 | `0013` |
 | 2 | [02-rss-feed.md](02-rss-feed.md) — RSS feed of upcoming events, AI-agent discoverability | Feeds, `llms.txt` | FR-060 – FR-064 | ADR-021 | none expected |
-| 3 | [03-seo.md](03-seo.md) — crawlers enabled, SEO, structured data / rich results | Crawlability, `<head>` meta, sitemap, per-item pages | FR-065 – FR-074 | ADR-022 | `0014` (optional, site address fields) |
+| 3 | [03-seo.md](03-seo.md) — crawlers enabled, SEO, structured data / rich results | Crawlability, `<head>` meta, sitemap, per-item pages | FR-065 – FR-074 | ADR-022 | `0015` (optional, site address fields) |
 | 4 | [04-event-hours.md](04-event-hours.md) — optional start time for single-day events | Content model (event time) | FR-075 – FR-079 | ADR-023 (only if needed) | none expected (JSONB) |
 | 5 | [05-mcp-analytics-short-links.md](05-mcp-analytics-short-links.md) — MCP tools for analytics and short-link creation | MCP (stdio + remote) | FR-080 – FR-084 | ADR-024 (only if needed) | none expected |
-| 6 | [06-short-link-previews.md](06-short-link-previews.md) — link-preview metadata for short links, redirect as fallback | Short-link route | FR-085 – FR-089 | ADR-025 | `0013` (only if needed) |
+| 6 | [06-short-link-previews.md](06-short-link-previews.md) — link-preview metadata for short links, redirect as fallback | Short-link route | FR-085 – FR-089 | ADR-025 | `0014` (only if needed) |
 | 7 | [07-event-location.md](07-event-location.md) — optional free-text event location on cards, shown under the date/time with a map-pin glyph | Content model (event location) | FR-090 – FR-094 | none (ADR-026 unused) | none expected (JSONB) |
 
 Business rules: each spec uses its own BR block — 1 → BR-020–024, 2 → BR-025–029, 3 → BR-030–034, 4 → BR-035–039, 5 → BR-040–044, 6 → BR-045–049, 7 → BR-050–054 (BR-015–019 left free for unplanned work).
 
-Numbering notes: FR-049 and ADR-018 are taken by the SQL console (`feat/sql-console`); ADR-017 and BR-015 are taken by `fix/timezone-handling` (timezone policy, `services/time.ts`, `app/dates.ts`), merged to `main` in PR #17; spec 4 builds on it. Migration numbers are provisional — whoever merges second renumbers to the next free file (see `AGENTS.md` → Database migrations).
+Numbering notes: FR-049 and ADR-018 are taken by the SQL console, merged to `main` in PR #18 (migration `0012_sql_console_role.sql`); ADR-017 and BR-015 are taken by `fix/timezone-handling` (timezone policy, `services/time.ts`, `app/dates.ts`), merged to `main` in PR #17; spec 4 builds on it. Migration numbers are provisional — whoever merges second renumbers to the next free file (see `AGENTS.md` → Database migrations).
 
 ## Ownership of shared concerns
 
@@ -68,7 +68,7 @@ Most lanes start on day one; these are the hard sequencing constraints:
 1. **`fix/timezone-handling` is merged to `main` (PR #17) — done** (ADR-017, BR-015, `services/time.ts`, `app/dates.ts`); spec 4 and the push sender in spec 1 build on it.
 2. **Foundations, early in their own specs:** 3's `PUBLIC_BASE_URL` + `absoluteUrl()` (needed by 1, 2, 5, 6), 4's `packages/shared/src/event-time.ts` (needed by 1, 2, 3), 2's `services/public-content.ts` (needed by 1, 3), 6's `services/preview-image.ts` (needed by 2, 3), 3's `/i/:itemId` route (needed by 1, 2 for links), 5's `services/short-links.ts` + `routes/admin/short-links.ts` split (needed by 6's admin delta). Each spec's work breakdown marks these as its first tasks; a consumer that gets ahead may ship a stub with the owner's exact signature.
 3. **Cross-spec deltas land after their base:** the `null`-deletes-key path in the remote `update_card` is needed by 4 and 7 — whichever lands first adds it; 7's card row and admin input after 4's (same files: the public card component and the admin content form); 4's `startTime`, 7's `location` and 6's `previewMode` additions to `packages/shared/src/mcp-tools.ts` after 5's shared tool contract; 2's per-site `<link rel="alternate">` after 3's `registerHeadTags()` hook.
-4. **Migrations:** 1 → `0012`, 6 → `0013`, 3 → `0014` (optional). Renumber on merge if the order differs.
+4. **Migrations:** 1 → `0013`, 6 → `0014`, 3 → `0015` (optional). Renumber on merge if the order differs.
 
 ## Integration of shared docs
 
