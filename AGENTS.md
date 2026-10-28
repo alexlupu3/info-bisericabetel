@@ -86,6 +86,7 @@ Never edit a migration that has already been applied anywhere; add a new one. `*
 |----------|---------|
 | `README.md` | Humans: overview, quick start, deploy |
 | `docs/product/` | Vision, requirements (`FR-NNN`, unique IDs), user flows, roadmap |
+| `docs/product/specs/` | Feature specs awaiting implementation; coordination contract in its `README.md`. Removed once a feature ships |
 | `docs/domain/` | **Single source of truth for domain rules**: entities, business rules, content model, glossary |
 | `docs/architecture/` | Overview, constraints, integrations, security, deployment, `configuration.md` (env vars) |
 | `docs/decisions/` | ADRs; template and index in `docs/decisions/README.md` |

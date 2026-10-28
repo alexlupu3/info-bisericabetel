@@ -7,7 +7,7 @@
   - Four content types: Card, Richtext, Poster, Embedded YouTube Video
   - Groups (Cards and Posters), drag-and-drop ordering, site scoping
   - Auto-expiry (expired items hidden from the public hub), draft/published/archived publishing states
-  - Admin tool: content management, site management (edit only — site creation not built, FR-019), ~~media library~~ **[done — 2026-03-17]**, audit log
+  - Admin tool: content management, site management (edit only — site creation not built, FR-019), ~~media library~~ **[done — 2026-03-17]**, audit log **[partially implemented — FR-023]**
   - Preview mode (FR-018) — **not implemented**; not currently scheduled
   - Admin accounts: super-admin provisioning flow, forced password change on first login, ~~password reset~~ **[done — 2026-03-21]** (super-admin resets admin passwords via UI; temp password shown once for out-of-band delivery)
   - **Admin email notifications (planned — no release date):** temporary passwords delivered by email on account creation (FR-030); self-service forgot-password / reset-password flow with time-limited email links (FR-031). Requires Resend integration and one-time DNS setup (SPF/DKIM). See `docs/architecture/integrations.md`.
@@ -33,6 +33,16 @@
 - ~~MCP (Model Context Protocol) server~~ **[done — 2026-05-13]**: AI agent can create and manage card content via chat using `packages/mcp/` (`@betel/mcp`). Stdio transport (authenticates with the admin REST API using email+password JWT) plus a remote `/mcp` endpoint in the API (Bearer `MCP_SECRET`). 8 tools: `list_sites`, `list_groups`, `list_media`, `list_cards`, `create_card`, `update_card`, `publish_card`, `upload_media`. See FR-048, ADR-012, ADR-015 and `docs/architecture/integrations.md`.
 - **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the stdio MCP server. API key management must be part of the super-admin tooling. The stdio MCP server currently uses JWT auth (and the remote endpoint a shared `MCP_SECRET`) as a temporary measure until this is built.
 
+### Next feature batch [specified — 2026-10-28]
+Seven specs ready for parallel implementation; ownership, reserved IDs and delivery order in [`specs/README.md`](specs/README.md).
+- **Real PWA** — complete manifest/icons/splash, platform-aware install invite, opt-in push for new events, staged rollout (`off` → `beta` → `all`). [01-pwa.md](specs/01-pwa.md), FR-050–FR-059.
+- **RSS event feed** — `/feed.xml` and `/:siteSlug/feed.xml`, `/llms.txt` for AI agents. [02-rss-feed.md](specs/02-rss-feed.md), FR-060–FR-064.
+- **SEO & crawlability** — server-rendered metadata, JSON-LD, per-item pages `/i/:itemId`, `robots.txt`, `sitemap.xml`. [03-seo.md](specs/03-seo.md), FR-065–FR-074.
+- **Event start time** — optional `HH:mm` on single-day events. [04-event-hours.md](specs/04-event-hours.md), FR-075–FR-079.
+- **MCP analytics & short links** — analytics tools and short-link creation on both MCP surfaces. [05-mcp-analytics-short-links.md](specs/05-mcp-analytics-short-links.md), FR-080–FR-084.
+- **Short-link previews** — messaging apps show the content's title and image; destination preview kept as fallback. [06-short-link-previews.md](specs/06-short-link-previews.md), FR-085–FR-089.
+- **Event location** — optional free-text venue on cards, shown under the date with a map pin. [07-event-location.md](specs/07-event-location.md), FR-090–FR-094.
+
 ## Phase 3 — Future / Out of Scope for Now
 
 ### In-app form builder
@@ -41,8 +51,7 @@
 - Users should be able to complete forms without leaving the app.
 - Current workaround: curated links pointing to Google Forms.
 
-### Push notifications (PWA)
-- Two notification types:
-  1. **Event reminder:** user opts in to be reminded about a specific dated content item.
-  2. **New content alert:** admin-triggered notification for new content added to a site, with admin controls to prevent notification spam for minor changes.
-- Dependent on PWA push notification support being sufficiently mature across target devices.
+### Push notifications (PWA) — reminders and manual alerts
+- **Event reminder:** user opts in to be reminded about a specific dated content item.
+- **Manual content alert:** admin-triggered notification for new content added to a site, with admin controls to prevent notification spam for minor changes.
+- Automatic new-event alerts are no longer in this phase: they moved to Phase 2 → "Next feature batch" ([01-pwa.md](specs/01-pwa.md), FR-055), which also delivers the push infrastructure these two types will reuse.

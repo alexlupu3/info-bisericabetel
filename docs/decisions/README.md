@@ -63,3 +63,10 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-016](ADR-016-postgresql-only.md) | PostgreSQL as the only supported database | Accepted |
 | [ADR-017](ADR-017-timezone-policy.md) | Time zone policy: UTC storage, viewer-zone display, Romania event days | Accepted |
 | [ADR-018](ADR-018-sql-console.md) | Super-admin SQL console with a dedicated role and an application-level guard | Accepted |
+| [ADR-019](ADR-019-custom-service-worker-inject-manifest.md) | Custom service worker via `injectManifest` | Proposed |
+| [ADR-020](ADR-020-web-push-and-staged-rollout.md) | Web Push for new events and staged PWA rollout | Proposed |
+| [ADR-021](ADR-021-rss-event-feed.md) | RSS 2.0 event feed: format, link semantics and caching | Proposed |
+| [ADR-022](ADR-022-server-side-head-injection-and-content-snapshot.md) | Server-side head injection and content snapshot for the public hub (no React SSR) | Proposed |
+| [ADR-023](ADR-023-event-start-time-wall-clock.md) | Event start time as Bucharest wall-clock `HH:mm`; event-time helpers in `@betel/shared` | Proposed |
+| [ADR-024](ADR-024-mcp-shared-tool-contract-and-service-layer.md) | MCP tool parity via a shared tool contract and an API service layer | Proposed |
+| [ADR-025](ADR-025-short-link-preview-by-user-agent.md) | Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302 | Proposed |
