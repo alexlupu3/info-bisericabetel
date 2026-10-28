@@ -12,7 +12,7 @@ export function robotsTxt(): string {
     'Disallow: /api/',
     'Disallow: /s/',
     'Disallow: /mcp',
-    '# Feeds (spec 02): /feed.xml, /:siteSlug/feed.xml, /llms.txt',
+    '# Event feeds: /feed.xml, /<siteSlug>/feed.xml (see /llms.txt)',
     `Sitemap: ${absoluteUrl('/sitemap.xml')}`,
     '',
   ].join('\n')

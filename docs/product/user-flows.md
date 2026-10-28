@@ -161,3 +161,22 @@ Member-facing flows come first, followed by admin flows.
 - Success state: the visitor sees the item and can continue to the full hub
 - Failure or edge states: the item has expired, was unpublished or deleted → "Această informație nu mai este disponibilă." with a link back to `/`
 
+
+### Flow 12 — AI agent builds an event digest
+- Trigger: an agent with a web-fetch tool is asked what is happening at Biserica Betel in the coming days
+- Steps:
+  - The agent fetches `/llms.txt` (or reads `<link rel="alternate" type="application/rss+xml">` on a hub page, or the comment in `robots.txt`) and learns the feed URLs: `/feed.xml` for all sites and `/<siteSlug>/feed.xml` per site
+  - It fetches a feed, optionally with `?lang=<code>`
+  - It reads the items in document order (chronological), using `ev:startdate` / `betel:startDate` / `betel:startTime` for dates, `ev:location` for the place, `<link>` (the item page `/i/<id>`) to send a person to the item and `betel:actionLink` for the registration or detail page
+  - A later fetch with `If-None-Match` gets `304` while nothing changed
+- Success state: a correct digest with dates, places and links, without knowing `GET /api/content`
+- Failure or edge states: unknown site slug → 404; unknown or disabled language → 400; a missing translation → Romanian text (ADR-014); site-exclusive events appear only in their site's feed (BR-006), which `/llms.txt` lists
+
+### Flow 13 — Member subscribes in a feed reader
+- Trigger: a member pastes `https://<host>/<siteSlug>` (or `/`) into a feed reader
+- Steps:
+  - The reader auto-discovers `/<siteSlug>/feed.xml` (or `/feed.xml`) from the page head
+  - It lists the current and upcoming events; opening an entry goes to the item page `/i/<id>` (Flow 11)
+  - The reader polls at its own cadence; unchanged feeds answer `304`
+- Success state: new events show up in the reader within about five minutes of publishing
+- Failure or edge states: the event expired between the poll and the click → the item page's not-found state (404, `noindex`); a reader that sorts by `pubDate` shows newest-created first instead of chronological order

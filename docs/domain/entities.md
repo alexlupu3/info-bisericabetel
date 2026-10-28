@@ -9,7 +9,7 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 - Relationships: used for site scoping on Groups and Content Items (`sites[]`, `exclusive_site`); referenced by ShortLink (`site_slug`), AnalyticsEvent and error logs (`site_slug`)
 - Lifecycle: stored in the `sites` table, never hardcoded in application code. The current sites are seeded by migration `0000_initial.sql`; the super-admin can edit name, accent color, address and the structured address fields on `/admin/locations` (`PATCH /api/admin/sites/:slug`). Creating or deleting sites through the admin is not implemented (FR-019)
 - Validation rules: slug must be stable and unique
-- Notes: the church is multi-site and growing; the data model must support dynamic site creation at any time. Available sites are fetched at runtime from GET /api/sites and cached client-side via react-query (key: `['sites']`). The `Site` API type is `{ slug: string; name: string; accent: string }`.
+- Notes: the church is multi-site and growing; the data model must support dynamic site creation at any time. Available sites are fetched at runtime from GET /api/sites and cached client-side via react-query (key: `['sites']`). The `Site` API type is `{ slug: string; name: string; accent: string }`. Each site is referenced by its per-site feed URL `/<slug>/feed.xml` and listed in `/llms.txt` (FR-060, FR-064).
 
 ### Content Item
 - Purpose: represent a unit of information shown in the hub
@@ -23,6 +23,7 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 - Date handling: optional `data.startDate` / `data.endDate` (all types) plus the independent `expiresAt` column. See content-model.md — Expiration Behavior.
 - Site exclusivity: nullable `exclusive_site TEXT REFERENCES sites(slug)` (migration `0008_exclusive_site.sql`). See content-model.md — Exclusive Site Scope, BR-006–BR-008, and ADR-009.
 - Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group itself is hard-deleted from the database.
+- Notes: an item with `data.startDate` is also an event for the public RSS feeds (FR-060, BR-025); its canonical URL `/i/<id>` (FR-069) is the feed item link (BR-026).
 
 ### Group
 - Purpose: visually collect Cards and/or Posters into a single display unit

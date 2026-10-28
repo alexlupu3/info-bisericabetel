@@ -1,6 +1,6 @@
 # Security
 
-All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), `/uploads/*` and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
+All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), the event feeds (`/feed.xml`, `/:siteSlug/feed.xml`), `/llms.txt`, `/uploads/*` and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
 
 ## Security Baseline
 
@@ -24,13 +24,14 @@ All REST paths below include the `/api` prefix under which every API route is re
   - audit log: `/api/admin/logs`
   - error logs: `/api/admin/error-logs`
   - SQL console: `POST /api/admin/sql` (see "SQL console" below)
-- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`, `GET /robots.txt`, `GET /sitemap.xml`, the server-rendered pages `GET /`, `GET /:siteSlug`, `GET /i/:itemId`, and `GET /api/content/:id` (visible items only — published and not expired, the same rule as `GET /api/content`; drafts and archived items return 404, deleted ones 410).
+- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`, `GET /robots.txt`, `GET /sitemap.xml`, `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt` (published, non-expired items only, through the same `listPublicContent` gate as the hub; XML-escaped, no HTML), the server-rendered pages `GET /`, `GET /:siteSlug`, `GET /i/:itemId`, and `GET /api/content/:id` (visible items only — published and not expired, the same rule as `GET /api/content`; drafts and archived items return 404, deleted ones 410).
 
 ### Rate limiting
 `@fastify/rate-limit` is registered with `global: false`, so only routes that opt in are limited:
 - `POST /api/events`: 60 requests per minute per IP.
 - `POST /api/errors`: 20 requests per minute per IP.
 - `POST /api/admin/sql`: 30 requests per minute (plugin default key, per IP).
+- `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt`: 120 requests per minute per IP.
 
 `POST /api/auth/login`, `POST /api/setup` and `/mcp` are **not** rate-limited.
 

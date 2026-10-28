@@ -8,7 +8,7 @@ Everything ships as one Fastify server that also serves the built React app, dep
 
 | Path | Contents |
 |---|---|
-| `packages/api/` | Fastify + Drizzle ORM + PostgreSQL backend. Serves `/api/*`, `/s/:code` short links, `/uploads/*`, `/mcp`, and the built frontend. |
+| `packages/api/` | Fastify + Drizzle ORM + PostgreSQL backend. Serves `/api/*`, `/s/:code` short links, `/uploads/*`, `/mcp`, the RSS event feeds (`/feed.xml`, `/:siteSlug/feed.xml`), `/llms.txt`, and the built frontend. |
 | `packages/app/` | React + Vite app: public PWA at `/` and `/:siteSlug`, admin tool at `/admin/*`. The admin code is lazy-loaded, so public visitors never download it. |
 | `packages/mcp/` | Stdio MCP server for desktop MCP clients ([MCP](#mcp)). |
 | `packages/shared/` | Types shared between the packages. |

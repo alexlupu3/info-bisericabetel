@@ -24,6 +24,15 @@ export const UI_DEFAULTS = {
   'item.notFound': 'Această informație nu mai este disponibilă.',
   'nav.sites': 'Locații',
   'seo.feedLabel': 'Conținut',
+  // Spec 02 (RSS feed): channel texts and description labels, rendered by the API
+  'feed.title': 'Evenimente — Betel Info',
+  'feed.title.site': 'Evenimente — Betel {siteName}',
+  'feed.description': 'Evenimentele următoare ale bisericii Betel',
+  'feed.description.site': 'Evenimentele următoare — Betel {siteName}',
+  'feed.when': 'Când',
+  'feed.where': 'Unde',
+  'feed.details': 'Detalii',
+  'feed.untitled': 'Eveniment',
 } as const
 
 export type UiKey = keyof typeof UI_DEFAULTS

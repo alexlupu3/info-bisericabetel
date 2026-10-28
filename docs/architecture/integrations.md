@@ -42,6 +42,15 @@ Credentials (`BETEL_EMAIL` / `BETEL_PASSWORD`, `MCP_SECRET`) are secrets. Never 
 
 The roadmap's API key layer for machine clients (MCP, Zapier, …) has not been built. Both MCP surfaces use interim auth schemes until it exists.
 
+## Feed Readers and AI Agents (Inbound)
+
+Read-only, public, unauthenticated; no outbound calls ([ADR-021](../decisions/ADR-021-rss-event-feed.md)).
+
+- **Event feeds (RSS 2.0):** `GET /feed.xml` (all-sites view, site-exclusive items omitted as on the hub) and `GET /:siteSlug/feed.xml` (one site). Items are the current and upcoming events (FR-060), in chronological document order, each linking to its item page `/i/<id>`. Optional `?lang=<code>` (an enabled language; Romanian fallback per field). Namespaces: `atom` (self link), `ev` = `http://purl.org/rss/1.0/modules/event/` (`ev:startdate` — a date, or a date-time with the Bucharest offset when the item has a start time — `ev:enddate`, `ev:location`) and `betel` = `urn:betel:feed:1.0` (`startDate`, `startTime`, `endDate`, `site`, `group`, `actionLink`).
+- **Caching:** the body is deterministic, so pollers get `304 Not Modified` with `If-None-Match` until the data or the Bucharest calendar day changes; `Cache-Control: public, max-age=300`, `<ttl>5</ttl>`, 120 requests per minute per IP.
+- **Discovery:** `<link rel="alternate" type="application/rss+xml">` on `/` and each `/:siteSlug`; `GET /llms.txt` lists the hub pages, every feed URL, the language codes and the public JSON endpoints; `robots.txt` mentions the feeds as a comment.
+- **Not tracked:** feed fetches are not recorded in `analytics_events`; the Fastify request log is the only record.
+
 ## Future Considerations
 - **CDN (e.g. CloudFront):** possible future delivery path for images and static assets. Avoid hardcoding absolute asset URLs so a CDN migration stays easy.
 - **Zapier / automation tools:** depend on the planned API key layer.

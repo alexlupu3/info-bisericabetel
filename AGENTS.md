@@ -33,6 +33,7 @@ Deployed as a single container on CapRover (the API process also serves the buil
 | Shared types | `packages/shared/src/index.ts` |
 | Shared runtime helpers (event time, SEO text, UI defaults) | `packages/shared/src/{event-time,seo,i18n-defaults}.ts` |
 | Server-rendered public pages (head, JSON-LD, snapshot), robots, sitemap | `packages/api/src/services/seo/`, `packages/api/src/routes/{pages,robots,sitemap}.ts` |
+| Event feeds (RSS) and llms.txt | `packages/api/src/routes/{feed,llms-txt}.ts`, `packages/api/src/services/{rss,feed-strings,llms-txt}.ts` |
 | Public base URL / `absoluteUrl()` | `packages/api/src/services/public-url.ts` |
 | Stdio MCP server | `packages/mcp/src/index.ts` |
 | E2E tests | `cypress/e2e/*.cy.ts`, helpers in `cypress/support/` |
@@ -54,7 +55,7 @@ pnpm release          # release-it: bumps version, tags, regenerates CHANGELOG.m
 
 Ports: Vite 5173, local API 3100, container 80. Every environment variable is documented in `docs/architecture/configuration.md` — add new ones there, not here.
 
-Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. `pnpm test:unit` covers pure helpers only (e.g. `services/time.ts`, `packages/shared/src/event-time.ts`); routes and SQL are untested. Verify API changes manually (or add tests that exercise them) and say so in your report.
+Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. `pnpm test:unit` covers pure helpers only (e.g. `services/time.ts`, `services/rss.ts`, `packages/shared/src/event-time.ts`); routes and SQL are untested. Verify API changes manually (or add tests that exercise them) and say so in your report.
 
 ## Database migrations
 

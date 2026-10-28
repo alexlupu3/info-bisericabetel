@@ -27,6 +27,8 @@ import { mcpRoutes } from './routes/mcp.js'
 import { pagesRoutes } from './routes/pages.js'
 import { robotsRoute } from './routes/robots.js'
 import { sitemapRoute } from './routes/sitemap.js'
+import { feedRoutes } from './routes/feed.js'
+import { llmsTxtRoute } from './routes/llms-txt.js'
 import { initPublicBaseUrl } from './services/public-url.js'
 import { loadTemplate } from './services/seo/template.js'
 import { seoCache } from './services/seo/cache.js'
@@ -67,6 +69,11 @@ async function start() {
 
   // Short link redirects — registered before SPA static so /s/:code is handled here
   await app.register(shortLinkRedirectRoute)
+
+  // Event feeds and the agent index (spec 02, ADR-021) — before the SPA static handler and
+  // the not-found fallback, outside /api.
+  await app.register(feedRoutes, { version: rootPkg.version })
+  await app.register(llmsTxtRoute)
 
   // Crawler endpoints and server-rendered public pages (spec 03, ADR-022). Fastify prefers
   // static routes (/health, /robots.txt, /mcp, SPA files) over the parametric /:siteSlug.

@@ -142,6 +142,9 @@ When any applicable expiry condition is met, the item is automatically hidden fr
 ### `data.startDate` as a sort key (admin group sort)
 In addition to its role in expiry (hiding an item after its start date when no end date is set — see Expiration Behavior above), `data.startDate` serves a second role: it is the sort key used by the group chronological sort feature (FR-046). When an admin clicks "Sortează cronologic" on a group, items are ordered by `data.startDate` ascending (`eventSortKey()`: `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when a start time exists, so untimed items on a date sort before timed ones). Items without a startDate are placed at the end. This same key is used for auto-placement when a new item is created inside a group. The two roles (expiry and sort key) are independent — an item without a startDate is neither hidden from the public hub nor excluded from group sorting; it simply sorts last. Full sort rules: BR-013.
 
+### `data.startDate` as the event marker (feeds)
+A third role of `data.startDate`: an item of any type with a non-empty `startDate` is an **event** for the RSS feeds (`/feed.xml`, `/:siteSlug/feed.xml`, FR-060). The feed applies the Expiration Behavior and site scoping above unchanged (it reuses the public content query via `packages/api/src/services/public-content.ts`), then keeps only dated items — the **current and upcoming events**, which include multi-day events already in progress — and orders them with `compareEventSchedules` (BR-013). An item without `startDate` is never a feed item; `endDate` alone does not qualify. Google `Event` structured data (FR-069) starts from this set but additionally requires a resolvable physical place.
+
 ## Exclusive Site Scope
 
 Content items support two distinct site scoping concepts that must not be conflated:
