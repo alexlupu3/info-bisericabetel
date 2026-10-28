@@ -43,6 +43,10 @@ See [ADR-006](../decisions/ADR-006-single-container-deployment.md) for the ratio
 
 `GET /health` returns `{ status, version, timestamp }`. `version` is the root `package.json` version, inlined at build time.
 
+### SQL console database role
+
+Migration `0012_sql_console_role.sql` creates the `NOLOGIN` role `betel_sql_console` and grants it to the app's DB user, which requires `SUPERUSER` or `CREATEROLE`. Without that privilege the migration only logs a WARNING and the SQL console (FR-049) answers 503 `kind: 'unavailable'` until a superuser runs the file against the database. Details: [security.md](security.md) → "SQL console".
+
 ## Configuration
 
 All environment variables, their defaults and where they are read are documented in [configuration.md](configuration.md).
