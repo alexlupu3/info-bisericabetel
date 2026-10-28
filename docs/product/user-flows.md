@@ -110,3 +110,21 @@ Member-facing flows come first, followed by admin flows.
 - Failure or edge states:
   - Admin selects a very distant start date — large windows fetch more data but the chart renders the same dual-line format; no practical limit is enforced beyond what the database holds
   - Admin selects today as the start date — current period is a single day, previous period is the single day before it
+
+### Flow 8 (Super-Admin) — Running a SQL query in the SQL console
+
+- Trigger: a super-admin needs to inspect or correct data that no admin page exposes
+- Steps:
+  - The super-admin opens `/admin/sql` ("SQL" nav link)
+  - The super-admin types one statement; the "Doar citire" (read-only) checkbox is ticked by default and is cleared only when the statement must write
+  - The super-admin clicks run; a warning modal opens
+  - The super-admin presses the confirm button twice within 5 seconds; after 5 seconds the first press expires and must be repeated. Escape or Cancel closes the modal without running anything
+  - The result appears as a table of at most 500 rows, with a "500+" notice when it was truncated
+- Success state: the query ran in its own transaction and an `sql_query` entry exists in the audit log (`/admin/logs`)
+- Failure or edge states:
+  - Validation or filter rejection (`invalid`, `blocked`) — HTTP 400 with the reason; nothing reaches the database; a blocked query is logged as `sql_query_blocked`
+  - PostgreSQL error (`database`) — message with line, column and hint where available
+  - A write in read-only mode (`read_only`) — rejected; clear the checkbox to allow it
+  - Query longer than 10 seconds (`timeout`) — cancelled
+  - The console role is not installed (`unavailable`, HTTP 503) — a superuser must run migration `0012_sql_console_role.sql`
+  - The audit entry cannot be written — HTTP 500 and the query is not run

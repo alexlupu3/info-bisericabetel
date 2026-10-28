@@ -23,12 +23,14 @@ All REST paths below include the `/api` prefix under which every API route is re
   - UI translation writes: `PUT /api/admin/translations`, `POST /api/admin/translations/generate`
   - audit log: `/api/admin/logs`
   - error logs: `/api/admin/error-logs`
+  - SQL console: `POST /api/admin/sql` (see "SQL console" below)
 - **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`.
 
 ### Rate limiting
 `@fastify/rate-limit` is registered with `global: false`, so only routes that opt in are limited:
 - `POST /api/events`: 60 requests per minute per IP.
 - `POST /api/errors`: 20 requests per minute per IP.
+- `POST /api/admin/sql`: 30 requests per minute (plugin default key, per IP).
 
 `POST /api/auth/login`, `POST /api/setup` and `/mcp` are **not** rate-limited.
 
@@ -63,6 +65,23 @@ All REST paths below include the `/api` prefix under which every API route is re
 
 **No email sent:** the temporary password is shown in the admin UI only. Email delivery is planned (FR-030/FR-031, see `integrations.md`).
 
+## SQL Console (Implemented, 2026-10-26, FR-049)
+
+`POST /api/admin/sql` lets a super-admin run one SQL statement against the production database. Decision and alternatives: [ADR-018](../decisions/ADR-018-sql-console.md). Code: `packages/api/src/services/sql-console.ts` (validator and runner) and `packages/api/src/routes/admin/sql.ts`.
+
+**Layers, in order:**
+1. Super-admin `preHandler` and a rate limit of 30 requests per minute.
+2. Structural validation: non-empty, at most 20,000 characters, no unterminated string, quoted identifier, dollar-quote or block comment, balanced parentheses, exactly one statement.
+3. Dangerous-command filter, always on (the full list is in FR-049): schema, privilege, session and transaction-control statements, `COPY`, `DO`, file/process/config functions, UPDATE/DELETE without a WHERE at their own nesting level, and any data-changing statement that references `users`, `audit_log` or `_migrations`. It is a token-level denylist over SQL with comments and strings stripped (`pg_settings` is on the protected list, and all `lo_*` functions are blocked). It is defence in depth, **not a sandbox**: it cannot stop `WHERE true` or a clever read.
+4. Execution in its own transaction after `SET LOCAL ROLE betel_sql_console`: a dedicated `NOLOGIN` role, created by migration `0012_sql_console_role.sql` and granted to the app's DB user. It has SELECT/INSERT/UPDATE/DELETE on all `public` tables and USAGE/SELECT on sequences (also by `ALTER DEFAULT PRIVILEGES` for future objects), no CREATE on schema `public`, read-only access to `users`, `audit_log` and `_migrations`, and no read access to `users.password_hash` (the column grant excludes it). PostgreSQL itself therefore denies writes to the protected tables, `pg_read_file`, `CREATE TABLE` and `setval`, even if the filter is bypassed. The transaction is `READ ONLY` unless the request sets `readOnly: false`, with `SET LOCAL statement_timeout` of 10 s. If the role is missing the endpoint returns 503 `kind: 'unavailable'` (see [deployment.md](deployment.md)).
+5. Row cap enforced while fetching: SELECT/WITH/VALUES/TABLE run through `DECLARE ... NO SCROLL CURSOR` and `FETCH 501`; data-changing statements use a protocol-level cursor that stops at 501 rows; EXPLAIN/SHOW run directly. A truncated result reports `rowCount` 500 and the UI shows "500+".
+6. Audit: `sql_query` (`entityType: 'sql'`, `entityId` null, `detail` = `{ query, readOnly }` with the complete query text, at most 20,000 characters) is written **before** execution and **fails closed**: if the insert fails the API returns 500 and the query is not run. Filter rejections log `sql_query_blocked` best effort with `detail` = `{ query, readOnly, reason }`. Execution failures are not logged separately.
+7. UI: a warning modal (`role="alertdialog"`) before every run; the confirm button must be pressed twice within 5 seconds.
+
+**The role is the primary boundary** for table and function privileges; the filter remains defence in depth and is not a sandbox. **Remaining escape path:** `session_user` is still the app's DB user, so `set_config('role', ...)`, `SET ROLE`, `RESET` or `UPDATE pg_settings` could switch back to the app role. Only the filter blocks these (and read-only transactions block the `pg_settings` update). Closing this needs a separate `LOGIN` role with its own connection pool (ADR-018 follow-up).
+
+**Residual risks:** see the SQL console rows in "Known risks and incident concerns".
+
 ## Password Reset Tokens (Planned, FR-031)
 
 When FR-031 (self-service password reset) is implemented, the following design must be followed:
@@ -83,9 +102,11 @@ The system processes very little personal data (admin accounts, anonymous analyt
 ### Audit requirements
 FR-023 requires every content and configuration change to be logged (who, what, when). `logAudit` (`packages/api/src/db/audit.ts`) writes to `audit_log` and never throws, so an audit failure is silently dropped rather than failing the request. The log is viewable by super-admins at `/api/admin/logs`.
 
-Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
+Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; `sql_query` and `sql_query_blocked` (SQL console); and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
 
 Permanent delete purges an item's history by design: `DELETE /api/admin/content/:id/permanent` deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, which records who removed the item and when. `audit_log` is therefore not append-only for permanently deleted items; this is intended (repository owner decision, 2026-10-17). See [content-model.md](../domain/content-model.md).
+
+The SQL console is the exception to the best-effort rule: `sql_query` is written before the query runs and fails closed (see "SQL console").
 
 **Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; short-link create and delete; media upload and delete through the admin UI.
 
@@ -99,4 +120,7 @@ Permanent delete purges an item's history by design: `DELETE /api/admin/content/
 | `POST /api/admin/users` accepts any `role` string, and `DELETE /api/admin/users/:id` has no self-delete or last-super-admin guard | Misconfigured roles; accidental lock-out | Validate role against `admin` / `super-admin`; add guards |
 | `MCP_SECRET` is one shared, full-access, non-expiring token; compared with plain `!==`; no rate limit on `/mcp` | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
 | `POST /api/setup` is unauthenticated until the first user exists | Takeover of a fresh deployment | Create the first super-admin immediately after the first deploy |
+| SQL console shares the app's connection pool and `session_user`; it drops to `betel_sql_console` with `SET LOCAL ROLE` | A filter bypass that switches role back (`set_config('role', ...)`, `SET ROLE`, `RESET`, `UPDATE pg_settings`) regains the app's rights | Filter blocks these; use a separate `LOGIN` role and pool (ADR-018 follow-up) |
+| SQL console bypasses API business rules (soft-delete, group-delete cascade, translation jobs, FR-035) | Data written through it can violate domain rules | Prefer admin pages; use writes sparingly |
+| SQL console and `users.password_hash` | Mitigated: the console role has no column grant on `password_hash`; the residual role-switch path above could still reach it | Role grant; every run is audited |
 | Audit gaps (see above) and silent audit failures | Incomplete forensic trail | Extend `logAudit` coverage |

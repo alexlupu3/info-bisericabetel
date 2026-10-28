@@ -44,6 +44,7 @@ All routes live under `/admin`. The ones marked ★ are visible to the **super-a
 | `/admin/users` ★ | Manage admin accounts and reset passwords. |
 | `/admin/logs` ★ | Audit log. |
 | `/admin/error-logs` ★ | Captured frontend errors. |
+| `/admin/sql` ★ | SQL console: run audited SQL against the database (FR-049, [ADR-018](docs/decisions/ADR-018-sql-console.md)). |
 | `/admin/translations` ★ | Languages and UI string translations. |
 
 `/admin/groups` still exists as a route but is not in the navigation. Groups are managed on the Content page (ADR-002).

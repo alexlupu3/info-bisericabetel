@@ -1,3 +1,4 @@
+import type { SqlQueryResult } from '@betel/shared'
 import { calendarDay, viewerTimeZone } from '../../dates'
 
 const TOKEN_KEY = 'betel-admin-token'
@@ -22,7 +23,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (res.status === 204) return undefined as T
   const data = await res.json()
-  if (!res.ok) throw Object.assign(new Error(data.error ?? res.statusText), { status: res.status })
+  if (!res.ok) throw Object.assign(new Error(data.error ?? res.statusText), { status: res.status, data })
   return data
 }
 
@@ -259,6 +260,10 @@ export const api = {
       get<{ errorLogs: ErrorLogEntry[]; limit: number; offset: number }>(
         `/api/admin/error-logs?limit=${limit}&offset=${offset}${site ? `&site=${encodeURIComponent(site)}` : ''}`
       ),
+  },
+  sql: {
+    run: (query: string, readOnly: boolean) =>
+      post<SqlQueryResult>('/api/admin/sql', { query, readOnly }),
   },
   shortLinks: {
     list:   (contentItemId: string) =>
