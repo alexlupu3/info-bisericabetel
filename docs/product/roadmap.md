@@ -7,7 +7,7 @@
   - Four content types: Card, Richtext, Poster, Embedded YouTube Video
   - Groups (Cards and Posters), drag-and-drop ordering, site scoping
   - Auto-expiry (expired items hidden from the public hub), draft/published/archived publishing states
-  - Admin tool: content management, site management (edit only — site creation not built, FR-019), ~~media library~~ **[done — 2026-03-17]**, audit log
+  - Admin tool: content management, site management (edit only — site creation not built, FR-019), ~~media library~~ **[done — 2026-03-17]**, audit log **[partially implemented — FR-023]**
   - Preview mode (FR-018) — **not implemented**; not currently scheduled
   - Admin accounts: super-admin provisioning flow, forced password change on first login, ~~password reset~~ **[done — 2026-03-21]** (super-admin resets admin passwords via UI; temp password shown once for out-of-band delivery)
   - **Admin email notifications (planned — no release date):** temporary passwords delivered by email on account creation (FR-030); self-service forgot-password / reset-password flow with time-limited email links (FR-031). Requires Resend integration and one-time DNS setup (SPF/DKIM). See `docs/architecture/integrations.md`.
@@ -51,9 +51,7 @@ Seven specs ready for parallel implementation; ownership, reserved IDs and deliv
 - Users should be able to complete forms without leaving the app.
 - Current workaround: curated links pointing to Google Forms.
 
-### Push notifications (PWA)
-- Two notification types:
-  1. **Event reminder:** user opts in to be reminded about a specific dated content item.
-  2. **New content alert:** admin-triggered notification for new content added to a site, with admin controls to prevent notification spam for minor changes.
-- Dependent on PWA push notification support being sufficiently mature across target devices.
-- **New-event alerts are now specified** (automatic, not admin-triggered) in [01-pwa.md](specs/01-pwa.md); event reminders remain future work.
+### Push notifications (PWA) — reminders and manual alerts
+- **Event reminder:** user opts in to be reminded about a specific dated content item.
+- **Manual content alert:** admin-triggered notification for new content added to a site, with admin controls to prevent notification spam for minor changes.
+- Automatic new-event alerts are no longer in this phase: they moved to Phase 2 → "Next feature batch" ([01-pwa.md](specs/01-pwa.md), FR-055), which also delivers the push infrastructure these two types will reuse.

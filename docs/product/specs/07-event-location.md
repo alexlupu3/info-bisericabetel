@@ -2,7 +2,7 @@
 
 - **Owner area:** content model (event location), admin content form (location input below the dates section), public card location row
 - **FR range:** FR-090 – FR-094
-- **BR block:** BR-050 – BR-053 (BR-054 left free)
+- **BR block:** BR-050 – BR-054 reserved by the README; this spec uses BR-050 – BR-053 and leaves BR-054 reserved-unused (not free for other work)
 - **ADR:** none — see §6.9 "Why no ADR"
 - **Migration:** none (JSONB field)
 - **Provides to:** 1 PWA (notification body), 2 RSS (`where` line / `ev:location`), 3 SEO (JSON-LD `Event.location` → `Place.name`), 5 MCP (card tool field delta), 6 short-link previews (description fallback)
@@ -39,7 +39,7 @@ Many cards are events, and where they happen is written into the description tod
 - **Translations.** Public `GET /api/content?locale=xx` left-joins `content_translations` and spreads the translated object over `data` (`packages/api/src/routes/content.ts` lines 84–96) — a key missing from the translation falls back to Romanian automatically (ADR-014). `scheduleContentTranslation()` (`packages/api/src/services/ai-translation.ts` lines 135–225) sends the whole `data` object (create) or the changed keys (update) to the model; the `SYSTEM_PROMPT` (lines 8–16) already says to translate "addresses written in natural language" and to leave URLs/dates alone. The admin Translations page lists UI keys from `KNOWN_KEYS` in `packages/app/src/admin/pages/TranslationsPage.tsx` lines 6–17; public components read keys from `UI_KEYS` (`packages/app/src/public/i18n/keys.ts`) through `t(key, fallback)` (`LanguageContext.tsx` lines 90–99; Romanian always uses the fallback).
 - **Duplicate.** `POST /api/admin/content/:id/duplicate` (`routes/admin/content.ts` 236–247) copies every `data` key except `mediaFields` (`thumbnail`, `imageUrl`), so a new text key is copied automatically (BR-009).
 - **MCP.** Remote `create_card` / `update_card` in `packages/api/src/routes/mcp.ts` (148–209, 213–293) build `data` field by field and write the DB directly; `update_card` spreads `dataFields` over `existing.data` (264–266) and today has no `null`-deletes-key path (spec 04 T2 adds it for `startTime`). Stdio `create_card` / `update_card` in `packages/mcp/src/index.ts` (199–239, 243–281) forward the same fields to the HTTP API. Spec 05 moves both schemas into `packages/shared/src/mcp-tools.ts`.
-- **Shared package.** `packages/shared/src/index.ts` holds types; spec 04 adds the first runtime module (`event-time.ts`) and the test scaffolding (`tsconfig.json`, `tsx --test`), with ADR-023 decision 3 allowing pure, dependency-free runtime helpers there.
+- **Shared package.** `packages/shared/src/index.ts` holds types; spec 04 adds the first runtime module (`event-time.ts`) and the test scaffolding (`tsconfig.json`, `tsx --test`), with ADR-023 decision 4 allowing pure, dependency-free runtime helpers there.
 - **Vocabulary clash.** In this product "locație" already means a church **site** (`Toate locațiile`, `Selectare locație`, `Exclusiv unei locații`, the admin "Locații" page). Admin and public copy for this field must therefore not say "Locație" (see §6.3, §6.4 and the coordination note in §12).
 - **Design language.** `.agents/skills/frontend-design/SKILL.md`: typography-led, monochrome, one small accent per card at most; icons as hairline strokes; `font-content` (Lato) for metadata; theme tokens `--text` / `--muted` from `packages/app/src/index.css`. `CardItem` already ships a hand-written inline SVG (`ExternalLinkIcon`, lines 19–25: 16 px, `stroke="currentColor"`, `strokeWidth 1.5`, `aria-hidden`), which is the pattern the map pin follows.
 
@@ -72,11 +72,11 @@ Many cards are events, and where they happen is written into the description tod
 
 ## 5. Requirements
 
-- **FR-090 — Location field and validation.** Cards gain an optional `data.location`: a plain-text string of at most 70 UTF-16 code units (`String.prototype.length`, the same measure as HTML `maxLength`) after normalisation. Normalisation (`normalizeLocationText()` in `@betel/shared`): strip C0/C1 control characters and U+2028/U+2029, replace every whitespace run (including newlines and tabs) with one space, trim; an empty result means "absent". `POST` and `PATCH /api/admin/content` normalise the value in place and answer `400 { error }` with one of the fixed messages in §6.2 when the value is not a string, is longer than 70 after normalisation, or is present on a non-card item (validated on the resulting type and merged data for PATCH); `null` clears the key. `PUT /api/admin/content/:id/translations/:locale` applies the same normalisation and limit to `data.location`. The value is stored and rendered as text: Markdown is not interpreted and HTML is escaped by the renderer. Testable: `POST` with `location: "  Sala\n mare  "` stores `"Sala mare"`; with 71 non-space characters → 400; a poster with `location` → 400; `PATCH { data: { location: null } }` removes the key.
+- **FR-090 — Location field and validation.** Cards gain an optional `data.location`: a plain-text string of 1–70 UTF-16 code units (`String.prototype.length`, the same measure as HTML `maxLength`) after normalisation. Normalisation (`normalizeLocationText()` in `@betel/shared`): strip C0/C1 control characters and U+2028/U+2029, replace every whitespace run (including newlines and tabs) with one space, trim. **One rule for every write path** — `POST` and `PATCH /api/admin/content`, `PUT /api/admin/content/:id/translations/:locale`, both MCP card tools and the AI translation job — applied to the **resulting** type and data of the write (for PATCH: the merged `data` and the resulting `type`, so a PATCH that changes a located card to another type is rejected unless it also sends `location: null`): (a) `null`, `undefined`, `""` and any value that is empty after normalisation mean "absent" and remove the key — on any item type, never an error; (b) a non-string → `400`; (c) a normalised length above 70 → `400`; (d) a non-empty location on a non-card item → `400` (fixed messages in §6.2; the AI job, which has no caller to answer, drops the value and logs instead of a 400). Consequently a stored `location` — on an item or in a translation — is always a non-empty, normalised string of 1–70 code units; JSON `null` or `""` is never stored. The value is stored and rendered as text: Markdown is not interpreted and HTML is escaped by the renderer. Testable: `POST` with `location: "  Sala\n mare  "` stores `"Sala mare"`; with 71 non-space characters → 400; a poster with `location: "Sala"` → 400; `PATCH { data: { location: null } }` and `PATCH { data: { location: "   " } }` both remove the key; `PATCH { type: 'poster' }` on a located card → 400, the same PATCH with `data: { location: null }` → 200.
 - **FR-091 — Admin form.** For cards, the content form shows a single-line input labelled "Loc de desfășurare (opțional)" directly below the dates row (spec 04's section), with `maxLength={70}`, a live counter "`n / 70`", and a soft hint plus accent-coloured counter above 50 characters. The input is pre-filled when editing; the payload always carries `data.location` (`"…"` normalised, or `null`), so PATCH semantics mirror `description`/`cta`. In translation mode the field is listed among the translatable card fields ("Loc de desfășurare") with the Romanian value as placeholder and the same limit and counter. Non-card types show no input. Admin copy is Romanian and never uses the word "Locație" (reserved for sites).
 - **FR-092 — Public rendering.** `CardItem` renders a non-empty `data.location` as its own row immediately below the date/time row, in both card variants, through a new `EventLocation` component: an inline SVG map pin (`stroke="currentColor"`, sized `1.2em` to the text, `aria-hidden="true"`) followed by the text, using the same class list as the date row (`text-[10px] tracking-widest uppercase font-content text-[var(--muted)]`), with a visually-hidden prefix from i18n key `location.label` (Romanian fallback "Loc de desfășurare"). The row is shown whenever the location is present, with or without a date (Q2). Text wraps on narrow screens (`break-words`, no ellipsis, no fixed height); the glyph stays aligned with the first line. The location is never a link. Posters, richtext and video items do not render it. No per-language string is hard-coded.
-- **FR-093 — Translation, duplication and AI pipeline.** `data.location` is a translatable text field: the public API serves the locale's value when the translation object has a non-empty `location`, otherwise the Romanian value (existing merge, ADR-014). The AI translation job translates it with the other text fields; a returned `location` that is empty or longer than 70 after normalisation is dropped from the stored translation (Romanian fallback applies) and logged, never stored invalid. The `SYSTEM_PROMPT` gains one rule telling the model that `location` is a short venue name or address: translate common nouns, keep proper names and street addresses. Duplicating a card copies `location` like every other non-media `data` key (BR-009).
-- **FR-094 — Shared helper and MCP delta.** `@betel/shared` exports `packages/shared/src/event-location.ts` (§6.5: `LOCATION_MAX_LENGTH`, `LOCATION_SOFT_LENGTH`, `normalizeLocationText`, `invalidLocation`, `readLocation`), unit-tested and used by the API, the admin form, the card component and specs 1, 2, 3 and 6. Both MCP surfaces' `create_card` and `update_card` accept an optional `location` string (`update_card` also accepts `null` to clear), normalise it and return the §6.2 messages as tool errors (remote) or relay the API's 400 (stdio); once spec 05's `packages/shared/src/mcp-tools.ts` exists, the field lives there.
+- **FR-093 — Translation, duplication and AI pipeline.** `data.location` is a translatable text field: the public API serves the locale's value when the translation object has a `location` (stored translations are non-empty by FR-090), otherwise the Romanian value (existing merge, ADR-014). The AI translation job translates it with the other text fields and applies the FR-090 rule to the model's output: a returned `location` that is not a string, is empty after normalisation or is longer than 70 code units is dropped from the stored translation (Romanian fallback applies) and logged, never stored invalid; a valid one is stored normalised. The `SYSTEM_PROMPT` gains one rule telling the model that `location` is a short venue name or address: translate common nouns, keep proper names and street addresses. Duplicating a card copies `location` like every other non-media `data` key (BR-009).
+- **FR-094 — Shared helper and MCP delta.** `@betel/shared` exports `packages/shared/src/event-location.ts` (§6.5: `LOCATION_MAX_LENGTH`, `LOCATION_SOFT_LENGTH`, `normalizeLocationText`, `invalidLocation`, `readLocation`), unit-tested and used by the API, the admin form, the card component and specs 1, 2, 3 and 6. Both MCP surfaces' `create_card` and `update_card` accept an optional `location` string (`update_card` also accepts `null` to clear) and apply the FR-090 rule through the same API-side function as the REST handlers: the remote handlers return the §6.2 messages as tool errors, the stdio adapter relays the API's 400; once spec 05's `packages/shared/src/mcp-tools.ts` exists, the field lives there.
 
 ## 6. Design
 
@@ -86,9 +86,9 @@ Many cards are events, and where they happen is written into the description tod
 
 | Key | Type | Rule |
 |-----|------|------|
-| `location` | string, 1–70 UTF-16 code units, single line | **new**; optional; normalised on write; absent/`null`/`""` all mean "no explicit location" |
+| `location` | string, 1–70 UTF-16 code units, single line, non-empty | **new**; optional; normalised on write; stored only when non-empty — `null`, `""` and whitespace-only input remove the key, so "no explicit location" is always "key absent" |
 
-`content_translations.data` (JSONB), per locale: may carry `location` with the same rule. A translation without the key falls back to Romanian at read time (`routes/content.ts` lines 84–96; nothing to change).
+`content_translations.data` (JSONB), per locale: may carry `location` with exactly the same rule (non-empty, 1–70 code units, normalised; empty input removes the key). A translation without the key falls back to Romanian at read time (`routes/content.ts` lines 84–96; nothing to change). `readLocation()` still tolerates legacy or hand-edited rows that break the rule.
 
 Semantics: a human-readable place name or short address as the editor wrote it ("Sala mare", "Parcul Central, lângă fântână", "Str. Horea 12"). It is independent of the item's site scope: an item scoped to site A may say "Sala de tineret" (a room of A) or "Casa de Cultură" (not A at all). Consumers therefore use it only as the **human-readable place name** and keep using the site for visibility, targeting and postal addresses (BR-053).
 
@@ -100,27 +100,34 @@ No migration. Existing rows have no `location`; nothing changes for them.
 
 ### 6.2 API
 
-**Shared validation seam** — `packages/api/src/routes/admin/content.ts`:
+**One validation function for every write path** — `packages/api/src/services/event-location.ts` (a service, per ADR-024's "business logic never lives in the transports"; used by the admin content route, the translation route and the remote MCP handlers):
 
 ```ts
 import { invalidLocation, normalizeLocationText } from '@betel/shared'
 
-/** Normalises data.location in place; returns a 400 message or null. */
-function applyLocation(type: string, data: Record<string, unknown>): string | null {
+/**
+ * FR-090 for one write: normalises data.location in place on the RESULTING type and data
+ * (POST body, PATCH merge result, translation object, MCP tool input). Returns a 400
+ * message or null. Empty input (null / undefined / "" / whitespace-only) removes the key
+ * on any type; a non-empty location is only valid on a card.
+ */
+export function applyLocation(resultingType: string, data: Record<string, unknown>): string | null {
   if (!('location' in data)) return null
-  if (data.location === null || data.location === undefined) { delete data.location; return null }   // POST: store nothing
-  if (type !== 'card') return 'location is only supported on cards'
-  const e = invalidLocation(data.location)
+  const raw = data.location
+  if (raw === null || raw === undefined) { delete data.location; return null }
+  const e = invalidLocation(raw)                                   // not a string / > 70 after normalisation
   if (e) return e
-  const v = normalizeLocationText(data.location as string)
-  if (v) data.location = v; else delete data.location
+  const v = normalizeLocationText(raw as string)
+  if (!v) { delete data.location; return null }                    // empty means absent, never an error
+  if (resultingType !== 'card') return 'location is only supported on cards'
+  data.location = v
   return null
 }
 ```
 
-- `POST /api/admin/content` (after `missingRequiredField`, line 76): `const locErr = applyLocation(type, data); if (locErr) return reply.code(400).send({ error: locErr })`. A `null` location on create is dropped rather than stored as JSON `null` (`formToPayload` sends `null` for empty optional text; today those nulls are stored verbatim — harmless, but `readLocation()` makes consumers robust either way).
-- `PATCH /api/admin/content/:id`: `null` already deletes the key (line 178–179). After the merge and before `missingRequiredField(resultingType, finalData)` (line 189): run `invalidLocation` / `normalizeLocationText` on `mergedData.location` when the request's `data` contained `location`, with `resultingType`; a non-card resulting type with a stored or incoming `location` → 400 (validated on the **resulting** data, as 04 does for `startTime`). Normalise in `mergedData` so the stored value is canonical. `changedKeys` (line 214) then contains `location` when it changed, which triggers the partial AI translation.
-- `PUT /api/admin/content/:id/translations/:locale` (line 392 ff.): if `data.location` is present: `null`/empty-after-normalisation → delete the key (fallback to Romanian); not a string or > 70 → 400 with the same messages; otherwise store normalised. Other translation keys are untouched.
+- `POST /api/admin/content` (after `missingRequiredField`, line 76): `const locErr = applyLocation(type, data); if (locErr) return reply.code(400).send({ error: locErr })`. A `null` or empty location on create is dropped rather than stored as JSON `null` (`formToPayload` sends `null` for empty optional text; today those nulls are stored verbatim — harmless, but `readLocation()` makes consumers robust either way).
+- `PATCH /api/admin/content/:id`: `null` already deletes the key (line 178–179). After the merge and before `missingRequiredField(resultingType, finalData)` (line 189): **always** run `applyLocation(resultingType, mergedData)` — not only when the request's `data` contained `location` — so the invariant is checked on the **resulting** type and data (as 04 does for `startTime`). A PATCH that changes a located card to `poster`/`richtext`/`video` without `data: { location: null }` is therefore rejected with `location is only supported on cards`; the same PATCH with `location: null` drops the key and succeeds (a type change can never keep a location). Normalising in `mergedData` keeps the stored value canonical. `changedKeys` (line 214) then contains `location` when it changed, which triggers the partial AI translation.
+- `PUT /api/admin/content/:id/translations/:locale` (line 392 ff.): `applyLocation(item.type, data)` on the translation object with the item's current type — identical rule and messages: `null` / empty-after-normalisation removes the key (fallback to Romanian), not a string or > 70 → 400, a non-empty location on a non-card item → 400, otherwise stored normalised. Other translation keys are untouched.
 
 Error messages (English, fixed strings so Cypress/MCP tests can assert them):
 
@@ -128,14 +135,14 @@ Error messages (English, fixed strings so Cypress/MCP tests can assert them):
 |-----------|---------|
 | `location` is not a string (number, object, array, boolean) | `location must be a string` |
 | normalised length > 70 | `location must be at most 70 characters` |
-| `location` present on a non-card item (POST type, or PATCH resulting type) | `location is only supported on cards` |
+| non-empty `location` on a non-card item (POST type, PATCH **resulting** type including a type change, translation of a non-card item) | `location is only supported on cards` |
 
-Checks run in that order; `undefined` / `null` skip them (`null` means "clear").
+Checks run in that order; `undefined` / `null` / empty-after-normalisation skip them and remove the key ("clear"). The same function is called by the remote MCP handlers (below); the stdio MCP and the admin form get the rule through the API.
 
 **AI translation** (`packages/api/src/services/ai-translation.ts`):
 
 - Add to `SYSTEM_PROMPT` (after rule 4): `7. The field "location" is a short venue name or address (max 70 characters): translate common nouns such as hall, church, park or floor, but keep proper names, street names and numbers unchanged.`
-- Add `sanitizeTranslatedLocation(translated: Record<string, unknown>, entityId: string, locale: string): void` that, when `'location' in translated`: if it is a string, normalise; if the result is empty or `invalidLocation()` fails, `delete translated.location` and `console.warn(JSON.stringify({ service: 'ai-translation', event: 'location_dropped', entityType: 'content', entityId, locale, reason }))`. Call it on `translatedData` / `newFields` in the three write branches of `scheduleContentTranslation()` (lines 164–172 create-full, 197–205 update-partial, 214–222 update-full-for-new-locales) before the insert/update. The duplicate endpoint reuses the same scheduler and needs nothing.
+- Add `sanitizeTranslatedLocation(translated: Record<string, unknown>, entityId: string, locale: string): void` that calls the same `applyLocation('card', translated)` (the job only runs for cards' text fields; for any other type `location` is never sent to the model): when it returns a message — or the key was removed because the model returned an empty string — `delete translated.location` and `console.warn(JSON.stringify({ service: 'ai-translation', event: 'location_dropped', entityType: 'content', entityId, locale, reason }))`. This is FR-090's rule with "drop and log" in place of the 400, because the job has no caller to answer. Call it on `translatedData` / `newFields` in the three write branches of `scheduleContentTranslation()` (lines 164–172 create-full, 197–205 update-partial, 214–222 update-full-for-new-locales) before the insert/update. The duplicate endpoint reuses the same scheduler and needs nothing.
 
 **Public API.** `GET /api/content` returns `data` verbatim (merged per locale); no change. HTTP caching (ADR-013) unchanged.
 
@@ -150,9 +157,9 @@ location: z.string().optional().describe('Where the event takes place, as free t
 location: z.string().nullable().optional().describe('New location text (max 70 characters), or null to clear.'),
 ```
 
-Handlers: `create_card` — `if (location !== undefined) { const e = invalidLocation(location); if (e) return err(e); const v = normalizeLocationText(location); if (v) data.location = v }` before the insert. `update_card` — `location === null` deletes the key from `mergedData` (the `null`-deletes path spec 04 T2 introduces for `startTime`; if 7 lands first, add the generic `for (const k of Object.keys(dataFields)) if (dataFields[k] === null) delete mergedData[k]` loop and 04 reuses it); a string is validated and normalised the same way before the update. Audit / translation scheduling unchanged (`location` appears in `changedKeys`).
+Handlers: `create_card` — set `data.location = location` when provided, then `const e = applyLocation('card', data); if (e) return err(e)` before the insert. `update_card` — `location === null` deletes the key from `mergedData` (the `null`-deletes path spec 04 T2 introduces for `startTime`; if 7 lands first, add the generic `for (const k of Object.keys(dataFields)) if (dataFields[k] === null) delete mergedData[k]` loop and 04 reuses it); then `applyLocation('card', mergedData)` → `err(e)` before the update (same function, same messages, same "empty removes the key" behaviour as REST). Audit / translation scheduling unchanged (`location` appears in `changedKeys`).
 
-**Stdio MCP (`packages/mcp/src/index.ts`)** — same two fields; `create_card` forwards `location` inside `data`; `update_card` forwards `location: null` inside `data` so the API clears it. Validation errors come back as the API's 400 and are relayed as today. No local length check: the package does not depend on `@betel/shared` until spec 05 T1, and a local copy of the limit would drift.
+**Stdio MCP (`packages/mcp/src/index.ts`)** — same two fields; `create_card` forwards `location` inside `data`; `update_card` forwards `location: null` inside `data` so the API clears it. Validation errors come back as the API's 400 and are relayed as today. No local length check even after spec 05 T1 makes `LOCATION_MAX_LENGTH` importable: the stdio package is an adapter (ADR-024) and the rule lives in `applyLocation()` on the API.
 
 ### 6.3 Admin UI (`packages/app/src/admin/pages/ContentPage.tsx`)
 
@@ -267,7 +274,7 @@ No new environment variables. Nothing to add to `docs/architecture/configuration
 
 ### 6.7 Security and privacy
 
-- Bounded, single-line, control-character-free text at every write path (admin API, translation API, remote MCP, AI pipeline); the stdio MCP relies on the API.
+- Bounded, single-line, control-character-free, non-empty text at every write path through one function (`applyLocation()`: admin API, translation API, remote MCP, AI pipeline); the stdio MCP relies on the API.
 - Rendered as a React text node (auto-escaped); never as Markdown or HTML; never as an `href`. Consumers that serialise it must escape it in their own format: XML in spec 02 (`escapeXml`), JSON-LD/HTML in spec 03 (its serialiser escapes `<`, `>`, `&`, U+2028/9), HTML attributes in spec 06, push payload JSON in spec 01.
 - No new endpoints and no data about people (a venue is not personal data; editors should not type private addresses — mention in the hint? No: keep the UI quiet; note in the admin docs only).
 
@@ -277,7 +284,7 @@ One extra ≤ 70-character key per card in `GET /api/content` and per translatio
 
 ### 6.9 Why no ADR
 
-The decisions that would warrant one are either already fixed by the coordination README (free text instead of a venue entity; Cards only; translatable per locale; 70-character bound) or already taken by an existing ADR: shared runtime helpers in `packages/shared` (ADR-023, decision 3) and read-time Romanian fallback for translations (ADR-014). What remains — soft/hard threshold, showing the row without a date, no link — are reversible product choices recorded as requirements and open questions here. ADR-026 stays free; if Q1 later turns the location into a map link, that is the moment for an ADR.
+The decisions that would warrant one are either already fixed by the coordination README (free text instead of a venue entity; Cards only; translatable per locale; 70-character bound) or already taken by an existing ADR: shared runtime helpers in `packages/shared` (ADR-023, decision 4) and read-time Romanian fallback for translations (ADR-014). What remains — soft/hard threshold, showing the row without a date, no link — are reversible product choices recorded as requirements and open questions here. ADR-026 stays free; if Q1 later turns the location into a map link, that is the moment for an ADR.
 
 ## 7. Contracts
 
@@ -308,7 +315,7 @@ Matches the README ownership table: this spec owns `data.location`, its validati
 
 **Spec 03 (SEO) — §6.2.3 and BR-030.** Replace the **Event location** bullet with: *Which site is the event's place is resolved as before (`exclusiveSite`; else the site page; else a single-entry `sites[]`; else **no `Event`**). The emitted `location` is: when `readLocation(data)` (spec 07) is null → the resolved site's `Church` object expanded inline, as today; when non-null → `{ "@type": "Place", "name": "<location>", "address": <the resolved site's PostalAddress>, "containedInPlace": { "@id": "{base}/{slug}#place" } }` (no `geo`, `telephone` or `url` — the venue may be a room or a different building; the site's `Church` is still present on the page via `containedInPlace` and the footer). A location with **no** resolvable site still yields no `Event`: Google requires `location.address`, and a free-text venue has none (BR-030 unchanged in that respect).* Add to "Nothing hidden is marked up": *the content snapshot (`render-snapshot.ts`) prints the location row (map-pin text, i18n `location.label` default + the value) under the date line of each card so `Place.name` is visible without JS.* Append to BR-030: "`Event.location` is a `Place` named after `data.location` when the card has one (contained in the resolved site's `Church`), otherwise the `Church` itself." Add to the §9 Rich Results check: "an item with `data.location` validates with `Place.name` = the location and the site's address".
 
-**Spec 05 (MCP) — §6.2 contract module.** Next to the "04 delta" line add: *"**07 delta (owned by 07-event-location.md):** `location` (`z.string().optional()` on `create_card`, `z.string().nullable().optional()` on `update_card`, descriptions in 07 §6.2) is added by 07 in this same contract module; handlers call `invalidLocation()` / `normalizeLocationText()` from `@betel/shared`."* In FR-048's amended tool field list (§12 of 05) add `location` after `startTime`; `get_item_stats` returns it as stored.
+**Spec 05 (MCP) — §6.2 contract module.** Next to the "04 delta" line add: *"**07 delta (owned by 07-event-location.md):** `location` (`z.string().optional()` on `create_card`, `z.string().nullable().optional()` on `update_card`, descriptions in 07 §6.2) is added by 07 in this same contract module; the remote handlers call `applyLocation()` from `packages/api/src/services/event-location.ts` (built on `invalidLocation()` / `normalizeLocationText()` from `@betel/shared`), the stdio adapter relays the API's 400."* In FR-048's amended tool field list (§12 of 05) add `location` after `startTime`; `get_item_stats` returns it as stored.
 
 **Spec 06 (short-link previews) — §6.3 description chain.** Replace "When absent and `data.startDate` exists, use spec 04's 'when' formatter …" with: *When `data.description` is absent, the description is `[whenText, readLocation(data)].filter(Boolean).join(' · ')` — spec 04's "when" formatter in the chosen locale (date-only without `startTime`) followed by spec 07's location (locale-merged, Romanian fallback) — e.g. `vineri, 14 noiembrie 2026, 18:00 · Sala mare`; empty when neither exists (then `og:description` is omitted as today).* When `data.description` exists it is used unchanged (the location is not appended to an authored description).
 
@@ -316,7 +323,7 @@ Matches the README ownership table: this spec owns `data.location`, its validati
 
 - **Flags:** none. The field is optional; cards without it are pixel-identical to today.
 - **Migration:** none.
-- **Deploy order:** (1) spec 04's card row and admin dates row merged (or this spec's T3/T4 rebased on them); (2) this feature — shared helper, API, app ship together in the single container (ADR-006); (3) stdio MCP package rebuilt from the same commit. An older stdio MCP against a newer API keeps working (it cannot set the field); a newer stdio MCP against an older API has `location` stored unvalidated for the minutes a deploy takes, and the next admin save normalises it.
+- **Deploy order:** (1) spec 04's card row and admin dates row merged (or this spec's T3/T4 rebased on them); (2) this feature — shared helper, API, app ship together in the single container (ADR-006 — the remote MCP endpoint lives in that same process, so API and remote MCP can never skew); (3) the stdio MCP package rebuilt from the same commit (a private tool released from this repository). **Rule: deploy the API before publishing or using a stdio MCP build from the same or a newer commit; never point a newer stdio build at an older API.** An older stdio build against a newer API keeps working (it cannot set the field). No capability detection or version negotiation is added — the deploy order is the contract.
 - **Consumers:** specs 1, 2, 3 and 6 apply their deltas after `packages/shared/src/event-location.ts` exists (T1 is tiny; land it first). Until then they behave as written today (site as the place).
 - **Rollback:** redeploy the previous image. Stored `location` values are ignored by the previous `CardItem` and survive for a later re-deploy. No data to revert.
 
@@ -357,8 +364,8 @@ Public (setup as in `content-types.cy.ts`, `stubI18nRoutes()`):
 With `pnpm dev:api` and an admin token:
 
 - `POST /api/admin/content` card with `location: "  Sala\n mare  "` → 201, `data.location === "Sala mare"`; with 71 characters → 400 `location must be at most 70 characters`; with `location: 7` → 400 `location must be a string`; poster with `location` → 400 `location is only supported on cards`; with `location: null` → 201 and no `location` key.
-- `PATCH` with `{ data: { location: "Parc" } }` → 200 normalised; `{ data: { location: null } }` → key removed; `{ data: { location: "x".repeat(71) } }` → 400; `{ type: 'poster' }` on a card that has a location → 400.
-- `PUT /api/admin/content/:id/translations/en` with `{ data: { title: 'T', location: 'x'.repeat(71) } }` → 400; with `location: '  '` → stored without the key; `GET /api/content?locale=en` then returns the Romanian location (fallback); after a valid English `location`, returns the English one.
+- `PATCH` with `{ data: { location: "Parc" } }` → 200 normalised; `{ data: { location: null } }` and `{ data: { location: "   " } }` → key removed; `{ data: { location: "x".repeat(71) } }` → 400; `{ type: 'poster' }` on a card that has a location → 400 `location is only supported on cards`; `{ type: 'poster', data: { location: null } }` → 200 and no `location` key.
+- `PUT /api/admin/content/:id/translations/en` with `{ data: { title: 'T', location: 'x'.repeat(71) } }` → 400; with `location: '  '` or `null` → stored without the key; on a poster with a non-empty `location` → 400; `GET /api/content?locale=en` then returns the Romanian location (fallback); after a valid English `location`, returns the English one.
 - `POST /api/admin/content/:id/duplicate` on a located card → duplicate has `location`.
 - With `OPEN_ROUTER_API_KEY`: create a card with `location: 'Sala mare'` → the `en` translation row gains a translated `location`; a forced over-long result (temporarily lower `LOCATION_MAX_LENGTH` locally) is dropped with a `location_dropped` log line.
 - Remote MCP (`/mcp`): `create_card` with 71 characters → tool error; `update_card` with `location: null` clears it. Stdio MCP (`pnpm --filter @betel/mcp dev`): same two calls; the 400 is relayed.
@@ -369,7 +376,7 @@ With `pnpm dev:api` and an admin token:
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
 | T1 | **Shared helper.** Create `packages/shared/src/event-location.ts` per §6.5; `export * from './event-location'` in `packages/shared/src/index.ts`; `event-location.test.ts` (§9.1). Uses the `tsconfig.json` / `lint` / `test` scaffolding spec 04 T1 adds to `packages/shared`; if 7 lands first, add that scaffolding exactly as 04 §10 T1 describes so 04 finds it in place. `pnpm lint` in all packages. | `packages/shared/src/event-location.ts`, `packages/shared/src/index.ts`, `packages/shared/src/event-location.test.ts` (+ 04's scaffolding files if absent) | — (land first; consumers 1, 2, 3, 6 wait on it) |
-| T2 | **API validation.** `applyLocation()` in `POST` and the merged-data check in `PATCH` (§6.2); `PUT …/translations/:locale` normalisation and limit; `sanitizeTranslatedLocation()` + `SYSTEM_PROMPT` rule in `ai-translation.ts`; remote MCP `location` on `create_card` / `update_card` with validation and `null` deletion. Manual checklist §9.3. | `packages/api/src/routes/admin/content.ts`, `packages/api/src/services/ai-translation.ts`, `packages/api/src/routes/mcp.ts` (or `packages/shared/src/mcp-tools.ts` if 05 T1 has landed) | T1; 04 T2 for the `null`-deletes path in remote `update_card` (else add it here and 04 reuses) |
+| T2 | **API validation.** `applyLocation()` in `services/event-location.ts`; called in `POST` and on the merged result in `PATCH` (always, with the resulting type — §6.2); in `PUT …/translations/:locale`; `sanitizeTranslatedLocation()` (on top of `applyLocation`) + `SYSTEM_PROMPT` rule in `ai-translation.ts`; remote MCP `location` on `create_card` / `update_card` with `applyLocation` and `null` deletion. Manual checklist §9.3. | `packages/api/src/services/event-location.ts`, `packages/api/src/routes/admin/content.ts`, `packages/api/src/services/ai-translation.ts`, `packages/api/src/routes/mcp.ts` (or `packages/shared/src/mcp-tools.ts` if 05 T1 has landed) | T1; 04 T2 for the `null`-deletes path in remote `update_card` (else add it here and 04 reuses) |
 | T3 | **Admin form.** `FormData.location`, `itemToForm`, `formToPayload`, the location block below the dates row, `LocationCounter`, `TRANSLATABLE_FIELDS.card` entry and `maxLength`/counter support in the translation loop (§6.3). Cypress §9.2 items 1–7. | `packages/app/src/admin/pages/ContentPage.tsx` (+ optional `packages/app/src/admin/components/content/LocationCounter.tsx`), `cypress/e2e/event-location.cy.ts`, `cypress/e2e/admin-content-translation.cy.ts` | T1; **after 04 T3** (same file, dates row) |
 | T4 | **Public card.** `EventLocation.tsx`, `CardItem` changes in both variants, `UI_KEYS.LOCATION_LABEL`, `KNOWN_KEYS['location.label']` (§6.4). Cypress §9.2 items 8–14. | `packages/app/src/public/components/content/EventLocation.tsx`, `packages/app/src/public/components/content/CardItem.tsx`, `packages/app/src/public/i18n/keys.ts`, `packages/app/src/admin/pages/TranslationsPage.tsx`, `cypress/e2e/event-location.cy.ts` | T1; **after 04 T4** (same file, date row) |
 | T5 | **Stdio MCP delta.** `location` on `create_card` (`optional`) and `update_card` (`nullable().optional()`, forwarded as `data.location: null`) with the §6.2 descriptions. Two-field change inside spec 5's file; coordinate wording. Skipped if 05 T1 has already moved the schemas to `mcp-tools.ts` (then T2 covers it). | `packages/mcp/src/index.ts` | — (parallel with T2; same strings) |
@@ -392,18 +399,18 @@ T2, T3, T4 and T5 can run in parallel once T1 is merged and the 04 prerequisites
 
 ## 12. Doc integration
 
-Ready-to-paste snippets for the coordinator (not applied by this spec). BR-050–BR-053 come from this spec's reserved block.
+Ready-to-paste snippets for the coordinator (not applied by this spec). BR-050–BR-053 come from this spec's reserved block (BR-050–054); BR-054 stays reserved-unused. Links inside the snippets are relative to the file they are pasted into (`docs/product/…`), which is why they say `specs/07-event-location.md`.
 
-### `docs/product/requirements.md` — "### Planned Features", new block after "#### Event Start Time" (README says planned FRs are applied now on the specs branch; this block is **missing today** — coordination note)
+### `docs/product/requirements.md` — "### Planned Features", block after "#### Event Start Time" (already applied on the specs branch, in numeric order after the FR-085–089 block; this snippet is the source the coordinator regenerates it from)
 
 ```markdown
 #### Event Location
 Spec: [07-event-location.md](specs/07-event-location.md).
-- FR-090: Cards support an optional plain-text location `data.location` (max 70 characters after normalisation: control characters removed, whitespace collapsed, trimmed; empty means absent). `POST`/`PATCH /api/admin/content` and `PUT …/translations/:locale` normalise it and reject non-strings, over-long values and locations on non-card items with HTTP 400; `null` clears it. Rules: `docs/domain/content-model.md` — "Event location"; BR-050. **[Planned]**
-- FR-091: The admin content form shows a "Loc de desfășurare (opțional)" input for cards directly below the dates row, with a 70-character `maxLength`, a live counter and a soft hint above 50 characters; the field is translatable in translation mode with the same limit. **[Planned]**
+- FR-090: Cards support an optional plain-text location `data.location` of 1–70 UTF-16 code units after normalisation (control characters removed, whitespace collapsed, trimmed). One rule on the resulting type and data of every write — `POST`/`PATCH /api/admin/content` (PATCH: merged data and resulting type, so a type change cannot keep a location), `PUT …/translations/:locale`, both MCP card tools and the AI translation job: empty input (`null`, `""`, whitespace) removes the key; non-strings, values over 70 code units and non-empty locations on non-card items are rejected with HTTP 400 / a tool error (the AI job drops and logs instead). Stored values are therefore always non-empty. Rules: `docs/domain/content-model.md` — "Event location"; BR-050. **[Planned]**
+- FR-091: The admin content form shows a "Loc de desfășurare (opțional)" input for cards directly below the dates row, with `maxLength` 70 (UTF-16 code units, the same measure as the API), a live counter and a soft hint above 50; the field is translatable in translation mode with the same limit. **[Planned]**
 - FR-092: Public cards render the location as its own row directly below the date/time row (or in its place when the card has no date), in the same muted metadata style, with an inline map-pin glyph in `currentColor` (`aria-hidden`) and a visually-hidden label from i18n key `location.label`; the text wraps and is never a link. **[Planned]**
-- FR-093: The location is translated per locale with Romanian fallback (ADR-014) and by the AI translation job (over-long or empty results are dropped, never stored); duplication copies it (BR-009). **[Planned]**
-- FR-094: `@betel/shared` exports `LOCATION_MAX_LENGTH`, `normalizeLocationText`, `invalidLocation` and `readLocation` (`packages/shared/src/event-location.ts`), used by the API, the app, feeds, structured data, notifications and previews; `create_card`/`update_card` on both MCP surfaces accept `location` (`null` clears on update). **[Planned]**
+- FR-093: The location is translated per locale with Romanian fallback (ADR-014) and by the AI translation job, which applies the FR-090 rule to the model's output (non-string, empty or over-long results are dropped and logged, never stored); duplication copies it (BR-009). **[Planned]**
+- FR-094: `@betel/shared` exports `LOCATION_MAX_LENGTH`, `normalizeLocationText`, `invalidLocation` and `readLocation` (`packages/shared/src/event-location.ts`), used by the API, the app, feeds, structured data, notifications and previews; `create_card`/`update_card` on both MCP surfaces accept `location` (`null` clears on update) and apply the FR-090 rule through the same API-side function as the REST handlers (the stdio MCP relays the API's 400); the field lives in the shared MCP tool contract once spec 05's module exists. **[Planned]**
 ```
 
 Also append `location` to FR-048's tool field list when spec 5 updates it, and to FR-040/FR-041 (translatable card fields) if those enumerate fields.
@@ -412,7 +419,7 @@ Also append `location` to FR-048's tool field list when spec 5 updates it, and t
 
 Under "### Card" → Fields, after "End date":
 ```markdown
-  - Location — stored in `data.location`; optional plain text, max 70 characters, where the event takes place (see Event location)
+  - Location — stored in `data.location`; optional plain text, 1–70 UTF-16 code units, where the event takes place (see Event location)
 ```
 
 In "## Shared Metadata" → **Locale**, replace "Text fields on content items and group names can be translated" with "Text fields on content items (including the card location `data.location`) and group names can be translated".
@@ -420,7 +427,7 @@ In "## Shared Metadata" → **Locale**, replace "Text fields on content items an
 New subsection after "### Event start time (`data.startTime`)" (spec 04's block):
 ```markdown
 ### Event location (`data.location`)
-Cards only. A plain-text, single-line place name or short address of at most 70 characters (UTF-16 code units) describing where the event takes place ("Sala mare, etaj 1"). Every write path normalises it (`normalizeLocationText()` in `@betel/shared`: control characters removed, whitespace runs collapsed, trimmed) and rejects non-strings, over-long values and locations on non-card items with HTTP 400 / an MCP tool error (BR-050); an empty value removes the key. It is translatable per locale like the other text fields, with Romanian fallback at read time, and the AI translation job drops translated values that break the rule (BR-051). Public cards show it as metadata under the date/time row with a map-pin glyph, whether or not the card has a date, never as a link (BR-052). It is only a human-readable place name: site scope, expiry, sorting and notification targeting ignore it, while feeds, structured data, notifications and link previews prefer it over the site name when present (BR-053).
+Cards only. A plain-text, single-line place name or short address of 1–70 UTF-16 code units describing where the event takes place ("Sala mare, etaj 1"). Every write path (admin API including PATCH type changes, translation API, both MCP surfaces, AI translation) applies one rule to the resulting type and data: it normalises the value (`normalizeLocationText()` in `@betel/shared`: control characters removed, whitespace runs collapsed, trimmed), removes the key when the input is `null` or empty after normalisation, and rejects non-strings, over-long values and non-empty locations on non-card items with HTTP 400 / an MCP tool error (BR-050); stored values are therefore always non-empty. It is translatable per locale like the other text fields, with Romanian fallback at read time, and the AI translation job drops translated values that break the rule (BR-051). Public cards show it as metadata under the date/time row with a map-pin glyph, whether or not the card has a date, never as a link (BR-052). It is only a human-readable place name: site scope, expiry, sorting and notification targeting ignore it, while feeds, structured data, notifications and link previews prefer it over the site name when present (BR-053).
 ```
 
 Under "## Duplication → What is copied": add "`location` is copied with the other text fields."
@@ -429,12 +436,12 @@ Under "## Duplication → What is copied": add "`location` is copied with the ot
 
 Add:
 ```markdown
-- BR-050: A card's location (`data.location`) is optional plain text of at most 70 characters after normalisation (control characters stripped, whitespace collapsed, trimmed). The admin API, the translation API and both MCP surfaces normalise it in place and reject non-strings, over-long values and locations on non-card items (HTTP 400 / MCP tool error); an empty value means "no location" and removes the key. It is never interpreted as Markdown or HTML and never rendered as a link.
-- BR-051: The location is translated per locale like title, description and CTA, with Romanian fallback when a translation has no value. Translated values obey BR-050; the AI translation job discards any that do not, so the fallback applies instead of an invalid value.
+- BR-050: A card's location (`data.location`) is optional plain text of 1–70 UTF-16 code units after normalisation (control characters stripped, whitespace collapsed, trimmed). Every write path — the admin API (on the resulting type and data, so a type change away from card cannot keep a location), the translation API, both MCP surfaces and the AI translation job — applies the same rule: `null` or an empty value means "no location" and removes the key; non-strings, over-long values and non-empty locations on non-card items are rejected (HTTP 400 / MCP tool error; the AI job drops and logs). A stored location is therefore always non-empty. It is never interpreted as Markdown or HTML and never rendered as a link.
+- BR-051: The location is translated per locale like title, description and CTA, with Romanian fallback when a translation has no value. Translated values obey BR-050 (same normalisation, same bound, empty removes the key); the AI translation job discards any that do not, so the fallback applies instead of an invalid value.
 - BR-052: Public cards render a present location as its own metadata row directly below the date/time row (or in its place for undated cards) with a map-pin glyph in the text colour and a screen-reader label (`location.label`); other content types never render it.
 - BR-053: The location is a human-readable place name only. It never affects visibility, site scope, expiry, ordering or notification targeting; the site remains the entity for those. Consumers that name a place (feed `where` line and `ev:location`, JSON-LD `Event.location.name`, notification body, link-preview description) prefer the location over the site name when present and fall back to the site otherwise; postal addresses always come from the site.
 ```
-and in "## Source": `- BR-050–BR-053 added: <date> (event location, FR-090–FR-094)`.
+and in "## Source": `- BR-050–BR-053 added: <date> (event location, FR-090–FR-094; BR-054 reserved, unused)`.
 
 ### `docs/product/user-flows.md` — append (spec 04 proposes Flow 8; coordinator assigns the next free number)
 
@@ -450,13 +457,13 @@ and in "## Source": `- BR-050–BR-053 added: <date> (event location, FR-090–F
 - Success state: the location is stored on the card, translated per language (AI or manual) and used by feeds, notifications, previews and structured data as the human-readable place
 - Failure or edge states:
   - The text passes 50 characters — the counter turns to the accent colour and a hint warns it will wrap on phones; typing stops at 70
-  - The admin types only spaces — the field is saved as empty and no row is shown
+  - The admin types only spaces — the location is removed from the card and no row is shown
   - The card has no date — the row is still shown, in the date row's place
 ```
 
 ### `docs/product/roadmap.md` — Phase 2 → "Next feature batch"
 
-Change "Six specs" to "Seven specs" and append:
+Already applied on the specs branch ("Seven specs" and the bullet below); kept here as the source:
 ```markdown
 - **Event location** — optional free-text venue on cards, shown under the date with a map pin. [07-event-location.md](specs/07-event-location.md), FR-090–FR-094.
 ```
@@ -471,6 +478,6 @@ Extend spec 04's proposed row: `| Shared runtime helpers (event time, event loca
 
 ### `docs/product/specs/README.md`
 
-- "Fixed contracts → Event location": add the helper names (`normalizeLocationText`, `invalidLocation`, `readLocation`, `LOCATION_MAX_LENGTH = 70`), the three error strings of §6.2, the length measure (UTF-16 code units) and the copy decision ("Loc de desfășurare" — never "Locație", which means a site).
-- "Integration of shared docs → Applied now": the FR-090–FR-094 block and the roadmap bullet for spec 7 are not yet applied on the specs branch (only the README rows are); apply them with the snippets above.
-- "Delivery order" 3: add "7's `null`-deletes path in remote `update_card` is 04's; whichever lands first adds it".
+- "Fixed contracts → Event location": the helper names (`normalizeLocationText`, `invalidLocation`, `readLocation`, `LOCATION_MAX_LENGTH = 70`), the length measure (UTF-16 code units) and the copy decision are already there; add the three error strings of §6.2 and the write rule ("stored values are non-empty, 1–70 code units; empty input removes the key; validated on the resulting type and data of every write").
+- "Business rules" line: keep "7 → BR-050–054" (the block is reserved as a whole; this spec uses BR-050–053 and leaves BR-054 reserved-unused — the same wording as this spec's header).
+- "Delivery order" 3: already states that the `null`-deletes path in remote `update_card` is added by whichever of 4 and 7 lands first; nothing to add.

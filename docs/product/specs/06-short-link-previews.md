@@ -87,15 +87,16 @@ Sources: Meta WhatsApp link-preview docs (`developers.facebook.com/docs/whatsapp
 
 ## 5. Requirements
 
-- **FR-085 — Crawler detection and preview response.** `GET /s/:code` must return `200 text/html; charset=utf-8` with the metadata in FR-086 when the request's `User-Agent` matches the preview-crawler allowlist (Design → Detection) or the query string contains `preview=1`, and the short link's `preview_mode` is `content`, and FR-086 resolves at least a title or an image. In every other case it must behave as today (`302` to the resolved destination, `/` when unresolved — BR-012). The HTML must contain no automatic redirect (no `<meta http-equiv="refresh">`, no script) and must contain one visible `<a>` to the destination. The response must carry `Cache-Control: public, max-age=300` and `Vary: User-Agent, Accept-Language`. The `<head>` must be smaller than 8 KB.
-- **FR-086 — Preview metadata resolution.** The preview is built from the short link's content item in the selected language (Design → Language) using exactly these chains:
-  - title: translated `data.title` → base `data.title` → the hub's share title (`og:site_name` value owned by spec 03; today the literal `Betel Info` from `packages/app/index.html:15`). Poster `data.name` is never used (admin-only, content-model.md).
-  - description: translated `data.description` → base `data.description` → the formatted "when" text from spec 04's shared formatter when `data.startDate` is set → omitted. Trimmed to 200 characters on a word boundary with `…`.
-  - image: locale-override image → base image → site brand image → hub brand image, where "image" is `data.thumbnail` for Cards and `data.imageUrl` for Posters, and the brand images are the 1200×630 derivatives described in FR-087. "At least a title or an image" in FR-085 counts only the first two links of each chain (a brand image alone does not make a preview).
-  - url (`og:url`, `<link rel="canonical">`): the absolute short URL `absoluteUrl('/s/<code>')` (spec 03's helper), with `?lang=<code>` appended only when the request carried it.
-  - Tags emitted: `<title>`, `og:type=website`, `og:site_name`, `og:locale` (when the language maps to one), `og:url`, `og:title`, `og:description` (when present), `og:image`, `og:image:secure_url`, `og:image:type=image/jpeg`, `og:image:width=1200`, `og:image:height=630`, `og:image:alt`, `twitter:card=summary_large_image`, `twitter:title`, `twitter:description`, `twitter:image`, `<meta name="robots" content="noindex, nofollow">`. All values HTML-escaped.
-- **FR-087 — Crawler-safe image derivative.** `GET /uploads/og/<media-uuid>.jpg` must serve a 1200×630 progressive JPEG, sRGB, metadata stripped, ≤ 300 000 bytes, built from `/uploads/<media-uuid>.webp` by letter-boxing the whole image (`fit: contain`) over a blurred, darkened copy of itself, generated on first request and stored in `<UPLOADS_DIR>/og/`, with `Cache-Control: public, max-age=31536000, immutable`. `GET /uploads/og/brand-<accent-hex>.jpg` must serve the same-format derivative of `PUBLIC_DIR/icons/icon-512.png` centred on a solid background of that colour (`sites.accent` for a site-scoped link, neutral `#111111` otherwise). Unknown or malformed names return `404`. Deleting a media row (`DELETE /api/admin/media/:id`) also deletes its derivative.
-- **FR-088 — Fallback and analytics.** Each short link has `preview_mode ∈ {content, destination}`, default `content`. `destination` always yields the plain `302`. Requests matched as preview crawlers never insert a `link_click` event and never touch the dedup map, regardless of the mode or of the fallback taken. The `302` response carries `Cache-Control: no-store`. Every `/s/:code` response (preview page and `302`) carries `X-Robots-Tag: noindex` (policy owned by spec 03, FR-065). Short links of archived, soft-deleted, expired or draft items resolve previews exactly like published ones (consistent with BR-011: the redirect also keeps working).
+- **FR-085 — Crawler detection and preview response.** `GET /s/:code` must return `200 text/html; charset=utf-8` with the metadata in FR-086 when the request is a *preview request* — its `User-Agent` matches the preview-crawler allowlist (Design → Detection) **or** the query string contains `preview=1` — and the short link's `preview_mode` is `content`, and the item is *eligible* (FR-086: an item title or an item image resolves; brand images never make an item eligible). In every other case it must behave as today (`302` to the resolved destination, `/` when unresolved or when the code is unknown — BR-012). The HTML must contain no automatic redirect (no `<meta http-equiv="refresh">`, no script) and must contain one visible `<a>` to the destination. The response must carry `Cache-Control: public, max-age=300` and `Vary: User-Agent, Accept-Language`. The `<head>` must be smaller than 8 KB.
+- **FR-086 — Preview metadata resolution.** The preview is built from the short link's content item in the selected language (Design → Language). Each field has its **own** chain; no chain borrows a value from another (event text is never a title, an image is never a description):
+  - title: translated `data.title` → base `data.title` → the hub's share title (`og:site_name` value owned by spec 03; today the literal `Betel Info` from `packages/app/index.html:15`). Never event text (`whenText`, location) and never Poster `data.name` (admin-only, content-model.md).
+  - description: translated `data.description` → base `data.description` → `[whenText, location].filter(Boolean).join(' · ')` where `whenText` is spec 04's shared "when" formatter in the chosen locale (present only when `data.startDate` is set; date-only without `startTime`) and `location` is `readLocation(data)` (spec 07, locale-merged with Romanian fallback) → omitted (`og:description` / `twitter:description` not emitted). An authored description is used unchanged (the location is not appended to it). Trimmed to 200 characters on a word boundary with `…`.
+  - image: locale-override item image → base item image → site brand image → hub brand image, where "item image" is `data.thumbnail` for Cards and `data.imageUrl` for Posters, and the brand images are the `brand-<accent>.jpg` derivatives of FR-087. Only the first two links make the item eligible (FR-085); the brand links only enrich a preview that is already eligible through a title.
+  - url (`og:url`, `<link rel="canonical">`): the absolute short URL `absoluteUrl('/s/<code>')` (spec 03's helper), with `?lang=<code>` appended only when the request carried it and it is an enabled language; `preview=1` (and any other query parameter) is never echoed. Never a destination or item-page URL.
+  - locale: `og:locale` is emitted only when the language maps to a known locale (Design → Metadata resolution); unmapped codes omit the tag entirely (never an empty `content`).
+  - Tags emitted: `<title>`, `og:type=website`, `og:site_name`, `og:locale` (when mapped), `og:url`, `og:title`, `og:description` (when present), `og:image`, `og:image:secure_url`, `og:image:type=image/jpeg`, `og:image:width` / `og:image:height` (the stored derivative's real dimensions, 1200×630 unless the FR-087 size guard shrank it), `og:image:alt`, `twitter:card=summary_large_image`, `twitter:title`, `twitter:description` (when present), `twitter:image`, `<meta name="robots" content="noindex, nofollow">`. All values HTML-escaped.
+- **FR-087 — Crawler-safe image derivative.** `GET /uploads/og/<media-uuid>.jpg` must serve a 1200×630 progressive JPEG, sRGB, metadata stripped, **always** ≤ 300 000 bytes, built from `/uploads/<media-uuid>.webp` by letter-boxing the whole image (`fit: contain`) over a blurred, darkened copy of itself, generated on first request and stored in `<UPLOADS_DIR>/og/`, with `Cache-Control: public, max-age=31536000, immutable`. The bound is guaranteed by a deterministic sequence (Design → Image derivatives): JPEG quality steps, then smaller dimensions (keeping 1.91:1 and declaring the real `og:image:width/height`), then a final fallback to the brand derivative; the sequence never ends with a file over the bound. `GET /uploads/og/brand-<accent-hex>.jpg` must serve the same-format derivative of `PUBLIC_DIR/icons/icon-512.png` centred on a solid background of that colour (`sites.accent` for a site-scoped link, neutral `#111111` otherwise). Unknown or malformed names return `404`. Lifecycle: media derivatives (`<media-uuid>.jpg`) belong to their media row and are deleted by `DELETE /api/admin/media/:id`; brand derivatives (`brand-<accent-hex>.jpg`) belong to no row — they are keyed by colour, regenerated on demand for any accent in use, and may be deleted at any time (a changed `sites.accent` simply produces a new file; stale colour files are harmless).
+- **FR-088 — Fallback and analytics.** Each short link has `preview_mode ∈ {content, destination}`, default `content`. `destination` always yields the plain `302`. Preview requests (allowlisted `User-Agent` **or** `?preview=1`, FR-085) never insert a `link_click` event and never read or write the dedup map — on every branch: preview page, `302` fallback (destination mode, ineligible item, unresolved destination) and unknown code. The `302` response carries `Cache-Control: no-store`. Every `/s/:code` response — preview page, `302` to the destination, `302 /` for an unknown code — carries the header `X-Robots-Tag: noindex` (policy owned by spec 03, FR-065). Short links of archived, soft-deleted, expired or draft items resolve previews exactly like published ones (consistent with BR-011: the redirect also keeps working).
 - **FR-089 — Admin visibility and control.** `GET /api/admin/content/:id/short-links` returns `previewMode`; `POST …/short-links` accepts an optional `previewMode`; `PATCH …/short-links/:shortLinkId` accepts `{ previewMode }`; `GET …/short-links/:shortLinkId/preview?locale=<code>` returns the resolved metadata as JSON (`{ mode, willPreview, locale, title, description, imageUrl, url, destination, reason }`). The Short Links tab renders a share-card preview from that JSON, a mode selector (Romanian copy in Design → Admin UI), a language selector when more than one language is enabled, and links to `/s/<code>?preview=1` and to Meta's Sharing Debugger pre-filled with the short URL.
 
 ## 6. Design
@@ -125,17 +126,18 @@ The first nine cover every platform in the research table (iMessage and Signal t
 | Spoofing | returns a harmless HTML page; nothing privileged | — |
 | SEO | `/s/*` stays a redirect for search bots | every short link becomes a thin `noindex` page |
 
-`?preview=1` forces the HTML for any client (admin "open preview page" link, curl, Sharing Debugger when testing a mode). It is never counted as a click either.
+`?preview=1` forces the HTML for any client (admin "open preview page" link, curl, Sharing Debugger when testing a mode). It is a preview request exactly like an allowlisted UA: never counted as a click, never touching the dedup map, on whichever branch the route takes.
 
 ### 6.2 Route behaviour (`packages/api/src/routes/short-links.ts`)
 
 ```
 GET /s/:code[?lang=xx][&preview=1]
+  reply.header('X-Robots-Tag', 'noindex')                      // first line: every branch below inherits it (FR-088)
+  preview = isPreviewCrawler(req.headers['user-agent']) || req.query.preview === '1'
   link = SELECT … FROM short_links WHERE code = :code
-  if !link → 302 '/', Cache-Control: no-store            (unchanged)
-  crawler = isPreviewCrawler(req.headers['user-agent']) || req.query.preview === '1'
-  if crawler && link.previewMode === 'content':
-      meta = await resolvePreview(link, pickLocale(req))   // FR-086
+  if !link → 302 '/', Cache-Control: no-store                  (no click, no dedup — there is no link to count)
+  if preview && link.previewMode === 'content':
+      meta = await resolvePreview(link, pickLocale(req))       // FR-086
       if meta.willPreview:
           reply.type('text/html; charset=utf-8')
                .header('Cache-Control', 'public, max-age=300')
@@ -143,11 +145,12 @@ GET /s/:code[?lang=xx][&preview=1]
                .send(renderPreviewHtml(meta))
           return
   url = await resolveUrl(link.contentItemId, link.siteSlug)   (unchanged)
-  if !crawler: log link_click with the existing dedup         (unchanged logic, now skipped for crawlers)
+  if !preview: log link_click with the existing dedup         (unchanged logic; skipped for every preview request,
+                                                               including this 302 fallback)
   302 url ?? '/', Cache-Control: no-store
 ```
 
-`resolveUrl` stays as is (ADR-011). The route keeps its registration position (`index.ts:57`) — before the SPA static plugin.
+`resolveUrl` stays as is (ADR-011). The route keeps its registration position (`index.ts:57`) — before the SPA static plugin. The `X-Robots-Tag` header is set before any lookup so that the unknown-code `302 /`, the `302` fallback and the preview page all carry it; the analytics skip is decided by the same `preview` boolean on every branch.
 
 ### 6.3 Metadata resolution (`services/share-preview.ts`)
 
@@ -160,7 +163,9 @@ export interface PreviewMeta {
   title: string
   description?: string
   imageUrl: string              // absolute, /uploads/og/*.jpg
-  url: string                   // canonical short URL
+  imageWidth: number            // 1200×630 unless the size guard (§6.5) stored a smaller derivative
+  imageHeight: number
+  url: string                   // canonical short URL (+ ?lang when requested; never preview=1)
   destination: string           // resolved via resolveUrl(), for the <a>
 }
 export async function resolvePreview(link: ShortLinkRow, locale: string): Promise<PreviewMeta>
@@ -179,15 +184,15 @@ export function ogDerivativePath(uploadUrl: string): string        // '/uploads/
 export function brandDerivativePath(accentHex: string | null): string // '/uploads/og/brand-111111.jpg'
 ```
 
-Description: `data.description` is Markdown-free plain text on Cards; strip newlines, collapse whitespace, cut at 200 chars on a word boundary. When absent and `data.startDate` exists, use spec 04's "when" formatter in the chosen locale (date only when `startTime` is absent — README → Fixed contracts). If spec 04 has not merged, emit the date through `Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'Europe/Bucharest' })` behind the same function name and replace it on merge.
+Description: `data.description` is Markdown-free plain text on Cards; strip newlines, collapse whitespace, cut at 200 chars on a word boundary; when present it is used unchanged. When absent, the description is `[whenText, readLocation(data)].filter(Boolean).join(' · ')` — spec 04's "when" formatter in the chosen locale (only when `data.startDate` exists; date-only when `startTime` is absent — README → Fixed contracts) followed by spec 07's location (`readLocation` from `packages/shared/src/event-location.ts`, locale-merged, Romanian fallback) — e.g. `vineri, 14 noiembrie 2026, 18:00 · Sala mare`; empty when neither exists, and then `og:description` / `twitter:description` are omitted. The title chain never reads any of these values. Stop-gaps: if spec 04 has not merged, emit the date through `Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'Europe/Bucharest' })` behind the same function name and replace it on merge; if spec 07 has not merged, `readLocation` is a local stub returning `null` and is replaced by the shared helper on merge.
 
-`og:locale`: `{ ro: 'ro_RO', en: 'en_GB', de: 'de_DE', hu: 'hu_HU' }`, omitted for unmapped codes (no hard-coded assumption about which languages exist).
+`og:locale`: `{ ro: 'ro_RO', en: 'en_GB', de: 'de_DE', hu: 'hu_HU' }`; for an unmapped code the `og:locale` tag is not rendered at all — `renderPreviewHtml` emits the line only when the mapping exists (no hard-coded assumption about which languages exist, never an empty `content`).
 
 ### 6.4 Language selection
 
 Crawlers do not expose the recipient's language; WhatsApp sends the **sender's** `Accept-Language`. Order:
 
-1. `?lang=<code>` on the short URL, if it is an enabled language (`languages.enabled`). Lets an admin copy an English variant for an English-speaking group; echoed into `og:url` so Meta caches it separately.
+1. `?lang=<code>` on the short URL, if it is an enabled language (`languages.enabled`). Lets an admin copy an English variant for an English-speaking group; echoed into `og:url` / canonical so Meta caches it separately (`preview=1` is never echoed — the canonical of a forced preview is the plain short URL).
 2. `Accept-Language`, first entry whose primary subtag is an enabled language.
 3. The default language (`languages.is_default`).
 
@@ -201,9 +206,13 @@ Fallback to default-language values happens field by field, as everywhere else (
   1. source: `<UPLOADS_DIR>/<uuid>.webp` (404 if missing) or `PUBLIC_DIR/icons/icon-512.png` for `brand-*`;
   2. background: for media, the source resized `cover` to 1200×630, `blur(30)`, `modulate({ brightness: 0.6 })`; for brand, a flat `#<hex>`;
   3. foreground: source resized `contain` inside 1200×630 (`withoutEnlargement: false`, so a small thumbnail still fills the height), composited centred;
-  4. encode `jpeg({ quality: 82, progressive: true, mozjpeg: true })`; if the buffer exceeds 300 000 bytes, re-encode at 72, then 62, then 50; log a warning if still above (does not happen for 1200×630 photos);
+  4. encode `jpeg({ quality: 82, progressive: true, mozjpeg: true })` and apply the **size guard**, a fixed sequence that stops at the first buffer ≤ 300 000 bytes:
+     1. quality 82 → 72 → 62 → 50 at 1200×630;
+     2. quality 62 at 900×472, then at 600×314 (same composition, 1.91:1; `og:image:width/height` are read from the stored file, so the page declares the real size — both remain ≥ 600×315 or ≥ 300 px wide, the thresholds in §3);
+     3. final fallback: the `brand-<accent>.jpg` derivative (the solid-colour background with the logo is always a few KB; itself subject to steps 1–2 for form's sake), stored under the media name so the result stays immutable and the chain is never re-run.
+     Every step is deterministic (same source ⇒ same output), so the bound always holds; a warning is logged whenever step 2 or 3 is reached (not expected for photographic posters);
   5. write atomically (`tmp` + `rename`) and respond. An in-process `Map<string, Promise<Buffer>>` de-duplicates concurrent first requests for the same name.
-- `DELETE /api/admin/media/:id` (`media.ts:130-135`) also `unlink`s `<UPLOADS_DIR>/og/<uuid>.jpg`, ignoring ENOENT.
+- Two derivative families, two lifecycles: `<media-uuid>.jpg` is tied to its media row — `DELETE /api/admin/media/:id` (`media.ts:130-135`) also `unlink`s `<UPLOADS_DIR>/og/<uuid>.jpg`, ignoring ENOENT. `brand-<accent-hex>.jpg` is tied to nothing: keyed by colour, regenerated on demand for whatever accent a site currently has (`sites.accent` changes produce a new file; old colour files stay until someone clears `og/`, which is always safe).
 - No eager generation at upload time: one crawler fetch per image is the only cost, derivatives persist on the uploads volume, and the admin preview triggers generation before the first share anyway.
 
 Why letter-box over a blur instead of `cover` cropping: event posters are mostly portrait with text; cropping to 1.91:1 would cut dates and titles. The blur keeps the whole poster readable and still delivers the 1.91:1 geometry the large card layout needs.
@@ -221,19 +230,19 @@ Why letter-box over a blur instead of `cover` cropping: event posters are mostly
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{siteName}">
-<meta property="og:locale" content="{ogLocale}">
+<meta property="og:locale" content="{ogLocale}">            <!-- line omitted when the language has no mapping -->
 <meta property="og:url" content="{url}">
 <meta property="og:title" content="{title}">
-<meta property="og:description" content="{description}">
+<meta property="og:description" content="{description}">  <!-- line omitted when the description chain is empty -->
 <meta property="og:image" content="{imageUrl}">
 <meta property="og:image:secure_url" content="{imageUrl}">
 <meta property="og:image:type" content="image/jpeg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="{imageWidth}">    <!-- 1200×630 unless the size guard shrank the file (§6.5) -->
+<meta property="og:image:height" content="{imageHeight}">
 <meta property="og:image:alt" content="{title}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{title}">
-<meta name="twitter:description" content="{description}">
+<meta name="twitter:description" content="{description}"> <!-- line omitted when the description chain is empty -->
 <meta name="twitter:image" content="{imageUrl}">
 </head>
 <body>
@@ -242,7 +251,7 @@ Why letter-box over a blur instead of `cover` cropping: event posters are mostly
 </html>
 ```
 
-A few hundred bytes; no CSS, no fonts, no script. The body is only ever seen through `?preview=1` or by a spoofed crawler.
+A few hundred bytes; no CSS, no fonts, no script. Optional lines are dropped, never rendered with an empty `content`. The body is only ever seen through `?preview=1` or by a spoofed crawler.
 
 ### 6.7 Data model — migration `0014_short_link_preview_mode.sql`
 
@@ -284,7 +293,7 @@ MCP (spec 05): `create_short_link` input gains `previewMode?: 'content' | 'desti
 
 ### 6.10 Configuration
 
-No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from spec 03 (required in production: without it `og:image` cannot be absolute and the route must fall back to the `302` and log a warning once at startup). Uses existing `UPLOADS_DIR` (new subfolder `og/`, created with `mkdirSync(recursive)`).
+No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from spec 03 under 03's FR-066 contract: in production the API refuses to start when `PUBLIC_BASE_URL` is missing or malformed; in development it defaults to `http://localhost:3100` with a startup warning. This route therefore has **no** fallback of its own — `absoluteUrl()` always returns an absolute URL by the time a request arrives, and the route never checks the variable or degrades to the `302` because of it. (If 03 has not merged, T2's stop-gap `public-url.ts` implements exactly that startup behaviour.) Uses existing `UPLOADS_DIR` (new subfolder `og/`, created with `mkdirSync(recursive)`).
 
 ### 6.11 Security and privacy
 
@@ -303,8 +312,6 @@ No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from s
 
 ## 7. Contracts
 
-> **Delta from spec 07 (event location):** this spec consumes `data.location` via `readLocation()` — see the ready-to-paste amendment for this spec in [07-event-location.md](07-event-location.md) §7 "Consumer deltas". Apply it with this spec's implementation.
-
 **Provides**
 - The crawler/preview behaviour of `/s/:code` and the `short_links.preview_mode` field (README → Ownership: short-link data model and redirect route).
 - `services/preview-image.ts` — the preview-image fallback chain of a content item (`itemImageUrl`, `ogDerivativePath`, `brandDerivativePath`) and the `/uploads/og/*.jpg` derivatives, for spec 03 (`og:image` of hub pages) and spec 02 (`<enclosure>`/media thumbnails) to reuse by reference (README → Fixed contracts: "6 defines the full fallback chain").
@@ -312,22 +319,31 @@ No new environment variable. Consumes `PUBLIC_BASE_URL` / `absoluteUrl()` from s
 - Server-rendered paths outside the SPA: `/s/*` (already in the denylist) and `/uploads/og/*` (an image path, not a navigation; no denylist entry needed — stated here so spec 01 can confirm).
 
 **Consumes**
-- Spec 03: `PUBLIC_BASE_URL` and `absoluteUrl(path)` from `packages/api/src/services/public-url.ts`; the hub's share name used for `og:site_name` (today `Betel Info` in `index.html`). If 03 is not merged first, task T2 creates `public-url.ts` with 03's documented signature and 03 keeps it.
+- Spec 03: `PUBLIC_BASE_URL` and `absoluteUrl(path)` from `packages/api/src/services/public-url.ts` (FR-066: production fails at startup without it, development defaults to `http://localhost:3100`); the hub's share name used for `og:site_name` (today `Betel Info` in `index.html`); the `noindex` policy (FR-065) that this route applies as `X-Robots-Tag`. If 03 is not merged first, task T2 creates `public-url.ts` with 03's documented signature and startup behaviour, and 03 keeps it.
 - Spec 04: the shared "when" formatter for the description fallback (date-only when `startTime` is absent).
+- Spec 07: `readLocation(data)` from `packages/shared/src/event-location.ts` for the description fallback (`whenText · location`); applied in FR-086 / §6.3. Local `null` stub until 07 merges.
 - Spec 01: `navigateFallbackDenylist` already contains `/^\/s\//`.
 - Spec 05: nothing consumed; 05 documents `create_short_link` with today's fields and references this delta.
 
 ## 8. Rollout
 
 - No feature flag: the behaviour only engages for crawler UAs; humans are untouched. Existing links move to `preview_mode = 'content'` via the migration default (Open question 1). If the product owner prefers opt-in, change the migration default to `'destination'` and the create-form default to `'content'`.
-- Deploy order: 03 (or T2's stop-gap `public-url.ts`) → this spec. `PUBLIC_BASE_URL` must be set in CapRover before deploy; without it the route logs a warning and keeps redirecting.
+- Deploy order: 03 (or T2's stop-gap `public-url.ts`) → this spec. `PUBLIC_BASE_URL` must be set in CapRover before deploy: the production container refuses to start without it (03 FR-066), which is the intended guard — there is no route-level degradation.
 - Migration `0014` is additive; renumber if another spec merges first (README numbering note).
 - Rollback: redeploy the previous image; the column is ignored by old code. Derivative files in `uploads/og/` are harmless leftovers.
 - After deploy: run the manual checks in §9 against production with the Sharing Debugger before announcing to admins.
 
 ## 9. Testing
 
-Cypress stubs the API (`AGENTS.md` → Testing reality), so only the admin UI is covered by the suite; the route, derivative and resolution logic are verified manually (and, if the team wants, by a small `node --test` file under `packages/api/src/services/*.test.ts` — not required by the repo today).
+Cypress stubs the API (`AGENTS.md` → Testing reality), so only the admin UI is covered by the suite; the route and derivative logic are verified manually. The metadata chains are pure functions and **are** unit-tested (`pnpm test:unit`, `node:test`):
+
+**Unit — `packages/api/src/services/share-preview.test.ts`** (`resolvePreview` chains on in-memory rows, `renderPreviewHtml`):
+1. Title: translated → base → share title; a Card with no title, `startDate` and `location` set gets the share title, never the when/location text; Poster `data.name` is never used.
+2. Description: authored `data.description` wins unchanged (location not appended); without it `startDate` + `location` → `"<when> · <location>"`; `startDate` only → `"<when>"` (date-only without `startTime`); `location` only → `"<location>"`; neither → `description` undefined and no `og:description` / `twitter:description` line in the HTML.
+3. Eligibility: Card with title and no image → `willPreview: true`, `imageUrl` = brand derivative; Card without title and image → `willPreview: false, reason: 'no-title-no-image'` even though a brand image exists; Richtext → ineligible.
+4. URL: `og:url` / canonical = `absoluteUrl('/s/<code>')`, plus `?lang=en` when requested with an enabled language; a request with `?preview=1&lang=en` yields `…?lang=en` (no `preview`); an unknown `?lang` yields the bare URL.
+5. Locale: `ro` → `og:locale ro_RO`; an unmapped enabled code → no `og:locale` line (assert the string `og:locale` is absent).
+6. Escaping: `<`, `&`, `"` in title/description are escaped; a `javascript:` destination renders as `/`.
 
 **Cypress — extend `cypress/e2e/admin-short-links.cy.ts`** (mocks gain `previewMode`; add `GET /api/admin/content/*/short-links/*/preview` and `PATCH` intercepts):
 1. Happy flow: row → "Previzualizare" → panel shows image `src` ending in `/uploads/og/<uuid>.jpg`, title "Program Duminică", description, host; mode radio reflects `content`.
@@ -341,10 +357,10 @@ Cypress stubs the API (`AGENTS.md` → Testing reality), so only the admin UI is
 
 **Manual — API (run against `pnpm dev:api` on :3100 with `PUBLIC_BASE_URL=http://localhost:3100`, then against production):**
 ```bash
-# 1. Human: unchanged 302, no-store
-curl -sI http://localhost:3100/s/abc123 | grep -E 'HTTP|location|cache-control'
-# 2. WhatsApp crawler: 200 HTML with OG tags, Vary, no click logged
-curl -s -A 'WhatsApp/2.24.20.72 I' -H 'Accept-Language: ro' http://localhost:3100/s/abc123 | grep -E 'og:|twitter:|canonical|robots'
+# 1. Human: unchanged 302, no-store, X-Robots-Tag: noindex
+curl -sI http://localhost:3100/s/abc123 | grep -E 'HTTP|location|cache-control|x-robots-tag'
+# 2. WhatsApp crawler: 200 HTML with OG tags, Vary, X-Robots-Tag, no click logged
+curl -s -D - -A 'WhatsApp/2.24.20.72 I' -H 'Accept-Language: ro' http://localhost:3100/s/abc123 | grep -Ei 'og:|twitter:|canonical|robots'
 # 3. iMessage-style UA (Safari + tokens): 200 HTML
 curl -s -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/601.2.4 (KHTML, like Gecko) Version/9.0.1 Safari/601.2.4 facebookexternalhit/1.1 Facebot Twitterbot/1.0' http://localhost:3100/s/abc123 | head -20
 # 4. English variant via Accept-Language and via ?lang
@@ -355,8 +371,14 @@ curl -sI -A 'Twitterbot/1.0' http://localhost:3100/s/abc123 | grep -E 'HTTP|loca
 # 6. Derivative: size, type, dimensions, immutability
 curl -sD - -o /tmp/og.jpg http://localhost:3100/uploads/og/<uuid>.jpg | grep -Ei 'content-type|content-length|cache-control'; file /tmp/og.jpg   # JPEG 1200x630, < 300000 bytes
 curl -sI http://localhost:3100/uploads/og/brand-3b82f6.jpg; curl -sI http://localhost:3100/uploads/og/../../etc/passwd.jpg   # 200 / 404
-# 7. Analytics: after 10 crawler fetches, SELECT COUNT(*) FROM analytics_events WHERE short_link_id = … is unchanged; after one human fetch it is +1
-# 8. Unknown code with crawler UA → 302 /
+# 7. Analytics: after 10 crawler fetches (content mode), 10 `?preview=1` fetches with a browser UA, 10 crawler fetches
+#    of a 'destination'-mode link and 10 of an ineligible (Richtext) link, SELECT COUNT(*) FROM analytics_events
+#    WHERE short_link_id = … is unchanged; after one human fetch it is +1; a human fetch right after a crawler fetch
+#    from the same IP is still counted (the crawler never primed the dedup map)
+# 8. Unknown code: crawler UA, ?preview=1 and a browser all get 302 / with Cache-Control: no-store and X-Robots-Tag: noindex
+curl -sI -A 'Twitterbot/1.0' http://localhost:3100/s/nope | grep -Ei 'HTTP|location|x-robots-tag'
+# 9. Size guard: upload a 1980-px photographic WebP → derivative < 300000 bytes at 1200×630; a synthetic worst case
+#    (noise image) still yields a file < 300000 bytes and og:image:width/height match the stored file
 ```
 **Manual — platforms (production URL):** Meta Sharing Debugger (expect the large card, no warnings besides `fb:app_id`; "Scrape Again" after edits), send the link to yourself on WhatsApp (Android and iOS), iMessage, Telegram (expect the poster; if stale, send to `@WebpageBot`), Slack and Discord; then switch the link to "Pagina destinație", "Scrape Again", confirm the Google Form preview is back. Check a Poster (no title: title shows the site/hub name), a Card without image (brand image, accent background), a Richtext item (plain redirect), and an item whose image was changed after the first share (new derivative URL).
 
@@ -365,9 +387,9 @@ curl -sI http://localhost:3100/uploads/og/brand-3b82f6.jpg; curl -sI http://loca
 | # | Task | Files | Depends on |
 |---|---|---|---|
 | T1 | Data model and admin API: migration `0014`, schema, shared type, `previewMode` in GET/POST, new PATCH, new `…/preview` endpoint (returns `resolvePreview` output). | `packages/api/src/db/migrations/0014_short_link_preview_mode.sql`, `packages/api/src/db/schema.ts`, `packages/shared/src/index.ts`, `packages/api/src/routes/short-links.ts` (admin section), `packages/app/src/admin/api/client.ts` (types + `shortLinks.update`, `shortLinks.preview`) | T2 for the preview endpoint body (can stub) |
-| T2 | Preview services: `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`, escaping; `preview-image.ts` chain helpers; stop-gap `public-url.ts` if 03 is absent. | `packages/api/src/services/share-preview.ts`, `packages/api/src/services/preview-image.ts`, (`packages/api/src/services/public-url.ts` only if missing) | 03 (`absoluteUrl`), 04 (formatter) — both with documented stop-gaps |
-| T3 | Derivative generation and route; media delete cleanup. | `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts`, `packages/api/src/index.ts` (register after `/uploads/` static), `packages/api/src/routes/admin/media.ts` | none |
-| T4 | Public route branch: crawler/`?preview` detection, HTML response with headers, skip click logging for crawlers, `no-store` on the redirect, `?lang`. | `packages/api/src/routes/short-links.ts` (public section) | T1 (column), T2, T3 |
+| T2 | Preview services: `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`, escaping; `preview-image.ts` chain helpers; unit tests for the chains (§9); stop-gap `public-url.ts` (with 03's startup contract) if 03 is absent, `readLocation` stub if 07 is absent. | `packages/api/src/services/share-preview.ts`, `packages/api/src/services/share-preview.test.ts`, `packages/api/src/services/preview-image.ts`, (`packages/api/src/services/public-url.ts` only if missing) | 03 (`absoluteUrl`), 04 (formatter), 07 (`readLocation`) — all with documented stop-gaps |
+| T3 | Derivative generation (size guard sequence) and route; media delete cleanup. | `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts`, `packages/api/src/index.ts` (register after `/uploads/` static), `packages/api/src/routes/admin/media.ts` | none |
+| T4 | Public route branch: `X-Robots-Tag` on every branch, crawler/`?preview` detection, HTML response with headers, skip click logging and dedup for every preview request on every branch, `no-store` on the redirect, `?lang`. | `packages/api/src/routes/short-links.ts` (public section) | T1 (column), T2, T3 |
 | T5 | Admin UI: mode radio on create, preview panel with share card, PATCH on change, language select, copy variants, external links; Cypress cases 1–8. | `packages/app/src/admin/components/content/ShortLinksTab.tsx`, `packages/app/src/admin/api/client.ts`, `cypress/e2e/admin-short-links.cy.ts` | T1 (API shape) — UI can be built against the mocked shape in parallel |
 | T6 | Docs and verification: apply §12 snippets (coordinator), ADR-025 → Accepted, run §9 manual checks on staging/production, record Sharing Debugger results in the PR. | `docs/**` per §12, `docs/decisions/ADR-025-*.md` | T1–T5 |
 
@@ -387,19 +409,26 @@ T2 and T3 are independent of each other and of T1; T4 integrates them. One devel
 
 ## 12. Doc integration (ready-to-paste; applied by the coordinator)
 
-**`docs/product/requirements.md`** — under "Audit & Analytics" after FR-044 (or a new "Short links" subsection), add FR-085…FR-089 exactly as in §5, each tagged **[Planned — spec 06]**, and extend FR-044's bullet list with: `- Link previews for messaging apps: FR-085–FR-089, ADR-025.`
+**`docs/product/requirements.md`** — "Planned Features", short-link previews block (one line per FR, in sync with §5), and extend FR-044's bullet list with: `- Link previews for messaging apps: FR-085–FR-089, ADR-025.`
+```
+- FR-085: `GET /s/:code` returns an HTML page with Open Graph / Twitter metadata (no automatic redirect, `noindex`) when the request is a preview request (User-Agent on the link-preview crawler allowlist or `?preview=1`), the link's `preview_mode` is `content` and the item is eligible (an item title or item image resolves; brand images never make it eligible); otherwise, including unknown codes, it keeps today's `302`. **[Planned]**
+- FR-086: Preview fields are resolved per language through four separate chains that never borrow from each other — title: translated → base `data.title` → hub share title (never event text, never Poster `data.name`); description: translated → base `data.description` → `[when text (spec 04), location (spec 07)].join(' · ')` → omitted; image: locale-override → base item image → site brand → hub brand (brand only enriches an eligible preview); URL: `og:url`/canonical = absolute short URL (spec 03 `absoluteUrl`) keeping `?lang` but never `preview=1`; `og:locale` omitted when unmapped. **[Planned]**
+- FR-087: `GET /uploads/og/<media-uuid>.jpg` serves a crawler-safe 1200×630 progressive JPEG whose size is always ≤ 300 000 bytes through a deterministic guard (quality steps → smaller 1.91:1 dimensions → brand-image fallback), generated on first request and cached immutably; media derivatives are deleted with their media row, while `brand-<accent>.jpg` derivatives belong to no row and are regenerated per accent on demand. **[Planned]**
+- FR-088: Each short link has `preview_mode` (`content` default, `destination` = today's behaviour); preview requests (allowlisted UA or `?preview=1`) never record `link_click` nor touch the dedup map on any branch, including the `302` fallback and unknown codes; the `302` carries `Cache-Control: no-store`; every `/s/:code` response carries `X-Robots-Tag: noindex`. **[Planned]**
+- FR-089: The admin Short Links tab shows a share-card preview per language, a preview-mode selector and links to `/s/<code>?preview=1` and Meta's Sharing Debugger, backed by `previewMode` on the short-link endpoints and a `…/preview` JSON endpoint. **[Planned]**
+```
 
 **`docs/domain/business-rules.md`** — after BR-012:
 ```
-- BR-045: Requests to `GET /s/:code` from link-preview crawlers (User-Agent allowlist in `packages/api/src/services/share-preview.ts`, or `?preview=1`) receive an HTML page with Open Graph metadata built from the content item (title → description → image chains in FR-086) when the short link's `preview_mode` is `content` and the item has a title or an image; otherwise, and for every human visitor, the link redirects as in BR-012. Crawler requests never create `link_click` events.
-- BR-046: The preview image of a content item is `data.thumbnail` (Card) or `data.imageUrl` (Poster), locale override first, then the site brand image, then the hub brand image; it is always served as the 1200×630 JPEG derivative at `/uploads/og/<uuid>.jpg` (≤ 300 KB). This chain is implemented once in `packages/api/src/services/preview-image.ts` and reused by every feature that needs a share image.
+- BR-045: Preview requests to `GET /s/:code` (User-Agent allowlist in `packages/api/src/services/share-preview.ts`, or `?preview=1`) receive an HTML page with Open Graph metadata built from the content item (separate title / description / image / URL chains in FR-086) when the short link's `preview_mode` is `content` and the item has its own title or image; otherwise, and for every human visitor, the link redirects as in BR-012. Preview requests never create `link_click` events on any branch; every `/s/:code` response is `X-Robots-Tag: noindex`.
+- BR-046: The preview image of a content item is `data.thumbnail` (Card) or `data.imageUrl` (Poster), locale override first, then the site brand image, then the hub brand image (brand images never make an item previewable on their own); it is always served as the 1.91:1 JPEG derivative at `/uploads/og/<uuid>.jpg` (≤ 300 000 bytes, guaranteed). This chain is implemented once in `packages/api/src/services/preview-image.ts` and reused by every feature that needs a share image.
 ```
 
-**`docs/domain/entities.md`** → ShortLink: add to Key attributes `preview_mode (TEXT NOT NULL DEFAULT 'content', one of content | destination — selects between the content-based link preview and the destination's own preview for crawler requests, FR-088)`; to Notes `Preview behaviour: BR-045, FR-085–FR-089, ADR-025.` → Media: add to Notes `A crawler-safe derivative `/uploads/og/<uuid>.jpg` is generated on demand and deleted with the media row (FR-087).`
+**`docs/domain/entities.md`** → ShortLink: add to Key attributes `preview_mode (TEXT NOT NULL DEFAULT 'content', one of content | destination — selects between the content-based link preview and the destination's own preview for crawler requests, FR-088)`; to Notes `Preview behaviour: BR-045, FR-085–FR-089, ADR-025.` → Media: add to Notes `A crawler-safe derivative `/uploads/og/<uuid>.jpg` is generated on demand and deleted with the media row; `brand-<accent>.jpg` derivatives are not tied to any row (FR-087).`
 
 **`docs/domain/content-model.md`** → Image Handling: append
 ```
-- Share-preview derivative: the first time a link-preview crawler (or the admin preview) needs an image, the API builds `<UPLOADS_DIR>/og/<uuid>.jpg` — 1200×630 progressive JPEG, ≤ 300 KB, the whole image letter-boxed over a blurred copy of itself — and serves it immutable at `/uploads/og/<uuid>.jpg`. Deleting the media row deletes the derivative. See FR-087.
+- Share-preview derivative: the first time a link-preview crawler (or the admin preview) needs an image, the API builds `<UPLOADS_DIR>/og/<uuid>.jpg` — progressive JPEG, 1200×630 (smaller 1.91:1 only when needed to stay ≤ 300 000 bytes), the whole image letter-boxed over a blurred copy of itself — and serves it immutable at `/uploads/og/<uuid>.jpg`. Deleting the media row deletes the derivative. See FR-087.
 ```
 → Shared Metadata / Locale: append `Link previews of short links pick the locale from `?lang`, then `Accept-Language`, then the default language (FR-086).`
 
@@ -409,7 +438,7 @@ T2 and T3 are independent of each other and of T1; T4 integrates them. One devel
 
 **`docs/architecture/security.md`** — line 3: add `/uploads/og/*` to the list of paths outside `/api`. Under Authorization → admin or super-admin: `short links (including `PATCH …/short-links/:shortLinkId` and `GET …/short-links/:shortLinkId/preview`)`. Known risks table: `| Crawler UA spoofing on `/s/:code` | Reveals the content item's title/description/image (already public once published; drafts exposed only to someone holding the code) | Accepted; no privileged data; `?preview=1` makes the same page reachable by design |` and `| On-demand JPEG generation at `/uploads/og/:name` | CPU per distinct image, once | Strict name pattern, one in-flight job per name, persisted result; rate-limit if abused |`.
 
-**`docs/architecture/deployment.md`** — Production Model bullets: `- Serves share-image derivatives at `/uploads/og/` (generated on demand into `<UPLOADS_DIR>/og/` — part of the persistent volume)` and in "Handles short-link redirects": `… and Open Graph preview pages for link-preview crawlers`. First-time setup step 2: `PUBLIC_BASE_URL` is required for link previews (documented by spec 03 in `configuration.md`).
+**`docs/architecture/deployment.md`** — Production Model bullets: `- Serves share-image derivatives at `/uploads/og/` (generated on demand into `<UPLOADS_DIR>/og/` — part of the persistent volume)` and in "Handles short-link redirects": `… and Open Graph preview pages for link-preview crawlers`. First-time setup step 2: `PUBLIC_BASE_URL` is required in production — the container does not start without it (spec 03 FR-066, documented in `configuration.md`); link previews depend on it.
 
 **`docs/architecture/configuration.md`** — no new variable. In the `UPLOADS_DIR` row's Purpose add `; the `og/` subfolder holds generated share-image derivatives`. (`PUBLIC_BASE_URL` row is added by spec 03; add to its Purpose: `required for short-link previews (spec 06)`.)
 

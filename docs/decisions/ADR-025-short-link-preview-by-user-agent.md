@@ -1,9 +1,9 @@
-# ADR-025: Short-Link Previews Served to Link-Preview Crawlers by User-Agent; Humans Keep the 302
+# ADR-025: Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Related:** ADR-011 (dynamic destination resolution), ADR-013 (HTTP cache strategy), ADR-003 (media library)
-- **Implements:** FR-085 – FR-089 (spec `docs/product/specs/06-short-link-previews.md`)
+- **Related:** ADR-011 (dynamic destination resolution), ADR-013 (HTTP cache strategy), ADR-003 (media library), ADR-022 (server-side head injection; `PUBLIC_BASE_URL` contract)
+- **Implements:** FR-085 – FR-089 (proposed; spec `docs/product/specs/06-short-link-previews.md`), BR-045 – BR-046 (proposed)
 
 ## Context
 
@@ -29,23 +29,25 @@ A frozen allowlist of crawler tokens (`facebookexternalhit`, `Facebot`, `WhatsAp
 - Cons: UA strings are spoofable (harmless: the page contains only data that is public once the item is published) and the list needs occasional maintenance; a crawler not on the list shows the destination's preview.
 
 ### Image derivative
-Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and WebP is not accepted everywhere. Generating at upload time was rejected in favour of on-demand generation persisted under `<UPLOADS_DIR>/og/`: only images that are actually shared cost CPU, and existing uploads need no backfill. Cropping to 1.91:1 was rejected in favour of letter-boxing over a blurred copy of the image, because event posters are mostly portrait with text that cropping would cut.
+Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and WebP is not accepted everywhere. Generating at upload time was rejected in favour of on-demand generation persisted under `<UPLOADS_DIR>/og/`: only images that are actually shared cost CPU, and existing uploads need no backfill. Cropping to 1.91:1 was rejected in favour of letter-boxing over a blurred copy of the image, because event posters are mostly portrait with text that cropping would cut. A best-effort size cap ("retry a few qualities, then warn") was rejected: WhatsApp silently drops previews over the limit, so the bound has to be a guarantee, which costs only a deterministic fallback sequence.
 
 ## Decision
 
-- `GET /s/:code` serves `200 text/html` with Open Graph / Twitter Card metadata when the request's User-Agent matches the preview-crawler allowlist (or `?preview=1`), the short link's `preview_mode` is `content`, and the item resolves a title or an image. Otherwise it behaves exactly as before (`302`, BR-012).
-- Crawler requests never create `link_click` events. The redirect carries `Cache-Control: no-store`; the HTML carries `public, max-age=300` and `Vary: User-Agent, Accept-Language`.
+- `GET /s/:code` serves `200 text/html` with Open Graph / Twitter Card metadata when the request is a *preview request* — the User-Agent matches the preview-crawler allowlist **or** `?preview=1` is present — the short link's `preview_mode` is `content`, and the item is *eligible*: its own title or its own image resolves (FR-086). Brand images (`brand-<accent>.jpg`) never make an item eligible; they only supply the image of a preview that is already eligible through a title. Otherwise the route behaves exactly as before (`302`, BR-012), also for unknown codes.
+- Preview requests (both detection paths) never create `link_click` events and never read or write the dedup map, on every branch: the preview page, the `302` fallback (destination mode, ineligible item, unresolved destination) and the unknown-code `302 /`. The redirect carries `Cache-Control: no-store`; the HTML carries `public, max-age=300` and `Vary: User-Agent, Accept-Language`.
 - `short_links.preview_mode TEXT NOT NULL DEFAULT 'content'` (`content` | `destination`) is the per-link switch back to today's behaviour; it is exposed in the admin UI and the admin/MCP APIs.
-- Preview metadata chains (title, description, image, locale) are defined in FR-086; the image chain lives in `packages/api/src/services/preview-image.ts` and is the single implementation other features reuse.
-- The preview image is always the derivative `/uploads/og/<uuid>.jpg` — 1200×630 progressive JPEG, ≤ 300 KB, generated on first request by `sharp`, stored on the uploads volume, served immutable, deleted with its media row. Brand fallbacks are `/uploads/og/brand-<accent>.jpg` built from `icon-512.png`.
-- `og:url` and `<link rel="canonical">` are the absolute short URL itself (via spec 03's `absoluteUrl`), so Meta does not re-crawl another URL. The page is `noindex, nofollow` and contains no automatic redirect.
+- Preview metadata is resolved through four **separate** chains defined in FR-086 — title, description, image, URL — that never borrow from one another: the title falls back to the hub share title, never to event text; the description falls back to `[when text, location].join(' · ')` (specs 04 and 07) and is otherwise omitted; `og:locale` is omitted when the language has no mapping. The image chain lives in `packages/api/src/services/preview-image.ts` and is the single implementation other features reuse.
+- The preview image is always a derivative under `/uploads/og/`: a progressive JPEG, 1200×630 by default, whose size is **guaranteed** ≤ 300 000 bytes by a deterministic sequence (quality steps → smaller 1.91:1 dimensions with the real `og:image:width/height` declared → the brand derivative as final fallback), generated on first request by `sharp`, stored on the uploads volume and served immutable. Two families with different lifecycles: `<media-uuid>.jpg` belongs to its media row and is deleted with it; `brand-<accent-hex>.jpg` belongs to no row, is keyed by colour and regenerated on demand for whatever accent a site has (changing `sites.accent` yields a new file; old ones are harmless and may be deleted at any time).
+- `og:url` and `<link rel="canonical">` are the absolute short URL itself (via spec 03's `absoluteUrl`), so Meta does not re-crawl another URL. They keep the `?lang=<code>` language variant when the request carried an enabled language (so each variant is cached separately) and never carry `preview=1` or any other parameter.
+- Every `/s/:code` response — preview page, `302` to the destination, `302 /` for an unknown code — carries the `X-Robots-Tag: noindex` header (set before any branch), and the page additionally has `<meta name="robots" content="noindex, nofollow">` and no automatic redirect. Search crawlers are not on the allowlist and keep following the `302`.
+- `PUBLIC_BASE_URL` follows spec 03's FR-066 contract without exception: in production the API refuses to start when it is missing or malformed; in development it defaults to `http://localhost:3100` with a startup warning. The short-link route has no fallback of its own and never degrades to the `302` because of configuration.
 
 ## Implementation
 
-- `packages/api/src/routes/short-links.ts` — branch before the click log; `?lang`, `?preview`.
-- `packages/api/src/services/share-preview.ts` — `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`.
+- `packages/api/src/routes/short-links.ts` — `X-Robots-Tag` first, then the preview branch before the click log; `?lang`, `?preview`.
+- `packages/api/src/services/share-preview.ts` — `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`; chains unit-tested in `share-preview.test.ts`.
 - `packages/api/src/services/preview-image.ts` — image chain and derivative paths.
-- `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts` — derivative generation and `GET /uploads/og/:name`.
+- `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts` — derivative generation with the size guard and `GET /uploads/og/:name`.
 - `packages/api/src/db/migrations/0014_short_link_preview_mode.sql`, `schema.ts`, `packages/shared/src/index.ts`.
 - `packages/app/src/admin/components/content/ShortLinksTab.tsx` — share-card preview, mode selector, language variants.
 
@@ -55,5 +57,6 @@ Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and 
 - Human latency, redirect semantics and ADR-011's dynamic resolution are unchanged; analytics stop counting the (previously counted) crawler fetches, so short-link click totals may drop slightly after deploy — this is a correction, not a loss.
 - The allowlist is a maintenance point: a new messaging platform means one token added to `share-preview.ts`. Until then that platform shows the destination preview, exactly as today.
 - Platforms cache previews (Meta ~30 days, Telegram indefinitely); after editing a card's title or image, admins must use the platform's refresh tool (linked from the admin UI) or share a `?lang=` variant.
-- `uploads/og/` grows by one ≤ 300 KB file per shared image; derivatives are removed with their media row and can be deleted wholesale at any time (regenerated on demand).
-- Depends on `PUBLIC_BASE_URL` (spec 03) being set in production; without it the route logs a warning and keeps redirecting.
+- `uploads/og/` grows by one ≤ 300 KB file per shared image plus one per accent colour in use; media derivatives are removed with their media row, brand derivatives are never removed automatically, and the whole folder can be deleted wholesale at any time (regenerated on demand).
+- A rare very-noisy source image may be served smaller than 1200×630 or replaced by the brand image rather than exceed the bound; the page always declares the real dimensions, and a warning is logged so it can be looked at.
+- A production deploy without `PUBLIC_BASE_URL` fails at startup (spec 03's rule), which is the intended guard: a running production API always builds absolute `og:image` / `og:url` values.

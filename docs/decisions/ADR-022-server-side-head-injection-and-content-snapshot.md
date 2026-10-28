@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-28
 - **Related:** ADR-005 (single app package), ADR-006 (single container), ADR-013 (HTTP cache strategy), ADR-014 (i18n strategy)
-- **Implements:** FR-067, FR-068, FR-069, FR-070 (spec `docs/product/specs/03-seo.md`)
+- **Implements:** FR-067, FR-068, FR-069, FR-070 (proposed; spec `docs/product/specs/03-seo.md`); consumes spec 07 (`readLocation`) and ADR-019 (service-worker denylist)
 
 ## Context
 
@@ -17,7 +17,7 @@ Forces:
 - One container, one Node process, no vendor-specific services (ADR-006, constraints).
 - Sunday-morning traffic spikes: the server must not do expensive per-request work.
 - The hub is a single feed page per site, with four content types and ~1 000 lines of public React. Locale, theme and remembered site live in `localStorage` (ADR-014, FR-005), which a server cannot know.
-- The PWA precaches `index.html` and serves it for navigations when installed/offline; whatever the server adds must be optional for the client.
+- The PWA precaches `index.html` and serves it for navigations when installed/offline; whatever the server adds must be optional for the client. Server-rendered HTML serves first loads, crawlers and non-SW clients; navigations controlled by the service worker get the precached shell for `/`, `/:siteSlug` and `/i/:itemId` alike, and the SPA fetches data. Only server-only routes are denylisted (ADR-019, spec 01 `packages/app/src/pwa/denylist.ts`): `/s/*`, `/robots.txt`, `/sitemap.xml`, `/feed.xml`, `/*/feed.xml`, `/llms.txt`, `/uploads/*` (plus `/admin*`, `/api/*`, `/mcp*`, `/health`). `/i/:itemId` is deliberately a shell route, not a denylist entry, consistently with `/` and `/:siteSlug`.
 - Structured data must describe content visible on the page (Google policy), so metadata alone is not enough for `Event` descriptions and locations.
 
 ## Options Considered
@@ -50,19 +50,21 @@ Detect bot user agents and serve a headless-Chrome rendering (self-hosted Chrome
 Adopt **option B**:
 
 1. The API registers explicit `GET /`, `GET /:siteSlug` and `GET /i/:itemId` routes (before the SPA static plugin, which is configured with `index: false`). Each loads a `PageModel` from the database (sites, enabled languages, the public content list for the scope in the default locale, using the same query as `GET /api/content`), and renders `index.html` with:
-   - `<title>`, description, canonical, Open Graph/Twitter, optional verification meta, and a JSON-LD `@graph` (`WebSite`, `Organization`, `Church` per site, `ItemList`, `Event`/`WebPage` on item pages) inserted before `</head>`;
-   - a semantic HTML snapshot of the feed inside `<div id="root">`, HTML-escaped, default locale only, no Markdown rendering (plain text);
+   - `<title>`, description, canonical, Open Graph/Twitter, optional verification meta, and a JSON-LD `@graph` (`WebSite`, `Organization`, `Church` per site, `ItemList`, `Event`/`WebPage` on item pages) inserted before `</head>`. Only entities and properties that the same page's snapshot renders as text are emitted: hub snapshots render every site's name and address line (so `Church.name`/`address` are visible); `telephone` and `geo` are emitted only when the snapshot renders the phone link / a map link carrying the coordinates, otherwise omitted. `Event.location` follows spec 03 §6.2.3 and spec 07: a `Place` named `readLocation(data)` (the card's free-text `data.location`, locale-merged with Romanian fallback) or, when absent, the resolved site's name, with the site's `PostalAddress` and `containedInPlace` → the site's `Church`; an event with no resolvable site gets no `Event` markup, free text or not;
+   - a semantic HTML snapshot of the feed inside `<div id="root">`, HTML-escaped, default locale only, no Markdown rendering (plain text). Item snapshots print the same location row the card shows (`location.label` + `readLocation(data)`) under the date line, and the resolved site's name and address line in the footer, so every `Event`/`Place` property has visible text;
    - `<script id="betel-initial-data" type="application/json">` with the same payloads, serialised with `<`, `>`, `&`, U+2028/2029 escaped.
 2. The template is read once at startup and split at `<title>…</title>`, `</head>` and `<div id="root"></div>`; a missing anchor fails startup.
 3. Rendered pages are cached in memory per path for `SEO_CACHE_TTL_SECONDS` (default 60 s) with a strong `ETag`; responses keep `Cache-Control: no-cache` (ADR-013). The cache key never includes visitor data.
 4. The SPA seeds React Query from the inline data when present and otherwise fetches as today. It replaces the snapshot with `createRoot().render()`; **hydration is not used**, so markup differences are not errors.
 5. Other locales, the visitor's remembered site and the theme are client concerns and are not rendered server-side (ADR-014 unchanged).
-6. `setNotFoundHandler` keeps serving the plain template for every other non-`/api` path (`/admin/*` with `X-Robots-Tag: noindex, nofollow`), so admin routes and deep links are unaffected.
+6. `setNotFoundHandler` keeps serving the plain template for unmatched non-`/api` paths (`/admin/*` with `X-Robots-Tag: noindex, nofollow`; other deep links without it), so admin routes and deep links are unaffected. Explicit routes take precedence over that fallback: the three page routes above, `/health`, `/robots.txt`, `/sitemap.xml` (this decision), `/feed.xml`, `/:siteSlug/feed.xml`, `/llms.txt` (ADR-021), `/s/:code` (ADR-025), `/uploads/*` (static), `/mcp` and `/api/*` (404 JSON, never the template).
+7. Every server-only route — `/robots.txt`, `/sitemap.xml` and any future one introduced under this decision — is also listed in the PWA navigation denylist and the Vite dev proxy owned by spec 01 / ADR-019 before it ships; `/`, `/:siteSlug` and `/i/:itemId` are never added there (see Context).
 
 Rules that follow:
 
 - Any change to what the public feed renders (new content type, new field shown) must be mirrored in `packages/api/src/services/seo/render-snapshot.ts`; the parity test fails otherwise.
-- All structured data must correspond to visible snapshot content.
+- All structured data must correspond to visible snapshot content: a property with no rendered text is omitted, not emitted.
+- The `Event` eligibility window is the hub's own visibility (published, not expired per the Expiration Behavior in `content-model.md`; an in-progress multi-day event stays eligible until its last day), shared with spec 02's "current and upcoming events" through `services/public-content.ts` (BR-030, proposed).
 - `PUBLIC_BASE_URL` is mandatory in production; every absolute URL goes through `absoluteUrl()`.
 
 ## Implementation
@@ -73,7 +75,8 @@ Rules that follow:
 - `packages/api/src/routes/pages.ts` (`/`, `/:siteSlug`, `/i/:itemId`), `routes/robots.ts`, `routes/sitemap.ts`; registration order in `packages/api/src/index.ts`.
 - `packages/shared/src/seo.ts` (title/description builders used by both sides), `packages/shared/src/i18n-defaults.ts` (Romanian UI defaults).
 - `packages/app/src/main.tsx` (inline-data seeding), `public/pages/ItemPage.tsx`, `HomePage.tsx` (`document.title`/canonical sync).
-- No database migration (an optional `0015_site_address_fields.sql` belongs to spec 03 task T8, not to this decision).
+- No database migration (the optional, provisional `0015_site_address_fields.sql` belongs to spec 03 task T8, not to this decision; renumbered on merge per the specs README).
+- `packages/shared/src/event-location.ts` (`readLocation`, spec 07) is consumed by `structured-data.ts` and `render-snapshot.ts`; until spec 07 lands a same-signature stub returns `null`.
 
 ## Consequences
 
