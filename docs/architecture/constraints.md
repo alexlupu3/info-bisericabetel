@@ -11,6 +11,7 @@
 ## Implementation Guardrails
 - **Performance:** fast load times on mobile are a first-class concern. PWA, efficient image handling, and minimal network payload are expected.
 - **Accessibility:** no formal WCAG compliance required, but semantic HTML5, meaningful alt text, and logical heading structure must be maintained.
+- **Indexability:** public pages must stay readable without JavaScript. Any change to the public feed's rendering must be mirrored in `packages/api/src/services/seo/render-snapshot.ts` (parity test `cypress/e2e/snapshot-parity.cy.ts`). Nothing may add `noindex` or robots rules to public paths without amending FR-065 / ADR-022.
 - **Localization:** the public hub is multilingual. Romanian is the default and fallback, and additional languages are managed as data by a super-admin ([ADR-014](../decisions/ADR-014-i18n-strategy.md)). The admin UI is Romanian-only and is not localized.
 - **Maintainability:** dependency upgrades and feature additions must be achievable without structural rewrites. Modular architecture is required.
 - **Scalability:** the system must handle thousands of concurrent users on Sunday mornings. Architecture choices must account for this without requiring expensive infrastructure.

@@ -1,9 +1,9 @@
 # ADR-022: Server-side head injection and content snapshot for the public hub (no React SSR)
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented 2026-10-28)
 - **Date:** 2026-10-28
 - **Related:** ADR-005 (single app package), ADR-006 (single container), ADR-013 (HTTP cache strategy), ADR-014 (i18n strategy)
-- **Implements:** FR-067, FR-068, FR-069, FR-070 (proposed; spec `docs/product/specs/03-seo.md`); consumes spec 07 (`readLocation`) and ADR-019 (service-worker denylist)
+- **Implements:** FR-067, FR-068, FR-069, FR-070 (spec 03, removed after shipping — see git history; requirements in `docs/product/requirements.md` → SEO & Crawlability); consumes spec 07 (`readLocation`) and ADR-019 (service-worker denylist)
 
 ## Context
 

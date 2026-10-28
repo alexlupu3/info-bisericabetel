@@ -24,7 +24,7 @@ All REST paths below include the `/api` prefix under which every API route is re
   - audit log: `/api/admin/logs`
   - error logs: `/api/admin/error-logs`
   - SQL console: `POST /api/admin/sql` (see "SQL console" below)
-- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`.
+- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`, `GET /robots.txt`, `GET /sitemap.xml`, the server-rendered pages `GET /`, `GET /:siteSlug`, `GET /i/:itemId`, and `GET /api/content/:id` (visible items only — published and not expired, the same rule as `GET /api/content`; drafts and archived items return 404, deleted ones 410).
 
 ### Rate limiting
 `@fastify/rate-limit` is registered with `global: false`, so only routes that opt in are limited:
@@ -46,6 +46,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 - Stored personal data is limited to admin email addresses, password hashes and audit entries. Visitor analytics (`analytics_events`) record event type, site, item, URL and time, with no IP addresses or user identifiers. Frontend error logs (`error_logs`) store message, stack, URL, site and a `device` JSON blob supplied by the client.
 - Temporary passwords (user creation and reset) are 16 hex characters (`randomBytes(8)`). They are returned once in the API response for out-of-band delivery and are never stored in plaintext or logged.
 - Visitors' browsers contact Google Fonts directly (IP address exposure). See `integrations.md`.
+- Server-rendered pages ([ADR-022](../decisions/ADR-022-server-side-head-injection-and-content-snapshot.md)) embed database text in HTML and JSON-LD. All text is HTML-escaped and JSON is serialised with `<`, `>`, `&`, U+2028/2029 escaped, so content can never break out of the `<script>` element. Markdown is rendered server-side as plain text only, and only `http(s)`, root-relative, `mailto:` and `tel:` URLs are emitted as links. The page cache is keyed by path only and holds no visitor data; only 200 responses are cached. `/i/:itemId` applies the same visibility rules as `GET /api/content`. `/admin` and `/admin/*` carry `X-Robots-Tag: noindex, nofollow`.
 
 ### Secret management
 - Secrets (`JWT_SECRET`, `DATABASE_URL` / database password, `MCP_SECRET`, `OPEN_ROUTER_API_KEY`, stdio MCP credentials) come from environment variables: CapRover app settings in production, `.env` locally. They must never be committed. See [configuration.md](configuration.md).

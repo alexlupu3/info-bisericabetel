@@ -34,10 +34,10 @@
 - **API key layer [pending]:** expose admin functionality via API key authentication. Required for Zapier integration and as the proper long-term auth mechanism for machine clients including the stdio MCP server. API key management must be part of the super-admin tooling. The stdio MCP server currently uses JWT auth (and the remote endpoint a shared `MCP_SECRET`) as a temporary measure until this is built.
 
 ### Next feature batch [specified — 2026-10-28]
-Seven specs (one shipped) for parallel implementation; ownership, reserved IDs and delivery order in [`specs/README.md`](specs/README.md).
+Seven specs (two shipped) for parallel implementation; ownership, reserved IDs and delivery order in [`specs/README.md`](specs/README.md).
 - **Real PWA** — complete manifest/icons/splash, platform-aware install invite, opt-in push for new events, staged rollout (`off` → `beta` → `all`). [01-pwa.md](specs/01-pwa.md), FR-050–FR-059.
 - **RSS event feed** — `/feed.xml` and `/:siteSlug/feed.xml`, `/llms.txt` for AI agents. [02-rss-feed.md](specs/02-rss-feed.md), FR-060–FR-064.
-- **SEO & crawlability** — server-rendered metadata, JSON-LD, per-item pages `/i/:itemId`, `robots.txt`, `sitemap.xml`. [03-seo.md](specs/03-seo.md), FR-065–FR-074.
+- ~~**SEO & crawlability**~~ **[done — 2026-10-28]** — server-rendered metadata, content snapshot and inline data, JSON-LD (`WebSite`/`Organization`/`Church`/`Event`/`ItemList`), per-item pages `/i/:itemId`, `robots.txt`, `sitemap.xml`, structured site addresses, `woff2` fonts. FR-065–FR-074, ADR-022, BR-030. Follow-ups not scheduled: Lighthouse median for FR-073, indexing other languages (`?lang=` + `hreflang`, ADR-014 amendment), a settings table instead of `SEO_*` env vars, Search Console / Google Business Profile steps after deploy.
 - ~~**Event start time**~~ **[done — 2026-10-28]** — optional `HH:mm` on single-day events, FR-075–FR-079, ADR-023. Follow-ups not scheduled: end time / duration, times on multi-day events, admin list showing dates and times, calendar (`.ics`) export.
 - **MCP analytics & short links** — analytics tools and short-link creation on both MCP surfaces. [05-mcp-analytics-short-links.md](specs/05-mcp-analytics-short-links.md), FR-080–FR-084.
 - **Short-link previews** — messaging apps show the content's title and image; destination preview kept as fallback. [06-short-link-previews.md](specs/06-short-link-previews.md), FR-085–FR-089.

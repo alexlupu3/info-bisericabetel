@@ -1,10 +1,20 @@
-import { pgTable, text, uuid, integer, timestamp, jsonb, boolean, index, primaryKey, unique } from 'drizzle-orm/pg-core'
+import { pgTable, text, uuid, integer, timestamp, jsonb, boolean, index, primaryKey, unique, doublePrecision } from 'drizzle-orm/pg-core'
 
 export const sites = pgTable('sites', {
   slug:      text('slug').primaryKey(),
   name:      text('name').notNull(),
   accent:    text('accent').notNull(),
   address:   text('address'),
+  // Structured address (0013_site_address_fields) for the site's schema.org Church markup
+  streetAddress:   text('street_address'),
+  postalCode:      text('postal_code'),
+  addressLocality: text('address_locality'),
+  addressRegion:   text('address_region'),
+  addressCountry:  text('address_country'),
+  latitude:        doublePrecision('latitude'),
+  longitude:       doublePrecision('longitude'),
+  telephone:       text('telephone'),
+  email:           text('email'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

@@ -3,16 +3,17 @@ import { Routes, Route } from 'react-router-dom'
 import { SitesProvider } from './public/context/SitesContext'
 import { LanguageProvider } from './public/context/LanguageContext'
 import HomePage from './public/pages/HomePage'
+import ItemPage from './public/pages/ItemPage'
 import ErrorBoundary from './ErrorBoundary'
 
 const AdminApp = lazy(() => import('./admin/AdminApp'))
 
-function SharedPublicRoute() {
+function SharedPublicRoute({ page = 'home' }: { page?: 'home' | 'item' }) {
   return (
     <ErrorBoundary>
       <SitesProvider>
         <LanguageProvider>
-          <HomePage />
+          {page === 'item' ? <ItemPage /> : <HomePage />}
         </LanguageProvider>
       </SitesProvider>
     </ErrorBoundary>
@@ -24,6 +25,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<SharedPublicRoute />} />
       <Route path="/:siteSlug" element={<SharedPublicRoute />} />
+      {/* Per-item page (spec 03 FR-069): the canonical URL of one content item */}
+      <Route path="/i/:itemId" element={<SharedPublicRoute page="item" />} />
       <Route path="/admin/*" element={
         <Suspense fallback={null}>
           <AdminApp />

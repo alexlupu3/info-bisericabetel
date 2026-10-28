@@ -31,7 +31,9 @@ Deployed as a single container on CapRover (the API process also serves the buil
 | Public UI string keys | `packages/app/src/public/i18n/keys.ts` |
 | Global styles and theme tokens | `packages/app/src/index.css` |
 | Shared types | `packages/shared/src/index.ts` |
-| Shared runtime helpers (event time) | `packages/shared/src/event-time.ts` |
+| Shared runtime helpers (event time, SEO text, UI defaults) | `packages/shared/src/{event-time,seo,i18n-defaults}.ts` |
+| Server-rendered public pages (head, JSON-LD, snapshot), robots, sitemap | `packages/api/src/services/seo/`, `packages/api/src/routes/{pages,robots,sitemap}.ts` |
+| Public base URL / `absoluteUrl()` | `packages/api/src/services/public-url.ts` |
 | Stdio MCP server | `packages/mcp/src/index.ts` |
 | E2E tests | `cypress/e2e/*.cy.ts`, helpers in `cypress/support/` |
 

@@ -4,7 +4,8 @@ import SiteLabel from './SiteLabel'
 
 type RichtextData = { body: string; title?: string }
 
-export default function RichtextItem({ item, showSiteLabel = false }: { item: ContentItem; showSiteLabel?: boolean }) {
+export default function RichtextItem({ item, showSiteLabel = false, headingLevel = 2 }: { item: ContentItem; showSiteLabel?: boolean; headingLevel?: 2 | 3 }) {
+  const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const d = item.data as RichtextData
 
   // Expand isolated single newlines into paragraph breaks for markdown rendering.
@@ -12,9 +13,9 @@ export default function RichtextItem({ item, showSiteLabel = false }: { item: Co
   const body = d.body.replace(/\n+/g, match => match.length === 1 ? '\n\n' : match)
 
   return (
-    <article className="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">
+    <article data-item-id={item.id} className="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">
       {d.title && (
-        <h2 className="betel-title-bold text-lg leading-tight mb-2">{d.title}</h2>
+        <Heading className="betel-title-bold text-lg leading-tight mb-2">{d.title}</Heading>
       )}
       <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
       <div className="prose-betel">

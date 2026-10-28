@@ -75,6 +75,17 @@ describe('Public — site-exclusive content', () => {
     cy.contains('Mesaj general pentru toți.').should('be.visible')
     cy.contains('Doar pentru Centru.').should('not.exist')
   })
+
+  // Spec 03: an exclusive item's own page shows it in its site's context.
+  it('item page of an exclusive item shows its site and links back to it', () => {
+    cy.intercept('GET', '/api/languages', { languages: [{ code: 'ro', name: 'Română', isDefault: true, enabled: true }] })
+    cy.intercept('GET', `/api/content/${exclusiveCentruItem.id}*`, { item: exclusiveCentruItem }).as('item')
+    cy.visit(`/i/${exclusiveCentruItem.id}`)
+    cy.wait('@item')
+    cy.contains('Doar pentru Centru.').should('be.visible')
+    cy.get('h1').should('contain', 'CENTRU')
+    cy.get('[data-testid="item-back-link"]').should('have.attr', 'href', '/centru')
+  })
 })
 
 export {}

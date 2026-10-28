@@ -2,19 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type Language, type TranslationKey } from '../api/client'
 import { useToast } from '../context/ToastContext'
+import { UI_DEFAULTS } from '@betel/shared'
 
-const KNOWN_KEYS: Record<string, string> = {
-  'hero.subtitle': 'Ramâi la curent cu programul și activitățile bisericii Betel',
-  'content.error': 'Nu s-a putut încărca conținutul. Încearcă din nou.',
-  'content.empty.withSite': 'Nicio informație disponibilă pentru {siteName} în momentul acesta.',
-  'content.empty.noSite': 'Nicio informație disponibilă în momentul acesta.',
-  'content.empty.hint': 'Revino mai târziu sau selectează o altă locație.',
-  'theme.light': 'Comută la modul luminos',
-  'theme.dark': 'Comută la modul întunecat',
-  'footer.copyright': 'Biserica Baptistă Betel · Cluj-Napoca',
-  'sites.all': 'Toate locațiile',
-  'sites.selectLabel': 'Selectare locație',
-}
+// Public UI keys with their Romanian defaults (one source shared with the hub and the
+// server-rendered snapshot).
+const KNOWN_KEYS: Record<string, string> = { ...UI_DEFAULTS }
 
 export default function TranslationsPage() {
   const qc = useQueryClient()

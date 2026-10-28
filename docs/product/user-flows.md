@@ -142,3 +142,22 @@ Member-facing flows come first, followed by admin flows.
   - The admin later sets "Până la" to a different day — the time input disappears, the time is cleared on save and a hint explains that times apply to single-day events only
   - The admin clears "Dată" — end date and time are cleared together
   - The event's hour passes — the card stays visible until the end of the day in Romania (BR-015)
+
+### Flow 10 — Crawler or AI agent reads the hub
+- Trigger: a search engine, link unfurler or AI crawler fetches a public URL
+- Steps:
+  - `GET /robots.txt` allows public paths and points to `/sitemap.xml`
+  - `GET /sitemap.xml` lists the home page, every site page and every visible item page
+  - `GET /`, `/:siteSlug`, `/i/:itemId` return HTML with title, description, canonical, Open Graph and JSON-LD (`WebSite`, `Organization`, `Church`, `Event`, `ItemList`) plus a readable HTML snapshot of the feed — no JavaScript needed
+  - admin, API, short-link and MCP paths are excluded (`robots.txt`, `X-Robots-Tag`)
+- Success state: the page is indexed with the correct title/description; dated events with a single site are eligible for event rich results
+- Failure or edge states: unknown slug/item → 404 with `noindex`; expired or unpublished item page → 404 with `noindex` (deleted → 410); the snapshot and the SPA drift (guarded by the parity test)
+
+### Flow 11 — Visitor opens an item page
+- Trigger: a visitor follows a link to `/i/:itemId` (search result, feed reader, shared link)
+- Steps:
+  - The page shows the item in its site context (the item's exclusive site, or its single site) with the site's name and address in the footer
+  - "Înapoi la toate informațiile" goes to that site's hub (or `/` when the item belongs to all sites)
+- Success state: the visitor sees the item and can continue to the full hub
+- Failure or edge states: the item has expired, was unpublished or deleted → "Această informație nu mai este disponibilă." with a link back to `/`
+

@@ -5,9 +5,9 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 ## Entities
 ### Site
 - Purpose: represent one local campus or location within the church
-- Key attributes: slug (stable unique identifier), name (display label), accent color (used for site-specific branding on the public hub), address, and other operator-defined info fields
+- Key attributes: slug (stable unique identifier), name (display label), accent color (used for site-specific branding on the public hub), address, and other operator-defined info fields; structured address (`street_address`, `postal_code`, `address_locality`, `address_region`, `address_country`), `latitude`/`longitude`, `telephone`, `email` (migration `0013_site_address_fields.sql`, all optional) — used for the site's schema.org `Church` markup and shown in the public footer; the free-text `address` remains the display label when no structured street/locality is set
 - Relationships: used for site scoping on Groups and Content Items (`sites[]`, `exclusive_site`); referenced by ShortLink (`site_slug`), AnalyticsEvent and error logs (`site_slug`)
-- Lifecycle: stored in the `sites` table, never hardcoded in application code. The current sites are seeded by migration `0000_initial.sql`; the super-admin can edit name, accent color, and address on `/admin/locations` (`PATCH /api/admin/sites/:slug`). Creating or deleting sites through the admin is not implemented (FR-019)
+- Lifecycle: stored in the `sites` table, never hardcoded in application code. The current sites are seeded by migration `0000_initial.sql`; the super-admin can edit name, accent color, address and the structured address fields on `/admin/locations` (`PATCH /api/admin/sites/:slug`). Creating or deleting sites through the admin is not implemented (FR-019)
 - Validation rules: slug must be stable and unique
 - Notes: the church is multi-site and growing; the data model must support dynamic site creation at any time. Available sites are fetched at runtime from GET /api/sites and cached client-side via react-query (key: `['sites']`). The `Site` API type is `{ slug: string; name: string; accent: string }`.
 

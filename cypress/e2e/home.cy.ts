@@ -28,7 +28,7 @@ describe('Home page', () => {
 
   it('renders the Betel hero title', () => {
     cy.contains('BETEL').should('be.visible')
-    cy.title().should('eq', 'Betel Info')
+    cy.title().should('eq', 'Betel Info – Biserica Baptistă Betel')
   })
 
   it('renders the Betel logo in the hero header', () => {

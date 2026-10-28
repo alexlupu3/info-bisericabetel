@@ -5,21 +5,21 @@
 /* ── Betel custom fonts ──────────────────────────────────────── */
 @font-face {
   font-family: 'Franie-SLight';
-  src: url('/fonts/Franie-SLight.woff') format('woff');
+  src: url('/fonts/Franie-SLight.woff2') format('woff2'), url('/fonts/Franie-SLight.woff') format('woff');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Franie-SBold';
-  src: url('/fonts/Franie-SBold.woff') format('woff');
+  src: url('/fonts/Franie-SBold.woff2') format('woff2'), url('/fonts/Franie-SBold.woff') format('woff');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Franie-CondensedXLight-Italic';
-  src: url('/fonts/Franie-CondensedXLightItalic.woff') format('woff');
+  src: url('/fonts/Franie-CondensedXLightItalic.woff2') format('woff2'), url('/fonts/Franie-CondensedXLightItalic.woff') format('woff');
   font-weight: 200;
   font-style: italic;
   font-display: swap;
@@ -116,6 +116,18 @@ body {
 
 [data-theme="light"] .betel-logo {
   filter: invert(1);
+}
+
+/* ── Item page reveal (one restrained entrance) ───────────────── */
+.betel-item-reveal {
+  animation: betel-item-reveal 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes betel-item-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .betel-item-reveal { animation: none; }
 }
 
 /* ── Betel signature title ───────────────────────────────────── */

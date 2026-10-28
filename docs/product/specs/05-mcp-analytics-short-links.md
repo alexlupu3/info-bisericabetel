@@ -48,7 +48,7 @@ Analytics date ranges in the new tools are inclusive calendar days in an IANA ti
 | Redirect `/s/:code` | Resolves `data.siteLinks[siteSlug] ?? data.link` at redirect time (BR-012), logs `link_click` with `short_link_id`, 10-min IP dedup | same file (owned by **06** from here on) |
 | Authorization | REST analytics and short links: `admin` or `super-admin`. Remote MCP: anyone holding `MCP_SECRET`. Stdio MCP: the configured account's role | `security.md` |
 | Audit | `logAudit({ userEmail, action, entityType, entityId, detail })`; failures swallowed | `packages/api/src/db/audit.ts` |
-| Public base URL | Not available yet; `PUBLIC_BASE_URL` + `absoluteUrl(path)` are introduced by **03-seo.md** (`packages/api/src/services/public-url.ts`) | — |
+| Public base URL | Shipped by spec 03 (2026-10-28): `PUBLIC_BASE_URL` + `absoluteUrl(path)` in `packages/api/src/services/public-url.ts` | — |
 
 ## 4. User flows
 

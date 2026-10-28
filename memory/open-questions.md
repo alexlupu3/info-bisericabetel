@@ -29,7 +29,7 @@ Purpose: track unresolved questions that block product or technical decisions, p
 ## Known Leftovers
 - Orphaned `/admin/groups` route: `packages/app/src/admin/AdminApp.tsx` still registers `groups` → `GroupsPage` (`packages/app/src/admin/pages/GroupsPage.tsx`), although group management moved to the Content page (ADR-002) and the route is not linked from the navigation. Decision: remove the route and `GroupsPage`. Status: TO DO (not an open question any more).
 - Archived-item filter (FR-016) and site creation (FR-019) are specified but not implemented; see `docs/product/requirements.md`.
-- Vite dev proxy forwards only `/api`, so `/uploads/*` and `/s/:code` do not work on `:5173` (`packages/app/vite.config.ts`; see `docs/architecture/overview.md` → "Development and Testing"). Extending the proxy to those prefixes is a small, unscheduled improvement.
+- Vite dev proxy forwards only `/api`, `/robots.txt` and `/sitemap.xml` (the last two added by spec 03), so `/uploads/*` and `/s/:code` do not work on `:5173` (`packages/app/vite.config.ts`; see `docs/architecture/overview.md` → "Development and Testing"). Extending the proxy to those prefixes is a small, unscheduled improvement.
 
 ## Resolved (answers recorded in docs)
 - Permanent delete erasing an item's analytics events and audit history — intended behaviour, confirmed by the repository owner 2026-10-17 (see `docs/architecture/security.md` → Audit requirements, `docs/domain/content-model.md`).

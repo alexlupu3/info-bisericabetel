@@ -1,4 +1,4 @@
-import type { SqlQueryResult } from '@betel/shared'
+import type { Site, SqlQueryResult } from '@betel/shared'
 import { calendarDay, viewerTimeZone } from '../../dates'
 
 const TOKEN_KEY = 'betel-admin-token'
@@ -50,8 +50,21 @@ export interface User {
   id: string; email: string; role: string; mustChangePassword: boolean
 }
 
-export interface Site {
-  slug: string; name: string; accent: string; address?: string | null
+export type { Site } from '@betel/shared'
+/** PATCH /api/admin/sites/:slug body; '' or null clears an optional field. */
+export interface SiteUpdate {
+  name?: string
+  accent?: string
+  address?: string | null
+  streetAddress?: string | null
+  postalCode?: string | null
+  addressLocality?: string | null
+  addressRegion?: string | null
+  addressCountry?: string | null
+  latitude?: number | string | null
+  longitude?: number | string | null
+  telephone?: string | null
+  email?: string | null
 }
 
 export interface Group {
@@ -234,7 +247,7 @@ export const api = {
   },
   sites: {
     list:   () => get<{ sites: Site[] }>('/api/sites'),
-    update: (slug: string, body: { name?: string; accent?: string; address?: string }) =>
+    update: (slug: string, body: SiteUpdate) =>
       patch<Site>(`/api/admin/sites/${slug}`, body),
   },
   users: {

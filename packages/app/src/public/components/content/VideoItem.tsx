@@ -11,16 +11,17 @@ function extractYoutubeId(raw: string | undefined): string | null {
   return match?.[1] ?? (raw.length === 11 ? raw : null)
 }
 
-export default function VideoItem({ item, showSiteLabel = false }: { item: ContentItem; showSiteLabel?: boolean }) {
+export default function VideoItem({ item, showSiteLabel = false, headingLevel = 2 }: { item: ContentItem; showSiteLabel?: boolean; headingLevel?: 2 | 3 }) {
+  const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const d = item.data as VideoData
   const videoId = extractYoutubeId(d.url ?? d.youtubeId)
 
   if (!videoId) return null
 
   return (
-    <article>
+    <article data-item-id={item.id}>
       {d.title && (
-        <h2 className="betel-title-bold text-lg leading-tight mb-2">{d.title}</h2>
+        <Heading className="betel-title-bold text-lg leading-tight mb-2">{d.title}</Heading>
       )}
       <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
       <div className="relative w-full aspect-video bg-[var(--surface)]">

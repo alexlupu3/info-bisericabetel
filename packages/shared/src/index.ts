@@ -2,6 +2,20 @@ export interface Site {
   slug: string
   name: string
   accent: string
+  /** Free-text address label (display line and `PostalAddress.streetAddress` fallback). */
+  address?: string | null
+  // Structured address (migration 0013_site_address_fields), used by the site's
+  // schema.org `Church` markup (spec 03). All optional.
+  streetAddress?: string | null
+  postalCode?: string | null
+  addressLocality?: string | null
+  addressRegion?: string | null
+  /** ISO 3166-1 alpha-2; `SEO_DEFAULT_COUNTRY` applies when absent. */
+  addressCountry?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  telephone?: string | null
+  email?: string | null
 }
 
 export type ContentType = 'card' | 'richtext' | 'poster' | 'video'
@@ -105,3 +119,6 @@ export interface SqlQueryError {
 }
 
 export * from './event-time.js'
+export * from './event-location.js'
+export * from './i18n-defaults.js'
+export * from './seo.js'
