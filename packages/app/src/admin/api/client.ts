@@ -1,10 +1,13 @@
 import type { SqlQueryResult } from '@betel/shared'
+import { calendarDay, viewerTimeZone } from '../../dates'
 
 const TOKEN_KEY = 'betel-admin-token'
 
 export function getToken() { return localStorage.getItem(TOKEN_KEY) }
 export function setToken(t: string) { localStorage.setItem(TOKEN_KEY, t) }
 export function clearToken() { localStorage.removeItem(TOKEN_KEY) }
+
+function tzParam() { return `tz=${encodeURIComponent(viewerTimeZone())}` }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
@@ -271,20 +274,22 @@ export const api = {
       del<void>(`/api/admin/content/${contentItemId}/short-links/${shortLinkId}`),
   },
   analytics: {
+    // Statistics are stored in UTC; every bucketed endpoint gets the viewer's
+    // timezone (`tz`) so days and hours are grouped and labelled in local time.
     lifetime: () => get<LifetimeAnalytics>('/api/admin/analytics/lifetime'),
-    daily:    (days = 30) => get<DailyAnalytics>(`/api/admin/analytics/daily?days=${days}`),
+    daily:    (days = 30) => get<DailyAnalytics>(`/api/admin/analytics/daily?days=${days}&${tzParam()}`),
     items:    (site?: string) =>
       get<ItemAnalytics>(`/api/admin/analytics/items${site ? `?site=${site}` : ''}`),
     overview: (period: Period = 'week', site?: string, startDate?: string) =>
-      get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}${startDate ? `&startDate=${startDate}` : ''}`),
+      get<OverviewData>(`/api/admin/analytics/overview?period=${period}${site ? `&site=${site}` : ''}${startDate ? `&startDate=${startDate}` : ''}&${tzParam()}`),
     itemDaily: (itemId: string, site?: string) =>
-      get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily${site ? `?site=${site}` : ''}`),
+      get<ItemDaily>(`/api/admin/analytics/items/${itemId}/daily?${site ? `site=${site}&` : ''}${tzParam()}`),
     sitesComparison: (period: Period, startDate?: string) =>
-      get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}${startDate ? `&startDate=${startDate}` : ''}`),
+      get<SiteComparisonData>(`/api/admin/analytics/sites-comparison?period=${period}${startDate ? `&startDate=${startDate}` : ''}&${tzParam()}`),
     exportItemClicks: (itemId: string, title: string, site?: string) => {
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
-      const date = new Date().toISOString().slice(0, 10)
-      const params = site ? `?site=${encodeURIComponent(site)}` : ''
+      const date = calendarDay()
+      const params = `?${site ? `site=${encodeURIComponent(site)}&` : ''}${tzParam()}`
       return downloadFile(
         `/api/admin/analytics/items/${encodeURIComponent(itemId)}/export${params}`,
         `clickuri-${slug}-${date}.csv`

@@ -5,6 +5,7 @@ import { contentItems, groups, contentTranslations, languages, sites as sitesTab
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 import { resortGroupChronologically } from '../../services/group-order.js'
+import { invalidEventDate, parseExpiresAt } from '../../services/time.js'
 
 type ItemBody = {
   type: string
@@ -75,6 +76,10 @@ export async function adminContentRoutes(app: FastifyInstance) {
     if (!type) return reply.code(400).send({ error: 'type is required' })
     const reqFieldError = missingRequiredField(type, data)
     if (reqFieldError) return reply.code(400).send({ error: reqFieldError })
+    const dateError = invalidEventDate(data)
+    if (dateError) return reply.code(400).send({ error: dateError })
+    const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
+    if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
     // Normalise exclusiveSite: empty string → null. When set, validate the slug
     // and force sites=[] so the two scoping concepts never coexist on one row.
@@ -96,7 +101,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
         sites: finalSites,
         exclusiveSite: normalizedExclusive,
         groupId: groupId ?? null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        expiresAt: parsedExpiresAt,
         data,
         orderPosition: max + 1,
         state: 'draft',
@@ -140,6 +145,11 @@ export async function adminContentRoutes(app: FastifyInstance) {
       if (!existing) return reply.code(404).send({ error: 'Not found' })
 
       const { type, sites, exclusiveSite, groupId, expiresAt, data, state } = req.body
+
+      const dateError = data ? invalidEventDate(data as Record<string, unknown>) : null
+      if (dateError) return reply.code(400).send({ error: dateError })
+      const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
+      if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
       // Normalise exclusiveSite from the request and decide what the resulting state will be.
       // Treat empty string as null; only validate when it's actually changing to a non-null value.
@@ -194,7 +204,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
         ...(groupId !== undefined && { groupId }),
-        ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
+        ...(expiresAt !== undefined && { expiresAt: parsedExpiresAt }),
         ...(mergedData !== undefined && { data: mergedData }),
         ...(state   !== undefined && { state }),
         updatedAt: new Date(),
