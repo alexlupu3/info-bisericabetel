@@ -10,6 +10,7 @@ const ERROR_LABELS: Record<SqlQueryErrorKind, string> = {
   database:  'Eroare PostgreSQL',
   read_only: 'Mod doar citire',
   timeout:   'Timp depășit',
+  unavailable: 'Consolă indisponibilă',
 }
 
 function toSqlError(err: unknown): SqlQueryError {
@@ -69,7 +70,7 @@ function ResultTable({ result }: { result: SqlQueryResult }) {
   return (
     <div>
       <p data-testid="sql-result-meta" className="text-xs font-content text-[var(--muted)] uppercase tracking-widest mb-3">
-        {result.command || 'OK'} · {result.rowCount} {result.rowCount === 1 ? 'rând' : 'rânduri'} · {result.durationMs} ms
+        {result.command || 'OK'} · {result.rowCount}{result.truncated ? '+' : ''} {result.rowCount === 1 && !result.truncated ? 'rând' : 'rânduri'} · {result.durationMs} ms
       </p>
       {result.truncated && (
         <p data-testid="sql-result-truncated" className="text-xs font-content text-[var(--accent)] mb-3">

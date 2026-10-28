@@ -76,6 +76,7 @@ export interface SqlQueryResult {
   command: string
   columns: SqlQueryColumn[]
   rows: Record<string, unknown>[]
+  /** Rows affected or returned; when `truncated`, only the number shown (more exist) */
   rowCount: number
   truncated: boolean
   durationMs: number
@@ -87,8 +88,9 @@ export interface SqlQueryResult {
  * `database` — PostgreSQL refused the statement (syntax, missing table, ...)
  * `read_only`— a write was attempted in read-only mode
  * `timeout`  — the statement exceeded the time limit
+ * `unavailable` — the console's database role is not set up
  */
-export type SqlQueryErrorKind = 'invalid' | 'blocked' | 'database' | 'read_only' | 'timeout'
+export type SqlQueryErrorKind = 'invalid' | 'blocked' | 'database' | 'read_only' | 'timeout' | 'unavailable'
 
 export interface SqlQueryError {
   error: string

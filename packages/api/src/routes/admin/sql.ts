@@ -5,8 +5,6 @@ import { auditLog } from '../../db/schema.js'
 import { logAudit } from '../../db/audit.js'
 import { runSql, SqlConsoleError, validateSql } from '../../services/sql-console.js'
 
-const AUDIT_QUERY_CHARS = 2000
-
 function superAdminOnly(req: any, reply: any, done: any) {
   if ((req.user as any)?.role !== 'super-admin') {
     reply.code(403).send({ error: 'Forbidden' })
@@ -25,7 +23,6 @@ export async function adminSqlRoutes(app: FastifyInstance) {
       const actor = req.user as any
       const query = typeof req.body?.query === 'string' ? req.body.query : ''
       const readOnly = req.body?.readOnly !== false
-      const auditedQuery = query.slice(0, AUDIT_QUERY_CHARS)
 
       const validation = validateSql(query, readOnly)
       if (!validation.ok) {
@@ -33,18 +30,19 @@ export async function adminSqlRoutes(app: FastifyInstance) {
           await logAudit({
             userId: actor.sub, userEmail: actor.email,
             action: 'sql_query_blocked', entityType: 'sql',
-            detail: { query: auditedQuery, readOnly, reason: validation.error.error },
+            detail: { query, readOnly, reason: validation.error.error },
           })
         }
         return reply.code(400).send(validation.error)
       }
 
-      // Unlike logAudit, this fails closed: a query never runs unaudited
+      // Unlike logAudit, this fails closed: a query never runs unaudited.
+      // The full text is stored (validation caps it at MAX_QUERY_LENGTH).
       try {
         await db.insert(auditLog).values({
           userId: actor.sub, userEmail: actor.email ?? '',
           action: 'sql_query', entityType: 'sql', entityId: null,
-          detail: { query: auditedQuery, readOnly, truncated: query.length > AUDIT_QUERY_CHARS },
+          detail: { query, readOnly },
         })
       } catch (err) {
         req.log.error(err, 'sql console: audit write failed')
@@ -52,9 +50,11 @@ export async function adminSqlRoutes(app: FastifyInstance) {
       }
 
       try {
-        return await runSql(query, readOnly)
+        return await runSql(validation.plan, readOnly)
       } catch (err) {
-        if (err instanceof SqlConsoleError) return reply.code(400).send(err.body)
+        if (err instanceof SqlConsoleError) {
+          return reply.code(err.body.kind === 'unavailable' ? 503 : 400).send(err.body)
+        }
         throw err
       }
     }

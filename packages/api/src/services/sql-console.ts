@@ -48,20 +48,33 @@ const BLOCKED_LEADING: Record<string, string> = {
 const BLOCKED_ANYWHERE = new Set(['DROP', 'TRUNCATE', 'ALTER', 'GRANT', 'REVOKE', 'COPY'])
 
 // Functions that touch the server's file system, other backends or
-// configuration, or run a query string that would bypass this filter.
+// configuration, or run a query string that would bypass this filter. Large
+// object functions (lo_*) are blocked by prefix in validateSql.
 const BLOCKED_FUNCTIONS = new Set([
   'pg_read_file', 'pg_read_binary_file', 'pg_ls_dir', 'pg_ls_logdir', 'pg_ls_waldir',
   'pg_ls_tmpdir', 'pg_ls_archive_statusdir', 'pg_stat_file', 'pg_file_write',
-  'pg_file_rename', 'pg_file_unlink', 'lo_import', 'lo_export', 'lo_from_bytea', 'lo_put',
+  'pg_file_rename', 'pg_file_unlink',
   'pg_terminate_backend', 'pg_cancel_backend', 'pg_reload_conf', 'pg_rotate_logfile',
   'pg_promote', 'pg_switch_wal', 'pg_create_restore_point', 'set_config', 'pg_sleep',
   'pg_sleep_for', 'pg_sleep_until', 'dblink', 'dblink_exec', 'dblink_connect',
   'query_to_xml', 'query_to_xml_and_xmlschema', 'query_to_xmlschema', 'cursor_to_xml',
 ])
 
-// Tables that must not be written to from the console: credentials, the audit
-// trail that records console use, and migration bookkeeping.
-const PROTECTED_TABLES = new Set(['users', 'audit_log', '_migrations'])
+// Relations a data-changing statement may not mention: credentials, the audit
+// trail that records console use, migration bookkeeping, and pg_settings (an
+// UPDATE on it calls set_config, which could switch back from the console role).
+// The database role enforces the table part too; this gives a clearer error.
+const PROTECTED_TABLES = new Set(['users', 'audit_log', '_migrations', 'pg_settings'])
+
+// Statements that can run as a server-side cursor, so only ROW_LIMIT + 1 rows are fetched
+const CURSOR_LEADING = new Set(['SELECT', 'WITH', 'VALUES', 'TABLE'])
+// Utility statements with small output that the protocol-level cursor does not return
+const DIRECT_LEADING = new Set(['EXPLAIN', 'SHOW'])
+
+/** Role every console query runs as; created by migration 0012_sql_console_role.sql. */
+export const SQL_CONSOLE_ROLE = 'betel_sql_console'
+const CURSOR_NAME = 'sql_console_cursor'
+const CURSOR_PREFIX = `DECLARE ${CURSOR_NAME} NO SCROLL CURSOR FOR `
 
 const WRITE_KEYWORDS = new Set(['INSERT', 'UPDATE', 'DELETE', 'MERGE'])
 
@@ -72,8 +85,18 @@ interface Token {
   depth: number    // parenthesis depth
 }
 
+/** How a validated statement should be executed. */
+export interface SqlPlan {
+  /** First keyword, upper-cased (SELECT, UPDATE, EXPLAIN, ...) */
+  leading: string
+  /** Read-only statement that can be wrapped in DECLARE ... CURSOR */
+  cursorable: boolean
+  /** The statement without its trailing ";" and anything after it */
+  statement: string
+}
+
 type Validation =
-  | { ok: true; tokens: Token[] }
+  | { ok: true; plan: SqlPlan }
   | { ok: false; error: SqlQueryError }
 
 export function lineAndColumn(query: string, position: number) {
@@ -228,7 +251,8 @@ export function validateSql(query: string, readOnly: boolean): Validation {
   for (let i = 0; i < words.length; i++) {
     const t = words[i]
     if (BLOCKED_ANYWHERE.has(t.value)) return fail(query, 'blocked', `${t.value} is not allowed.`, t.position)
-    if (words[i + 1]?.value === '(' && BLOCKED_FUNCTIONS.has(t.raw.toLowerCase())) {
+    const fn = t.raw.toLowerCase()
+    if (words[i + 1]?.value === '(' && (BLOCKED_FUNCTIONS.has(fn) || fn.startsWith('lo_'))) {
       return fail(query, 'blocked', `The function ${t.raw.toLowerCase()}() is not allowed.`, t.position)
     }
   }
@@ -253,7 +277,15 @@ export function validateSql(query: string, readOnly: boolean): Validation {
     }
   }
 
-  return { ok: true, tokens: words }
+  const end = semicolons[0]?.position ?? query.length
+  return {
+    ok: true,
+    plan: {
+      leading: first.value,
+      cursorable: CURSOR_LEADING.has(first.value) && writes.length === 0,
+      statement: query.slice(0, end),
+    },
+  }
 }
 
 function normalizeValue(value: unknown): unknown {
@@ -268,13 +300,16 @@ export class SqlConsoleError extends Error {
   constructor(public readonly body: SqlQueryError) { super(body.error) }
 }
 
-/** Maps a PostgreSQL error to the console's error shape. */
-function fromPostgresError(query: string, err: any): SqlQueryError {
+/**
+ * Maps a PostgreSQL error to the console's error shape. `offset` is the number
+ * of characters the console put in front of the user's statement.
+ */
+function fromPostgresError(query: string, err: any, offset = 0): SqlQueryError {
   const body: SqlQueryError = { kind: 'database', error: err?.message ?? 'Unknown database error.' }
   if (err?.code) body.pgCode = err.code
   if (err?.hint) body.hint = err.hint
   if (err?.detail) body.detail = err.detail
-  const position = Number(err?.position)
+  const position = Number(err?.position) - offset
   if (Number.isFinite(position) && position > 0) {
     body.position = position
     Object.assign(body, lineAndColumn(query, position))
@@ -290,29 +325,74 @@ function fromPostgresError(query: string, err: any): SqlQueryError {
   return body
 }
 
-/** Runs one validated statement in its own transaction with a timeout and a row cap. */
-export async function runSql(query: string, readOnly: boolean): Promise<SqlQueryResult> {
+interface RawResult {
+  command: string
+  columns: { name: string; type: number }[]
+  rows: Record<string, unknown>[]
+  count: number
+}
+
+/**
+ * Runs one validated statement in its own transaction, as SQL_CONSOLE_ROLE, with
+ * a timeout. At most ROW_LIMIT + 1 rows are fetched, so a huge result never
+ * reaches the API in full.
+ */
+export async function runSql(plan: SqlPlan, readOnly: boolean): Promise<SqlQueryResult> {
   const started = performance.now()
+  const offset = plan.cursorable ? CURSOR_PREFIX.length : 0
   try {
-    const result = await sql.begin(readOnly ? 'read only' : 'read write', async (tx) => {
+    const raw = await sql.begin(readOnly ? 'read only' : 'read write', async (tx): Promise<RawResult> => {
       await tx.unsafe(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
-      return tx.unsafe(query)
-    }) as any
+      try {
+        await tx.unsafe(`SET LOCAL ROLE ${SQL_CONSOLE_ROLE}`)
+      } catch (err: any) {
+        throw new SqlConsoleError({
+          kind: 'unavailable',
+          error: `The SQL console database role "${SQL_CONSOLE_ROLE}" is not set up (${err?.message ?? 'unknown error'}).`,
+          hint: 'A database superuser must run migration 0012_sql_console_role.sql.',
+          pgCode: err?.code,
+        })
+      }
 
-    const rows: Record<string, unknown>[] = Array.from(result as Iterable<Record<string, unknown>>)
-    const columns = (result.columns ?? []).map((c: any) => ({ name: c.name, typeOid: c.type }))
-    const limited = rows.slice(0, ROW_LIMIT).map(row =>
-      Object.fromEntries(Object.entries(row).map(([k, v]) => [k, normalizeValue(v)])))
+      if (plan.cursorable) {
+        await tx.unsafe(CURSOR_PREFIX + plan.statement)
+        const rows: any = await tx.unsafe(`FETCH ${ROW_LIMIT + 1} FROM ${CURSOR_NAME}`)
+        return { command: 'SELECT', columns: rows.columns ?? [], rows: Array.from(rows), count: rows.length }
+      }
 
+      if (DIRECT_LEADING.has(plan.leading)) {
+        const rows: any = await tx.unsafe(plan.statement)
+        return { command: rows.command ?? plan.leading, columns: rows.columns ?? [], rows: Array.from(rows), count: rows.length }
+      }
+
+      // Data changes: a protocol-level cursor stops fetching after the cap
+      let first: any
+      const rows: Record<string, unknown>[] = []
+      for await (const batch of (tx.unsafe(plan.statement) as any).cursor(ROW_LIMIT + 1)) {
+        first ??= batch
+        rows.push(...batch)
+        if (rows.length > ROW_LIMIT) break
+      }
+      return {
+        command: first?.command ?? plan.leading,
+        columns: first?.columns ?? [],
+        rows,
+        count: typeof first?.count === 'number' ? first.count : rows.length,
+      }
+    })
+
+    const truncated = raw.rows.length > ROW_LIMIT
     return {
-      command: result.command ?? '',
-      columns,
-      rows: limited,
-      rowCount: typeof result.count === 'number' ? result.count : rows.length,
-      truncated: rows.length > ROW_LIMIT,
+      command: raw.command,
+      columns: raw.columns.map(c => ({ name: c.name, typeOid: c.type })),
+      rows: raw.rows.slice(0, ROW_LIMIT).map(row =>
+        Object.fromEntries(Object.entries(row).map(([k, v]) => [k, normalizeValue(v)]))),
+      rowCount: truncated ? ROW_LIMIT : raw.count,
+      truncated,
       durationMs: Math.round(performance.now() - started),
     }
   } catch (err) {
-    throw new SqlConsoleError(fromPostgresError(query, err))
+    if (err instanceof SqlConsoleError) throw err
+    throw new SqlConsoleError(fromPostgresError(plan.statement, err, offset))
   }
 }

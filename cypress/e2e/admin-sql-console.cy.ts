@@ -125,6 +125,46 @@ describe('Admin — SQL console (super-admin only)', () => {
       cy.get('[data-testid="sql-error-location"]').should('contain', 'select * form sites')
     })
 
+    it('marks a truncated result as partial', () => {
+      cy.intercept('POST', '/api/admin/sql', {
+        command: 'SELECT',
+        columns: [{ name: 'g', typeOid: 23 }],
+        rows: Array.from({ length: 500 }, (_, i) => ({ g: i + 1 })),
+        rowCount: 500,
+        truncated: true,
+        durationMs: 12,
+      }).as('runSql')
+
+      cy.get('[data-testid="sql-editor"]').type('select g from generate_series(1, 100000) g')
+      cy.get('[data-testid="sql-run"]').click()
+      cy.get('[data-testid="sql-confirm-run"]').click()
+      cy.get('[data-testid="sql-confirm-run"]').click()
+      cy.wait('@runSql')
+
+      cy.get('[data-testid="sql-result-meta"]').should('contain', '500+ rânduri')
+      cy.get('[data-testid="sql-result-truncated"]').should('be.visible')
+    })
+
+    it('explains when the console database role is not set up', () => {
+      cy.intercept('POST', '/api/admin/sql', {
+        statusCode: 503,
+        body: {
+          kind: 'unavailable',
+          error: 'The SQL console database role "betel_sql_console" is not set up.',
+          hint: 'A database superuser must run migration 0012_sql_console_role.sql.',
+        },
+      }).as('runSql')
+
+      cy.get('[data-testid="sql-editor"]').type('select 1')
+      cy.get('[data-testid="sql-run"]').click()
+      cy.get('[data-testid="sql-confirm-run"]').click()
+      cy.get('[data-testid="sql-confirm-run"]').click()
+      cy.wait('@runSql')
+
+      cy.get('[data-testid="sql-error"]').should('have.attr', 'data-kind', 'unavailable').and('contain', 'Consolă indisponibilă')
+      cy.get('[data-testid="sql-error-hint"]').should('contain', '0012_sql_console_role.sql')
+    })
+
     it('shows when the dangerous-command filter blocks a query', () => {
       cy.intercept('POST', '/api/admin/sql', {
         statusCode: 400,
