@@ -61,3 +61,43 @@ export interface ShortLink {
   createdAt: string
   clickCount: number
 }
+
+export interface SqlQueryRequest {
+  query: string
+  readOnly: boolean
+}
+
+export interface SqlQueryColumn {
+  name: string
+  typeOid: number
+}
+
+export interface SqlQueryResult {
+  command: string
+  columns: SqlQueryColumn[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  truncated: boolean
+  durationMs: number
+}
+
+/**
+ * `invalid`  — malformed input caught before reaching the database
+ * `blocked`  — rejected by the dangerous-command filter
+ * `database` — PostgreSQL refused the statement (syntax, missing table, ...)
+ * `read_only`— a write was attempted in read-only mode
+ * `timeout`  — the statement exceeded the time limit
+ */
+export type SqlQueryErrorKind = 'invalid' | 'blocked' | 'database' | 'read_only' | 'timeout'
+
+export interface SqlQueryError {
+  error: string
+  kind: SqlQueryErrorKind
+  /** 1-based character offset into the query, when known */
+  position?: number
+  line?: number
+  column?: number
+  hint?: string
+  detail?: string
+  pgCode?: string
+}
