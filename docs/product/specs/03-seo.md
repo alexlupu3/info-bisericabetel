@@ -263,7 +263,7 @@ Measures: inline initial data (removes two round-trips); `<link rel="preload" as
 **Consumes**
 
 - Spec 04: `data.startTime` and the ISO-8601 date-time builder with the Bucharest offset (for `Event.startDate`). Until 04 lands, the renderer emits date-only `startDate`; the integration is a one-line call.
-- Spec 06: the preview-image fallback chain for content items (`Event.image`, `og:image` on item pages).
+- Spec 06: its image field selection for `Event.image` (with the organisation logo as this spec's own last fallback), and its share-image service `preview-image.ts` (full FR-086 chain, 1200×630 derivatives) for `og:image` on item pages.
 - Spec 07: `readLocation(data)` from `packages/shared/src/event-location.ts` (locale-merged, Romanian fallback) for `Event.location.name` and for the location row in the item/feed snapshot (§6.2.3). Until 07 lands, `readLocation` is a stub returning `null` with the same signature, so the `Place` is named after the site.
 - Spec 02: `listPublicContent` / `selectUpcomingEvents` from `services/public-content.ts` as the single "visible items / current and upcoming events" selection (§6.2.3); whichever of 02 / 03 lands first extracts it.
 - Spec 01: the final manifest/PWA head tags (untouched by this spec; the injection inserts before `</head>` and leaves them intact) and the denylist entries above.
@@ -386,7 +386,7 @@ Also add `PUBLIC_BASE_URL` to the `docker-compose.yml` variable list and to `exa
 
 ### `docs/architecture/overview.md` — Runtime Topology
 
-Add under the container: `├─ /robots.txt, /sitemap.xml   crawler endpoints (ADR-022)` and change the last line to `└─ /, /:siteSlug, /i/:itemId → server-rendered head + content snapshot into the SPA shell; other paths → index.html fallback`. In "Frontend" add: "**SEO:** the API injects page metadata, JSON-LD and a static HTML snapshot of the feed into `index.html` for public pages; the SPA seeds its data from the inline JSON and replaces the snapshot on mount ([ADR-022](../decisions/ADR-022-server-side-head-injection-and-content-snapshot.md))."
+Add under the container: `├─ /robots.txt, /sitemap.xml   crawler endpoints (ADR-022)` and change the last line to `└─ /, /:siteSlug, /i/:itemId → server-rendered head + content snapshot into the SPA shell; other paths → index.html fallback`. In "Frontend" add: "**SEO:** the API injects page metadata, JSON-LD and a static HTML snapshot of the feed into `index.html` for public pages; the SPA seeds its data from the inline JSON and replaces the snapshot on mount ([ADR-022](../../decisions/ADR-022-server-side-head-injection-and-content-snapshot.md))."
 
 ### `docs/architecture/deployment.md` — First-time CapRover setup
 

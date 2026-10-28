@@ -139,7 +139,7 @@ startTime: clockTimeSchema.nullable().optional().describe('New start time HH:mm 
 
 Follow the `frontend-design` skill: same input styling as the date inputs (`bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content`), uppercase tracking-widest labels, muted hints; no new colours.
 
-- `FormData` gains `startTime: string`. `itemToForm`: `startTime: d.startTime ?? ''`. `formToPayload`: 
+- `FormData` gains `startTime: string`. `itemToForm`: `startTime: d.startTime ?? ''`. `formToPayload`:
   ```ts
   const singleDay = !!f.date && (!f.endDate || f.endDate === f.date)
   data.startTime = singleDay && f.startTime ? f.startTime : null
