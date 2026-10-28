@@ -61,3 +61,4 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-014](ADR-014-i18n-strategy.md) | Internationalization strategy (formerly a duplicate ADR-009) | Accepted |
 | [ADR-015](ADR-015-remote-mcp-endpoint.md) | Remote MCP endpoint inside the API process | Accepted |
 | [ADR-016](ADR-016-postgresql-only.md) | PostgreSQL as the only supported database | Accepted |
+| [ADR-018](ADR-018-sql-console.md) | Super-admin SQL console with an application-level guard | Accepted |
