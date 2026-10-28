@@ -23,8 +23,15 @@ const thumbnailSchema = z.string().refine(
   'must be a media library path (/uploads/...) or an absolute URL',
 )
 
-// Event dates are calendar days in Romania (YYYY-MM-DD); the API rejects anything else.
-const calendarDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a calendar date in YYYY-MM-DD format')
+// Event dates are calendar days in Romania (YYYY-MM-DD). Mirrors the API's
+// isCalendarDay (packages/api/src/services/time.ts): impossible dates such as
+// 2026-02-30 are rejected here rather than after a round trip to the API.
+const calendarDaySchema = z.string().refine(v => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+  if (!m) return false
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  return d.toISOString().slice(0, 10) === v
+}, 'must be a real calendar date in YYYY-MM-DD format')
 
 function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...options, signal: AbortSignal.timeout(fetchTimeoutMs) })
