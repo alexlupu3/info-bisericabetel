@@ -12,7 +12,7 @@ The code never met that constraint, and over time it has come to depend on Postg
 
 - **Driver and ORM dialect:** `postgres` (postgres-js) with `drizzle-orm/postgres-js` (`packages/api/src/db/client.ts`). The schema uses `pgTable`, `jsonb` and other `drizzle-orm/pg-core` types (`packages/api/src/db/schema.ts`).
 - **Hand-written PostgreSQL migrations:** `packages/api/src/db/migrations/NNNN_name.sql` is plain PostgreSQL DDL/DML applied by a custom runner (`db/migrate.ts`), not generated per dialect. It uses `JSONB`, `TIMESTAMPTZ`, `gen_random_uuid()`, partial indexes (`WHERE … IS NOT NULL`, `WHERE state = 'deleted'`) and JSONB operators.
-- **Queries in route handlers:** JSONB path operators (`data->>'thumbnail'`, `data->>'endDate'`), casts such as `::date` and `::int`, `NOW() AT TIME ZONE 'Europe/Bucharest'` (public visibility windows in `routes/content.ts`), `AT TIME ZONE 'UTC'` bucketing in analytics, and `pg_advisory_xact_lock(1001)` to serialise ordering inserts.
+- **Queries in route handlers:** JSONB path operators (`data->>'thumbnail'`, `data->>'endDate'`), casts such as `::date` and `::int`, `NOW() AT TIME ZONE 'Europe/Bucharest'` (public visibility windows in `routes/content.ts`), `AT TIME ZONE <tz>` bucketing in analytics (the viewer's time zone, see ADR-017), and `pg_advisory_xact_lock(1001)` to serialise ordering inserts.
 - **Product features built on JSONB:** per-site link overrides (ADR-007), media usage detection (ADR-003) and translation merging (ADR-014) all rely on JSONB semantics.
 
 The project is deployed only to a self-hosted CapRover VPS with a PostgreSQL container, and nobody has asked for MySQL.

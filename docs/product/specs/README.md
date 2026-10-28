@@ -18,7 +18,7 @@ Specs live in this folder until they are implemented. Each spec proposes its edi
 
 Business rules: each spec uses its own BR block — 1 → BR-020–024, 2 → BR-025–029, 3 → BR-030–034, 4 → BR-035–039, 5 → BR-040–044, 6 → BR-045–049, 7 → BR-050–054 (BR-015–019 left free for unplanned work).
 
-Numbering notes: FR-049 and ADR-018 are taken by the SQL console (`feat/sql-console`); ADR-017 and BR-015 are taken by the unmerged `fix/timezone-handling` branch (timezone policy, `services/time.ts`, `app/dates.ts`), which must merge to `main` before any of these features; spec 4 builds on it. Migration numbers are provisional — whoever merges second renumbers to the next free file (see `AGENTS.md` → Database migrations).
+Numbering notes: FR-049 and ADR-018 are taken by the SQL console (`feat/sql-console`); ADR-017 and BR-015 are taken by `fix/timezone-handling` (timezone policy, `services/time.ts`, `app/dates.ts`), merged to `main` in PR #17; spec 4 builds on it. Migration numbers are provisional — whoever merges second renumbers to the next free file (see `AGENTS.md` → Database migrations).
 
 ## Ownership of shared concerns
 
@@ -65,7 +65,7 @@ Server routes outside the SPA that need a service-worker denylist entry (1 adds 
 
 Most lanes start on day one; these are the hard sequencing constraints:
 
-1. **`fix/timezone-handling` merges to `main` first** (ADR-017, BR-015, `services/time.ts`, `app/dates.ts`); spec 4 and the push sender in spec 1 build on it.
+1. **`fix/timezone-handling` is merged to `main` (PR #17) — done** (ADR-017, BR-015, `services/time.ts`, `app/dates.ts`); spec 4 and the push sender in spec 1 build on it.
 2. **Foundations, early in their own specs:** 3's `PUBLIC_BASE_URL` + `absoluteUrl()` (needed by 1, 2, 5, 6), 4's `packages/shared/src/event-time.ts` (needed by 1, 2, 3), 2's `services/public-content.ts` (needed by 1, 3), 6's `services/preview-image.ts` (needed by 2, 3), 3's `/i/:itemId` route (needed by 1, 2 for links), 5's `services/short-links.ts` + `routes/admin/short-links.ts` split (needed by 6's admin delta). Each spec's work breakdown marks these as its first tasks; a consumer that gets ahead may ship a stub with the owner's exact signature.
 3. **Cross-spec deltas land after their base:** the `null`-deletes-key path in the remote `update_card` is needed by 4 and 7 — whichever lands first adds it; 7's card row and admin input after 4's (same files: the public card component and the admin content form); 4's `startTime`, 7's `location` and 6's `previewMode` additions to `packages/shared/src/mcp-tools.ts` after 5's shared tool contract; 2's per-site `<link rel="alternate">` after 3's `registerHeadTags()` hook.
 4. **Migrations:** 1 → `0012`, 6 → `0013`, 3 → `0014` (optional). Renumber on merge if the order differs.

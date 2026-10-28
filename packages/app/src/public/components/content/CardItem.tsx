@@ -3,6 +3,7 @@ import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
+import { formatCalendarDay } from '../../../dates'
 
 type CardData = {
   title: string
@@ -158,6 +159,6 @@ export default function CardItem({
 function formatDateRange(start?: string, end?: string, dateLocale = 'ro-RO') {
   if (!start) return null
   const fmt = (d: string) =>
-    new Date(d).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })
+    formatCalendarDay(d, dateLocale, { day: 'numeric', month: 'long' })
   return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start)
 }

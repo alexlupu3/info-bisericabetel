@@ -44,13 +44,14 @@ pnpm dev:api          # API on http://localhost:3100 (reads ../../.env, needs Po
 pnpm lint             # tsc --noEmit in every package (typecheck only; no formatter/ESLint configured)
 pnpm build            # build the app; pnpm build:api for the API; pnpm build:all for everything
 pnpm test             # Cypress headless; requires `pnpm dev` running on :5173
+pnpm test:unit        # API unit tests (node:test via tsx), no database needed
 pnpm test:open        # Cypress interactive runner
 pnpm release          # release-it: bumps version, tags, regenerates CHANGELOG.md
 ```
 
 Ports: Vite 5173, local API 3100, container 80. Every environment variable is documented in `docs/architecture/configuration.md` — add new ones there, not here.
 
-Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. Verify API changes manually (or add tests that exercise them) and say so in your report.
+Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. `pnpm test:unit` covers pure API helpers only (e.g. `services/time.ts`); routes and SQL are untested. Verify API changes manually (or add tests that exercise them) and say so in your report.
 
 ## Database migrations
 

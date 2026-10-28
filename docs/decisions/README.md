@@ -61,6 +61,7 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-014](ADR-014-i18n-strategy.md) | Internationalization strategy (formerly a duplicate ADR-009) | Accepted |
 | [ADR-015](ADR-015-remote-mcp-endpoint.md) | Remote MCP endpoint inside the API process | Accepted |
 | [ADR-016](ADR-016-postgresql-only.md) | PostgreSQL as the only supported database | Accepted |
+| [ADR-017](ADR-017-timezone-policy.md) | Time zone policy: UTC storage, viewer-zone display, Romania event days | Accepted |
 | [ADR-019](ADR-019-custom-service-worker-inject-manifest.md) | Custom service worker via `injectManifest` | Proposed |
 | [ADR-020](ADR-020-web-push-and-staged-rollout.md) | Web Push for new events and staged PWA rollout | Proposed |
 | [ADR-021](ADR-021-rss-event-feed.md) | RSS 2.0 event feed: format, link semantics and caching | Proposed |

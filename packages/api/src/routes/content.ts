@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { and, asc, eq, isNull, or, gt, sql, getTableColumns } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { contentItems, groups, contentTranslations, groupTranslations } from '../db/schema.js'
+import { CHURCH_TIME_ZONE } from '../services/time.js'
 
 export async function contentRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { site?: string; locale?: string } }>('/content', async req => {
@@ -31,17 +32,17 @@ export async function contentRoutes(app: FastifyInstance) {
     // then by their own within-group orderPosition.
     // For all content types: filter out past items based on endDate or startDate in JSONB data.
     // endDate is authoritative if present; fallback to startDate; no date = permanent (always shown).
-    // Compare against "today" in the church's local timezone (Europe/Bucharest) rather than the
-    // server's CURRENT_DATE. Production runs in UTC, so for a few hours each evening the server
-    // would otherwise still consider an item current after the admin (Romania-local) has it as past,
-    // and the public site keeps showing items that are visibly expired in the admin tool.
-    const todayLocal = sql`(NOW() AT TIME ZONE 'Europe/Bucharest')::date`
+    // Event dates are calendar days in the church's timezone (Europe/Bucharest): an item stays
+    // visible until the end of its last day in Romania, regardless of the server's own timezone.
+    // Compare the YYYY-MM-DD prefix as text rather than casting to ::date, so one malformed
+    // legacy value cannot make the whole query fail.
+    const todayLocal = sql`to_char(NOW() AT TIME ZONE ${CHURCH_TIME_ZONE}, 'YYYY-MM-DD')`
     const dateFilter = sql`(
       CASE
         WHEN ${contentItems.data}->>'endDate' IS NOT NULL
-          THEN (${contentItems.data}->>'endDate')::date >= ${todayLocal}
+          THEN left(${contentItems.data}->>'endDate', 10) >= ${todayLocal}
         WHEN ${contentItems.data}->>'startDate' IS NOT NULL
-          THEN (${contentItems.data}->>'startDate')::date >= ${todayLocal}
+          THEN left(${contentItems.data}->>'startDate', 10) >= ${todayLocal}
         ELSE TRUE
       END
     )`

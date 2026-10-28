@@ -23,6 +23,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { isItemPast } from '../../content-expiry'
 import { api, type ContentItem, type Group, type Site } from '../api/client'
 import { useToast } from '../context/ToastContext'
 
@@ -951,20 +952,6 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
   )
 }
 
-// ── Past-item helper ───────────────────────────────────────────────────────────
-
-function isItemPast(item: ContentItem): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const d = item.data as { endDate?: string; startDate?: string }
-  if (d.endDate) return new Date(d.endDate) < today
-  if (d.startDate) return new Date(d.startDate) < today
-
-  if (item.expiresAt) return new Date(item.expiresAt) <= today
-  return false
-}
-
 // ── Sortable content row ───────────────────────────────────────────────────────
 
 function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
@@ -1156,7 +1143,8 @@ function itemToForm(item?: ContentItem | null): FormData {
     type:        item?.type ?? 'card',
     sites:       item?.sites ?? [],
     exclusiveSite: item?.exclusiveSite ?? null,
-    expiresAt:   item?.expiresAt ? item.expiresAt.slice(0, 10) : '',
+    // Kept verbatim: truncating to YYYY-MM-DD would re-save it as UTC midnight.
+    expiresAt:   item?.expiresAt ?? '',
     groupId:     item?.groupId ?? '',
     title:       d.title ?? '',
     body:        d.body  ?? '',

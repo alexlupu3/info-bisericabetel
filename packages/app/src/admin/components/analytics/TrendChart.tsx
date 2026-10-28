@@ -8,6 +8,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import type { ClickBreakdownItem, OverviewSeries, Period } from '../../api/client'
+import { formatDayLabel } from '../../../dates'
 
 interface Props {
   currentSeries: OverviewSeries[]
@@ -22,11 +23,8 @@ function formatLabel(label: string, period: Period): string {
     const hour = label.length <= 2 ? label.padStart(2, '0') : label.slice(11, 13)
     return `${hour}:00`
   }
-  // week / month — format ISO date as "DD MMM"
-  const d = new Date(label)
-  const day = d.getDate().toString().padStart(2, '0')
-  const month = d.toLocaleDateString('ro-RO', { month: 'short' })
-  return `${day} ${month}`
+  // week / month — YYYY-MM-DD bucket in the viewer's timezone, shown as "DD MMM"
+  return formatDayLabel(label)
 }
 
 interface TooltipPayloadEntry {
