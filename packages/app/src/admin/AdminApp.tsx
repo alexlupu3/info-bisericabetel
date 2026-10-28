@@ -16,6 +16,7 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import ArchivePage from './pages/ArchivePage'
 import TranslationsPage from './pages/TranslationsPage'
 import SetupPage from './pages/SetupPage'
+import SqlConsolePage from './pages/SqlConsolePage'
 
 export default function AdminApp() {
   return (
@@ -86,6 +87,9 @@ function Shell() {
             {user.role === 'super-admin' && (
               <NavLink to="translations" className={navLinkClass}>Traduceri</NavLink>
             )}
+            {user.role === 'super-admin' && (
+              <NavLink to="sql" className={navLinkClass}>SQL</NavLink>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -127,6 +131,9 @@ function Shell() {
           {user.role === 'super-admin' && (
             <NavLink to="translations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Traduceri</NavLink>
           )}
+          {user.role === 'super-admin' && (
+            <NavLink to="sql" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>SQL</NavLink>
+          )}
           <button onClick={() => { setMobileMenuOpen(false); logout() }}
             className="text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors text-left">
             Ieșire
@@ -155,6 +162,9 @@ function Shell() {
           )}
           {user.role === 'super-admin' && (
             <Route path="translations" element={<PageContainer><TranslationsPage /></PageContainer>} />
+          )}
+          {user.role === 'super-admin' && (
+            <Route path="sql" element={<SqlConsolePage />} />
           )}
           <Route path="*" element={<Navigate to="content" replace />} />
         </Routes>
