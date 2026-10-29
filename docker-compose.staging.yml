@@ -13,7 +13,7 @@
 #   DB_PASSWORD                  required — reused for the staging database
 #   JWT_SECRET                   required — reused unless STAGING_JWT_SECRET is set
 #   STAGING_JWT_SECRET           optional
-#   STAGING_APP_PORT             optional — host port for the app (default 8080)
+#   STAGING_APP_PORT             optional — host port (127.0.0.1 only) for the app (default 8080)
 #   STAGING_DB_PORT              optional — host port for PostgreSQL (default 5433)
 #   STAGING_OPEN_ROUTER_API_KEY  optional — AI translation is off unless set
 #   STAGING_MCP_SECRET           optional — /mcp is off unless set
@@ -72,7 +72,7 @@ services:
     volumes:
       - uploads:/app/uploads
     ports:
-      - "${STAGING_APP_PORT:-8080}:80"
+      - "127.0.0.1:${STAGING_APP_PORT:-8080}:80"
     depends_on:
       db:
         condition: service_healthy

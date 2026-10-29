@@ -79,7 +79,7 @@ Vite proxies `/api`, `/uploads` and `/s/` to `localhost:3100`. Both the public h
 
 Both create a **super-admin**. Further admins are created in `/admin/users`.
 
-**Optional: real data.** `pnpm seed:dev` replaces the dev database and uploads with a copy of live (read-only on live). Set `LIVE_SSH` (or `LIVE_DATABASE_URL`) in `.env` first; see [configuration.md](docs/architecture/configuration.md#seeding-from-live-scriptsseed-from-livesh). Live users come along, so log in with live credentials.
+**Optional: real data.** `pnpm seed:dev` replaces the dev database and uploads with a copy of live (read-only on live). Set `LIVE_SSH` (or `LIVE_DATABASE_URL`, which copies the database only, not uploads) in `.env` first; see [configuration.md](docs/architecture/configuration.md#seeding-from-live-scriptsseed-from-livesh). Live users come along, so log in with live credentials.
 
 Without database access, `pnpm seed:public:dev` rebuilds the dev content from the public website instead: sites, languages, UI strings, currently visible items, their groups and images. Drafts, archived items, users, analytics and short links are not public and are not copied, and local users are kept, so create a local admin first (step 6).
 

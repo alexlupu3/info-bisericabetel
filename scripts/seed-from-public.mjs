@@ -17,7 +17,7 @@
 // positions are reconstructed from the public ordering.
 //
 // Local users, analytics, audit and error logs are kept; all content, groups,
-// media rows, translations and short links in the target are replaced.
+// media rows, translations (incl. UI strings) and short links are replaced.
 // The target database must already be migrated (start the API once).
 // ─────────────────────────────────────────────────────────────────────────────
 import { execFileSync } from 'node:child_process'
@@ -118,15 +118,18 @@ for (const { code } of languages.filter(l => l.code !== defaultLocale)) {
 
 // ─── 4. Images ───────────────────────────────────────────────────────────────
 const uploadPaths = new Set()
-for (const it of items.values()) {
-  for (const m of JSON.stringify(it.data).matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) uploadPaths.add(m[1])
+// Translations store only the fields that differ, so they can reference their own images.
+for (const data of [...[...items.values()].map(it => it.data), ...contentTranslations.values()]) {
+  for (const m of JSON.stringify(data).matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) uploadPaths.add(m[1])
 }
 const tmp = mkdtempSync(join(ROOT, '.local-public-'))
 const mediaRows = []
 try {
   for (const filename of uploadPaths) {
     const res = await fetch(`${BASE}/uploads/${filename}`)
-    if (!res.ok) { console.warn(`    skip /uploads/${filename} (${res.status})`); continue }
+    // Missing files are skipped; anything else (429, 5xx, ...) aborts before the target is touched.
+    if (res.status === 404 || res.status === 410) { console.warn(`    skip /uploads/${filename} (${res.status})`); continue }
+    if (!res.ok) throw new Error(`GET /uploads/${filename} → ${res.status}; nothing was written, retry later`)
     const buf = Buffer.from(await res.arrayBuffer())
     writeFileSync(join(tmp, filename), buf)
     mediaRows.push({ url: `/uploads/${filename}`, filename, size: buf.length, mimeType: res.headers.get('content-type') ?? '' })
@@ -146,20 +149,29 @@ try {
   const q = v => v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`
   const arr = a => `ARRAY[${(a ?? []).map(q).join(',')}]::text[]`
   const json = v => `${q(JSON.stringify(v ?? {}))}::jsonb`
+  // /api/sites key → sites column. Quoted literals coerce to the column type (text,
+  // double precision, timestamptz); keys missing on an older live API become NULL.
+  const SITE_COLUMNS = {
+    slug: 'slug', name: 'name', accent: 'accent', address: 'address',
+    streetAddress: 'street_address', postalCode: 'postal_code', addressLocality: 'address_locality',
+    addressRegion: 'address_region', addressCountry: 'address_country', latitude: 'latitude',
+    longitude: 'longitude', telephone: 'telephone', email: 'email', createdAt: 'created_at',
+  }
+  const siteCols = Object.values(SITE_COLUMNS)
+  const siteUpdate = siteCols.filter(c => c !== 'slug' && c !== 'created_at').map(c => `${c} = EXCLUDED.${c}`).join(', ')
 
   const sql = [
     'BEGIN;',
-    'DELETE FROM content_translations; DELETE FROM group_translations; DELETE FROM short_links;',
+    'DELETE FROM content_translations; DELETE FROM group_translations; DELETE FROM ui_translations; DELETE FROM short_links;',
     'DELETE FROM content_items; DELETE FROM groups; DELETE FROM media;',
-    ...sites.map(s => `INSERT INTO sites (slug, name, accent, address, created_at) VALUES (${q(s.slug)}, ${q(s.name)}, ${q(s.accent)}, ${q(s.address)}, ${q(s.createdAt)})
-      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, accent = EXCLUDED.accent, address = EXCLUDED.address;`),
+    ...sites.map(s => `INSERT INTO sites (${siteCols.join(', ')}) VALUES (${Object.keys(SITE_COLUMNS).map(k => q(s[k])).join(', ')})
+      ON CONFLICT (slug) DO UPDATE SET ${siteUpdate};`),
     `DELETE FROM sites WHERE slug NOT IN (${sites.map(s => q(s.slug)).join(',')});`,
     ...languages.map(l => `INSERT INTO languages (code, name, is_default, enabled, created_at) VALUES (${q(l.code)}, ${q(l.name)}, ${l.isDefault}, true, ${q(l.createdAt)})
       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, is_default = EXCLUDED.is_default, enabled = true;`),
     // Languages that are not public on live become disabled locally rather than deleted.
     `UPDATE languages SET enabled = false, is_default = false WHERE code NOT IN (${languages.map(l => q(l.code)).join(',')});`,
-    ...uiTranslations.map(t => `INSERT INTO ui_translations (locale, key, value) VALUES (${q(t.locale)}, ${q(t.key)}, ${q(t.value)})
-      ON CONFLICT (locale, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();`),
+    ...uiTranslations.map(t => `INSERT INTO ui_translations (locale, key, value) VALUES (${q(t.locale)}, ${q(t.key)}, ${q(t.value)});`),
     ...[...groupTitles].map(([id, title]) => `INSERT INTO groups (id, title, order_position, state) VALUES (${q(id)}, ${q(title)}, ${rootPosition.get(id)}, 'published');`),
     ...[...items.values()].map(it => `INSERT INTO content_items (id, type, state, sites, exclusive_site, order_position, group_id, expires_at, data, created_at, updated_at)
       VALUES (${q(it.id)}, ${q(it.type)}, ${q(it.state)}, ${arr(it.sites)}, ${q(it.exclusiveSite)}, ${it.groupId ? it.orderPosition : rootPosition.get(it.id)},
@@ -182,7 +194,8 @@ try {
   log(`Writing ${mediaRows.length} images`)
   if (target === 'dev') {
     // Same default as packages/api/src/index.ts when started via `pnpm dev:api`.
-    const uploads = process.env.UPLOADS_DIR || join(ROOT, 'packages', 'uploads')
+    // A relative UPLOADS_DIR is resolved against packages/api, the API's cwd.
+    const uploads = resolve(ROOT, 'packages', 'api', process.env.UPLOADS_DIR || '../uploads')
     mkdirSync(uploads, { recursive: true })
     for (const f of readdirSync(uploads)) unlinkSync(join(uploads, f))
     for (const m of mediaRows) execFileSync('cp', [join(tmp, m.filename), join(uploads, m.filename)])

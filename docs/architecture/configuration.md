@@ -75,7 +75,7 @@ The production `Dockerfile` image with its own PostgreSQL and uploads volume, se
 | `DB_PASSWORD` | Yes | none | Reused as the staging database password (same URL-safety rule as above). |
 | `JWT_SECRET` | Yes | none | Reused to sign staging JWTs unless `STAGING_JWT_SECRET` is set. |
 | `STAGING_JWT_SECRET` | No | `JWT_SECRET` | Overrides the staging JWT secret. |
-| `STAGING_APP_PORT` | No | `8080` | Host port mapped to the app container's port 80. |
+| `STAGING_APP_PORT` | No | `8080` | Host port (bound to `127.0.0.1`) mapped to the app container's port 80. Staging can hold a copy of live users, so it is not exposed on the LAN. |
 | `STAGING_DB_PORT` | No | `5433` | Host port (bound to `127.0.0.1`) for the staging PostgreSQL. |
 | `STAGING_OPEN_ROUTER_API_KEY` | No | unset (feature off) | Opt-in `OPEN_ROUTER_API_KEY` for staging. The production key is **not** inherited, so editing staging content never triggers paid translation calls. |
 | `STAGING_MCP_SECRET` | No | unset (endpoint off) | Opt-in `MCP_SECRET` for staging. The production secret is not inherited. |

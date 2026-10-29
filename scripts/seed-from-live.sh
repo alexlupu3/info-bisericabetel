@@ -61,6 +61,11 @@ if [ "$TARGET" = dev ]; then
   COMPOSE=(docker compose -f docker-compose.yml)
   # Same default as packages/api/src/index.ts when started via `pnpm dev:api`.
   DEV_UPLOADS="${UPLOADS_DIR:-$ROOT/packages/uploads}"
+  # The API runs with cwd packages/api, so a relative UPLOADS_DIR is relative to it.
+  case "$DEV_UPLOADS" in
+    /*) ;;
+    *) DEV_UPLOADS="$ROOT/packages/api/$DEV_UPLOADS" ;;
+  esac
 else
   COMPOSE=(docker compose -f docker-compose.staging.yml)
 fi
@@ -97,8 +102,14 @@ if [ -z "$DUMP" ]; then
   elif [ -n "${LIVE_DATABASE_URL:-}" ]; then
     log "Dumping live database from LIVE_DATABASE_URL"
     # pg_dump runs in a container, where "localhost" is the container itself.
-    url="$(printf '%s' "$LIVE_DATABASE_URL" | sed -E 's#@(localhost|127\.0\.0\.1)([:/])#@host.docker.internal\2#')"
-    docker run --rm postgres:16-alpine pg_dump --dbname="$url" -Fc --no-owner --no-privileges > "$DUMP" \
+    # Linux: share the host network so loopback-only listeners (SSH tunnels) work.
+    # Docker Desktop: reach the host through host.docker.internal instead.
+    url="$LIVE_DATABASE_URL"; net=host
+    if [ "$(uname -s)" != Linux ]; then
+      net=bridge
+      url="$(printf '%s' "$url" | sed -E 's#@(localhost|127\.0\.0\.1)([:/])#@host.docker.internal\2#')"
+    fi
+    docker run --rm --network "$net" postgres:16-alpine pg_dump --dbname="$url" -Fc --no-owner --no-privileges > "$DUMP" \
       || { rm -f "$DUMP"; die "pg_dump failed"; }
   else
     die "set LIVE_SSH or LIVE_DATABASE_URL in .env, or pass --from / --reuse"
@@ -118,6 +129,12 @@ if [ $SKIP_UPLOADS = 0 ] && [ -z "$UPLOADS_TAR" ]; then
       "$LIVE_APP_SERVICE" > "$UPLOADS_TAR" || { rm -f "$UPLOADS_TAR"; die "remote uploads tar failed"; }
   fi
   [ -n "$UPLOADS_TAR" ] || { echo "    (no uploads source: images will be missing; use LIVE_SSH or --uploads-from)"; SKIP_UPLOADS=1; }
+fi
+if [ $SKIP_UPLOADS = 0 ]; then
+  # Validate before anything destructive: the restore deletes current uploads first.
+  # -xO reads every member, so a truncated archive fails here (-t alone does not).
+  [ -s "$UPLOADS_TAR" ] || die "uploads archive missing or empty: $UPLOADS_TAR"
+  tar -xOf "$UPLOADS_TAR" > /dev/null || die "uploads archive is not a valid tar: $UPLOADS_TAR"
 fi
 
 # ─── 3. Confirm ──────────────────────────────────────────────────────────────
