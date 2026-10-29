@@ -33,3 +33,19 @@ export function sanitizeTranslatedLocation(translated: Record<string, unknown>, 
   delete translated.location
   console.warn(JSON.stringify({ service: 'ai-translation', event: 'location_dropped', entityType: 'content', entityId, locale, reason }))
 }
+
+/**
+ * Merges a partial AI translation (already passed through sanitizeTranslatedLocation) over a
+ * locale's stored translation. When `location` was sent for translation but no valid value came
+ * back, the stored translated location is dropped: it translated the previous Romanian venue,
+ * and the Romanian fallback is better than a stale one (BR-051).
+ */
+export function mergePartialTranslation(
+  existing: Record<string, unknown>,
+  translated: Record<string, unknown>,
+  requestedKeys: string[],
+): Record<string, unknown> {
+  const merged = { ...existing, ...translated }
+  if (requestedKeys.includes('location') && !('location' in translated)) delete merged.location
+  return merged
+}

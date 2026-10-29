@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyLocation, sanitizeTranslatedLocation } from './event-location.js'
+import { applyLocation, mergePartialTranslation, sanitizeTranslatedLocation } from './event-location.js'
 
 test('applyLocation normalises a card location in place', () => {
   const data: Record<string, unknown> = { title: 'A', location: '  Sala\n mare  ' }
@@ -51,4 +51,23 @@ test('sanitizeTranslatedLocation keeps valid values and drops invalid ones', () 
   } finally {
     console.warn = warn
   }
+})
+
+test('mergePartialTranslation drops a stale translated location when no valid one came back', () => {
+  const existing = { title: 'Youth night', location: 'Main hall' }
+  // The model's location was rejected by sanitizeTranslatedLocation (or omitted).
+  assert.deepEqual(mergePartialTranslation(existing, { title: 'Youth evening' }, ['title', 'location']), { title: 'Youth evening' })
+  // A valid new translation replaces the old one.
+  assert.deepEqual(mergePartialTranslation(existing, { location: 'Small hall' }, ['location']), { title: 'Youth night', location: 'Small hall' })
+  // Location not requested: the stored translation is kept as is.
+  assert.deepEqual(mergePartialTranslation(existing, { title: 'Youth evening' }, ['title']), { title: 'Youth evening', location: 'Main hall' })
+})
+
+test('a type change away from card is rejected while the merged data still has a location', () => {
+  // PATCH { type: 'poster' } on a located card: the merged data keeps the stored location.
+  const stored = { title: 'Picnic', imageUrl: '/uploads/a.webp', location: 'Parcul Central' }
+  assert.equal(applyLocation('poster', { ...stored }), 'location is only supported on cards')
+  // PATCH { type: 'poster', data: { location: null } }: the merge removes the key first.
+  const { location: _cleared, ...cleared } = stored
+  assert.equal(applyLocation('poster', cleared), null)
 })

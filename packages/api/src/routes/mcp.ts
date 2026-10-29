@@ -17,6 +17,7 @@ import { isServiceError } from '../services/errors.js'
 import { MCP_SESSION_LIMITS, SessionRegistry } from '../services/mcp-sessions.js'
 import { invalidContentData } from '../services/content-validation.js'
 import { applyLocation } from '../services/event-location.js'
+import { dropTranslatedLocation } from '../services/content-translations.js'
 import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
@@ -255,6 +256,8 @@ function buildMcpServer(): McpServer {
         if (changedKeys.length > 0) {
           scheduleContentTranslation(id, mergedData, changedKeys)
         }
+        // Same as PATCH /api/admin/content/:id: a removed location leaves no translated one behind.
+        if ('location' in oldData && !('location' in mergedData)) await dropTranslatedLocation(id)
       }
 
       return ok(updated)

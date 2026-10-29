@@ -1,7 +1,7 @@
 import { eq, and, ne } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { languages, contentTranslations, groupTranslations, uiTranslations } from '../db/schema.js'
-import { sanitizeTranslatedLocation } from './event-location.js'
+import { mergePartialTranslation, sanitizeTranslatedLocation } from './event-location.js'
 
 const OPEN_ROUTER_BASE = 'https://openrouter.ai/api/v1'
 const MODEL = 'anthropic/claude-haiku-4.5'
@@ -201,7 +201,7 @@ export async function scheduleContentTranslation(
             const newFields = partialTranslations[code]
             if (!newFields || typeof newFields !== 'object') continue
             sanitizeTranslatedLocation(newFields as Record<string, unknown>, contentItemId, code)
-            const mergedData = { ...existing.data as Record<string, unknown>, ...newFields as Record<string, unknown> }
+            const mergedData = mergePartialTranslation(existing.data as Record<string, unknown>, newFields as Record<string, unknown>, changedKeys)
             await db.update(contentTranslations)
               .set({ data: mergedData, updatedAt: new Date() })
               .where(and(eq(contentTranslations.contentItemId, contentItemId), eq(contentTranslations.locale, code)))

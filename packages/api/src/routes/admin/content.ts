@@ -8,6 +8,7 @@ import { resortGroupChronologically } from '../../services/group-order.js'
 import { parseExpiresAt } from '../../services/time.js'
 import { invalidContentData } from '../../services/content-validation.js'
 import { applyLocation } from '../../services/event-location.js'
+import { dropTranslatedLocation } from '../../services/content-translations.js'
 
 type ItemBody = {
   type: string
@@ -213,6 +214,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
           k => k in newData && JSON.stringify(oldData[k]) !== JSON.stringify(newData[k])
         )
         if (changedKeys.length > 0) scheduleContentTranslation(id, newData, changedKeys)
+        if ('location' in oldData && !('location' in newData)) await dropTranslatedLocation(id)
       }
       return updated
     }
