@@ -48,7 +48,7 @@ export default function UsersPage() {
 
       {resetResult && (
         <div className="border border-[var(--border)] p-4 mb-6 space-y-4" data-testid="reset-password-display">
-          <p className="text-sm font-content text-green-400">Parola a fost resetată pentru <strong>{resetResult.email}</strong>.</p>
+          <p className="text-sm font-content text-[var(--success)]">Parola a fost resetată pentru <strong>{resetResult.email}</strong>.</p>
           <div className="space-y-1">
             <p className="text-xs font-content text-[var(--muted)] uppercase tracking-widest">Parolă temporară</p>
             <p className="font-mono text-lg tracking-wider border border-[var(--border)] px-4 py-2 bg-[var(--surface)] select-all"
@@ -79,20 +79,20 @@ export default function UsersPage() {
               {user.role}
             </span>
             {user.mustChangePassword && (
-              <span className="text-xs font-content text-yellow-400 flex-shrink-0">parolă temp</span>
+              <span className="text-xs font-content text-[var(--warning)] flex-shrink-0">parolă temp</span>
             )}
             {user.role === 'admin' && (
               <button
                 onClick={() => { if (confirm(`Resetezi parola pentru ${user.email}?`)) resetMut.mutate({ id: user.id, email: user.email }) }}
                 disabled={resetMut.isPending}
                 data-testid={`reset-password-btn-${user.id}`}
-                className="text-xs font-content text-[var(--muted)] hover:text-yellow-400 transition-colors flex-shrink-0 disabled:opacity-40">
+                className="text-xs font-content text-[var(--muted)] hover:text-[var(--warning)] transition-colors flex-shrink-0 disabled:opacity-40">
                 Resetează parola
               </button>
             )}
             <button
               onClick={() => { if (confirm(`Ștergi utilizatorul ${user.email}?`)) deleteMut.mutate(user.id) }}
-              className="text-xs font-content text-[var(--muted)] hover:text-red-400 transition-colors flex-shrink-0">
+              className="text-xs font-content text-[var(--muted)] hover:text-[var(--danger)] transition-colors flex-shrink-0">
               Șterge
             </button>
           </li>
@@ -123,7 +123,7 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
   if (tempPassword) {
     return (
       <div className="border border-[var(--border)] p-4 mb-6 space-y-4" data-testid="temp-password-display">
-        <p className="text-sm font-content text-green-400">Utilizator creat cu succes.</p>
+        <p className="text-sm font-content text-[var(--success)]">Utilizator creat cu succes.</p>
         <div className="space-y-1">
           <p className="text-xs font-content text-[var(--muted)] uppercase tracking-widest">Parolă temporară</p>
           <p className="font-mono text-lg tracking-wider border border-[var(--border)] px-4 py-2 bg-[var(--surface)] select-all"
@@ -145,7 +145,7 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div className="border border-[var(--border)] p-4 mb-6 space-y-3" data-testid="create-user-form">
-      {error && <p className="text-red-400 text-sm font-content" data-testid="create-user-error">{error}</p>}
+      {error && <p className="text-[var(--danger)] text-sm font-content" data-testid="create-user-error">{error}</p>}
       <input
         value={email} onChange={e => setEmail(e.target.value)}
         placeholder="Email"

@@ -103,7 +103,7 @@ export default function ErrorLogsPage() {
         <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>
       )}
       {isError && (
-        <p className="text-red-400 font-content text-sm">Eroare la încărcarea jurnalului de erori.</p>
+        <p className="text-[var(--danger)] font-content text-sm">Eroare la încărcarea jurnalului de erori.</p>
       )}
 
       {!isLoading && !isError && (

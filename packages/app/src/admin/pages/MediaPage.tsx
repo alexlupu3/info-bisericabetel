@@ -124,7 +124,7 @@ function MediaCard({ item, onDelete, deleting }: {
             onClick={onDelete}
             disabled={deleting}
             data-testid="delete-media-btn"
-            className="mt-auto text-xs tracking-widest uppercase font-content text-red-400 hover:text-red-300 transition-colors disabled:opacity-40 text-left"
+            className="mt-auto text-xs tracking-widest uppercase font-content text-[var(--danger)] hover:opacity-80 transition-colors disabled:opacity-40 text-left"
           >
             {deleting ? '…' : 'Șterge'}
           </button>

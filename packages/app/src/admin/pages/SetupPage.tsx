@@ -46,7 +46,7 @@ export default function SetupPage({ onDone }: { onDone: () => void }) {
         </div>
 
         {error && (
-          <p className="text-red-400 text-sm font-content" data-testid="setup-error">{error}</p>
+          <p className="text-[var(--danger)] text-sm font-content" data-testid="setup-error">{error}</p>
         )}
 
         <div className="space-y-3">

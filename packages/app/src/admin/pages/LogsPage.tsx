@@ -39,14 +39,14 @@ function DetailCell({ detail }: { detail: Record<string, unknown> }) {
 
 function ActionBadge({ action }: { action: string }) {
   const colorMap: Record<string, string> = {
-    'content.create':           'text-green-400',
-    'content.update':           'text-blue-400',
-    'content.delete':           'text-red-400',
-    'content.publish':          'text-yellow-400',
-    'content.archive':          'text-orange-400',
-    'content.restore':          'text-cyan-400',
-    'content.permanent-delete': 'text-red-600',
-    'group.delete':             'text-red-400',
+    'content.create':           'text-[var(--success)]',
+    'content.update':           'text-[var(--info)]',
+    'content.delete':           'text-[var(--danger)]',
+    'content.publish':          'text-[var(--warning)]',
+    'content.archive':          'text-[var(--accent)]',
+    'content.restore':          'text-[var(--info)]',
+    'content.permanent-delete': 'text-[var(--danger)]',
+    'group.delete':             'text-[var(--danger)]',
   }
   const color = colorMap[action] ?? 'text-[var(--muted)]'
   return (
@@ -78,7 +78,7 @@ export default function LogsPage() {
         <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>
       )}
       {isError && (
-        <p className="text-red-400 font-content text-sm">Eroare la încărcarea jurnalelor.</p>
+        <p className="text-[var(--danger)] font-content text-sm">Eroare la încărcarea jurnalelor.</p>
       )}
 
       {!isLoading && !isError && (

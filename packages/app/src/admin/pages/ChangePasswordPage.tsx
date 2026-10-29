@@ -33,12 +33,12 @@ export default function ChangePasswordPage() {
         </p>
 
         {done ? (
-          <p className="text-sm font-content text-green-400" data-testid="change-success">
+          <p className="text-sm font-content text-[var(--success)]" data-testid="change-success">
             Parolă schimbată. Redirecționare…
           </p>
         ) : (
           <form onSubmit={submit} className="space-y-4" data-testid="change-password-form">
-            {error && <p className="text-red-400 text-sm font-content">{error}</p>}
+            {error && <p className="text-[var(--danger)] text-sm font-content">{error}</p>}
             <input type="password" placeholder="Parola actuală" required value={current}
               onChange={e => setCurrent(e.target.value)}
               className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content" />

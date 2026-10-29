@@ -88,7 +88,7 @@ export default function ArchivePage() {
               onClick={() => restoreMut.mutate(item.id)}
               disabled={restoreMut.isPending}
               data-testid={`restore-btn-${item.id}`}
-              className="text-xs tracking-widest uppercase font-content text-green-400 hover:text-green-300 transition-colors disabled:opacity-40 flex-shrink-0"
+              className="text-xs tracking-widest uppercase font-content text-[var(--success)] hover:opacity-80 transition-colors disabled:opacity-40 flex-shrink-0"
             >
               Restaurează
             </button>
@@ -99,7 +99,7 @@ export default function ArchivePage() {
               }}
               disabled={permanentDeleteMut.isPending}
               data-testid={`permanent-delete-btn-${item.id}`}
-              className="text-xs tracking-widest uppercase font-content text-red-400 hover:text-red-300 transition-colors disabled:opacity-40 flex-shrink-0"
+              className="text-xs tracking-widest uppercase font-content text-[var(--danger)] hover:opacity-80 transition-colors disabled:opacity-40 flex-shrink-0"
             >
               Șterge definitiv
             </button>
