@@ -66,6 +66,10 @@ export interface GroupTranslation {
   title: string
 }
 
+/** What a link-preview crawler gets at `/s/:code` (spec 06, FR-088): the item's preview or the destination's. */
+export type ShortLinkPreviewMode = 'content' | 'destination'
+export const SHORT_LINK_PREVIEW_MODES: readonly ShortLinkPreviewMode[] = ['content', 'destination']
+
 export interface ShortLink {
   id: string
   code: string
@@ -74,6 +78,36 @@ export interface ShortLink {
   siteSlug: string | null
   createdAt: string
   clickCount: number
+  previewMode: ShortLinkPreviewMode
+}
+
+/** Why a preview request falls back to the destination's own preview (`willPreview: false`). */
+export type ShortLinkPreviewReason = 'mode-destination' | 'no-title-no-image' | 'item-missing'
+
+/**
+ * Resolved link-preview metadata of a short link in one language (spec 06, FR-086), as
+ * `GET /api/admin/content/:id/short-links/:shortLinkId/preview` returns it.
+ */
+export interface ShortLinkPreview {
+  mode: ShortLinkPreviewMode
+  /** True when a preview request gets the HTML page; false → the 302 (destination preview). */
+  willPreview: boolean
+  reason: ShortLinkPreviewReason | null
+  /** Language code the fields were resolved in. */
+  locale: string
+  /** og:site_name. */
+  siteName: string
+  title: string
+  /** Null when the description chain is empty (no og:description). */
+  description: string | null
+  /** Absolute URL of the 1200×630 JPEG derivative (`/uploads/og/*.jpg`). */
+  imageUrl: string
+  imageWidth: number
+  imageHeight: number
+  /** Canonical short URL (og:url), with `?lang=` for a non-default language. */
+  url: string
+  /** Resolved destination (BR-012), `/` when the item has no link. */
+  destination: string
 }
 
 /** A short link with its absolute public URL (`PUBLIC_BASE_URL` + `/s/<code>`), spec 05. */

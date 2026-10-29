@@ -139,6 +139,7 @@ export const shortLinks = pgTable('short_links', {
   siteSlug:      text('site_slug').references(() => sites.slug, { onDelete: 'set null' }),
   createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   createdBy:     uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  previewMode:   text('preview_mode').$type<'content' | 'destination'>().notNull().default('content'),
 }, t => [
   index('short_links_content_item_idx').on(t.contentItemId),
 ])
