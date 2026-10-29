@@ -21,8 +21,12 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
                            ├─ /api/*        REST API
                            ├─ /mcp          remote MCP (only when MCP_SECRET is set)
                            ├─ /s/:code      short-link redirect
+                           ├─ /feed.xml, /:siteSlug/feed.xml   RSS 2.0 current and upcoming events (ADR-021)
+                           ├─ /llms.txt    agent-oriented index of pages, feeds and public API
                            ├─ /uploads/*    uploaded media from the UPLOADS_DIR volume
                            ├─ /health       health check
+                           ├─ /robots.txt, /sitemap.xml   crawler endpoints (ADR-022)
+                           ├─ /, /:siteSlug, /i/:itemId → server-rendered head + content snapshot into the SPA shell
                            └─ everything else → built SPA (dist/public), index.html fallback
                          ──► PostgreSQL (separate CapRover app / compose service)
 ```
@@ -42,12 +46,14 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 ## Frontend
 - **Unified package (`packages/app`):** a single React + Vite application serving both the public hub and the admin tool. The public hub is an installable PWA, optimized for QR code and direct-link entry. The admin tool lives at `/admin/*` and is lazy-loaded via `React.lazy`, so public users never download admin JS ([ADR-005](../decisions/ADR-005-merge-pwa-admin-into-app.md)).
 - **Admin theme scoping:** admin routes are wrapped in `<div className="admin-theme">`, which sets admin-specific CSS custom properties independently of the public design tokens.
-- **PWA service worker:** `registerType: 'autoUpdate'`. Admin routes and short links (`/s/*`) are excluded from the navigation fallback. Caching headers are described in [ADR-013](../decisions/ADR-013-http-cache-strategy.md).
+- **PWA service worker:** `registerType: 'autoUpdate'`. Admin routes, short links (`/s/*`), `/robots.txt`, `/sitemap.xml`, the event feeds (`/feed.xml`, `/*/feed.xml`) and `/llms.txt` are excluded from the navigation fallback; `/`, `/:siteSlug` and `/i/:itemId` are not (installed apps get the precached shell and fetch data). Caching headers are described in [ADR-013](../decisions/ADR-013-http-cache-strategy.md).
+- **SEO:** the API injects page metadata, JSON-LD and a static HTML snapshot of the feed into `index.html` for public pages; the SPA seeds its data from the inline JSON and replaces the snapshot on mount ([ADR-022](../decisions/ADR-022-server-side-head-injection-and-content-snapshot.md)). Titles and SEO text rules are shared through `packages/shared/src/seo.ts`; absolute URLs come from `PUBLIC_BASE_URL` (`services/public-url.ts`).
 - **i18n:** public UI strings and content translations are served by the API. The locale preference is stored in `localStorage` and URLs are not localized ([ADR-014](../decisions/ADR-014-i18n-strategy.md)).
 - **Style guide:** the `frontend-design` skill (`.agents/skills/frontend-design/`) contains the church's style guide and must be used for any UI work in `packages/app` (public hub and admin).
 
 ## Backend
 - Fastify 5 (Node.js), bundled with esbuild. In production the Fastify process is the only runtime. All REST routes are registered under the `/api` prefix. The short-link route (`GET /s/:code`) is registered before the SPA static handler so codes are not swallowed by the SPA fallback. A `setNotFoundHandler` returns `index.html` (with `Cache-Control: no-cache`) for unmatched non-`/api` paths and a JSON 404 for unmatched `/api` paths.
+- The event feed and `/llms.txt` routes (`routes/feed.ts`, `routes/llms-txt.ts`) are registered before the SPA static handler, like the short-link route, and share the public content selection with `GET /api/content` (`services/public-content.ts`); the RSS serializer (`services/rss.ts`) is a pure, deterministic function so the strong `ETag` changes only with the data ([ADR-021](../decisions/ADR-021-rss-event-feed.md)).
 - Drizzle ORM over `postgres` (postgres-js). Raw SQL through Drizzle's `sql` tag is used where needed.
 - Background work (AI translation) runs in-process as fire-and-forget `setImmediate` jobs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)). There is no queue.
 
@@ -68,7 +74,7 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 - Files without a corresponding `media` row are orphans. This is possible only in the narrow window between a successful disk write and a failed DB insert.
 
 ## Development and Testing
-- `pnpm dev` runs the Vite dev server on `:5173`; `pnpm dev:api` runs the API on `:3100`. The Vite proxy forwards **only** `/api`, so `/uploads/*` (images) and `/s/:code` (short links) do not work on `:5173`. Open them on the API port, or run the production build, to test those paths.
+- `pnpm dev` runs the Vite dev server on `:5173`; `pnpm dev:api` runs the API on `:3100`. The Vite proxy forwards **only** `/api`, `/robots.txt`, `/sitemap.xml`, `/feed.xml`, `/:siteSlug/feed.xml` and `/llms.txt`, so `/uploads/*` (images) and `/s/:code` (short links) do not work on `:5173`. Open them on the API port, or run the production build, to test those paths.
 - E2E tests use Cypress (`cypress/e2e/`). Every spec stubs the API with `cy.intercept`, so the suite exercises the frontend against fixtures and does not cover the API or database.
 - There is no CI pipeline in the repository. Lint, type-check and tests are run locally before merging.
 
@@ -77,5 +83,5 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 - QR-code and direct-link entry points require careful routing and default filter behavior.
 - Sunday morning traffic spikes (thousands of users) require the stack to handle concurrency well without expensive infrastructure.
 - The extensible content type system must stay generic to avoid structural rewrites when new types are added.
-- Two MCP implementations duplicate business rules and can drift apart ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)).
+- Two MCP implementations duplicate the card/media business rules and can drift apart ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)); tool schemas are shared and the analytics/short-link tools use shared services ([ADR-024](../decisions/ADR-024-mcp-shared-tool-contract-and-service-layer.md)).
 - Security gaps tracked in `security.md`: permissive CORS, no login rate limiting, and incomplete audit coverage.

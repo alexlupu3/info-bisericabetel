@@ -68,7 +68,7 @@ Package: `packages/mcp/` (`@betel/mcp`). Entry point: `src/index.ts`. Built to `
 | `BETEL_EMAIL`   | —                                | Admin account email for JWT login    |
 | `BETEL_PASSWORD`| —                                | Admin account password for JWT login |
 
-**Tool inventory (8 tools):**
+**Tool inventory (8 tools at the time of this decision; 14 since spec 05 — the six analytics/short-link tools call `GET /api/admin/analytics/{range,items/:id/stats,top-items,short-links}`, `POST /api/admin/content/:id/short-links` and `GET /api/admin/short-links`, see [ADR-024](ADR-024-mcp-shared-tool-contract-and-service-layer.md)):**
 
 | Tool           | HTTP method & path                          | Auth       |
 |----------------|---------------------------------------------|------------|

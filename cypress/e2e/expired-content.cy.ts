@@ -134,6 +134,27 @@ describe('Public hub — expired content is hidden', () => {
 
     cy.contains('Eveniment azi').should('be.visible')
   })
+
+  // Spec 03: the item page /i/:itemId applies the same rule.
+  it('shows the not-found state on /i/:id when the API reports the item gone', () => {
+    cy.intercept('GET', '/api/content/expired-card*', { statusCode: 404, body: { error: 'Not Found' } }).as('item')
+    cy.visit('/i/expired-card')
+    cy.wait('@item')
+    cy.get('[data-testid="item-not-found"]').should('be.visible')
+  })
+
+  it('shows the not-found state on /i/:id for an item whose last day has passed', () => {
+    cy.intercept('GET', '/api/content/expired-card*', {
+      item: {
+        ...baseItem, id: 'expired-card', type: 'card',
+        data: { title: 'Eveniment expirat', startDate: isoDay(-7), endDate: isoDay(-1) },
+      },
+    }).as('item')
+    cy.visit('/i/expired-card')
+    cy.wait('@item')
+    cy.get('[data-testid="item-not-found"]').should('be.visible')
+    cy.contains('Eveniment expirat').should('not.exist')
+  })
 })
 
 export {}

@@ -5,7 +5,7 @@
 // Romania, never in the visitor's or editor's own timezone. Logs and
 // statistics are stored in UTC and shown in the viewer's timezone.
 
-export const CHURCH_TIME_ZONE = 'Europe/Bucharest'
+export { CHURCH_TIME_ZONE } from '@betel/shared'
 
 // The viewer's IANA timezone, e.g. "Europe/Bucharest" or "America/Chicago".
 export function viewerTimeZone(): string {

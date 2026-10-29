@@ -10,7 +10,7 @@ Stack: pnpm monorepo, Node 24 (see `.nvmrc`), TypeScript everywhere.
 - `packages/api` — Fastify 5 + Drizzle ORM + PostgreSQL (`@betel/api`)
 - `packages/app` — React 18 + Vite 6 + Tailwind PWA, public hub and admin in one build (`@betel/app`)
 - `packages/mcp` — stdio MCP server that talks to the HTTP API (`@betel/mcp`)
-- `packages/shared` — shared TypeScript types (`@betel/shared`)
+- `packages/shared` — shared TypeScript types and pure runtime helpers (`@betel/shared`)
 
 Deployed as a single container on CapRover (the API process also serves the built app) — see `README.md`.
 
@@ -31,6 +31,10 @@ Deployed as a single container on CapRover (the API process also serves the buil
 | Public UI string keys | `packages/app/src/public/i18n/keys.ts` |
 | Global styles and theme tokens | `packages/app/src/index.css` |
 | Shared types | `packages/shared/src/index.ts` |
+| Shared runtime helpers (event time, SEO text, UI defaults) | `packages/shared/src/{event-time,seo,i18n-defaults}.ts` |
+| Server-rendered public pages (head, JSON-LD, snapshot), robots, sitemap | `packages/api/src/services/seo/`, `packages/api/src/routes/{pages,robots,sitemap}.ts` |
+| Event feeds (RSS) and llms.txt | `packages/api/src/routes/{feed,llms-txt}.ts`, `packages/api/src/services/{rss,feed-strings,llms-txt}.ts` |
+| Public base URL / `absoluteUrl()` | `packages/api/src/services/public-url.ts` |
 | Stdio MCP server | `packages/mcp/src/index.ts` |
 | E2E tests | `cypress/e2e/*.cy.ts`, helpers in `cypress/support/` |
 
@@ -44,14 +48,14 @@ pnpm dev:api          # API on http://localhost:3100 (reads ../../.env, needs Po
 pnpm lint             # tsc --noEmit in every package (typecheck only; no formatter/ESLint configured)
 pnpm build            # build the app; pnpm build:api for the API; pnpm build:all for everything
 pnpm test             # Cypress headless; requires `pnpm dev` running on :5173
-pnpm test:unit        # API unit tests (node:test via tsx), no database needed
+pnpm test:unit        # shared + API unit tests (node:test via tsx), no database needed
 pnpm test:open        # Cypress interactive runner
 pnpm release          # release-it: bumps version, tags, regenerates CHANGELOG.md
 ```
 
 Ports: Vite 5173, local API 3100, container 80. Every environment variable is documented in `docs/architecture/configuration.md` — add new ones there, not here.
 
-Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. `pnpm test:unit` covers pure API helpers only (e.g. `services/time.ts`); routes and SQL are untested. Verify API changes manually (or add tests that exercise them) and say so in your report.
+Testing reality: every Cypress spec stubs the API with `cy.intercept`, so the API does not need to run for `pnpm test`, and backend behaviour is **not** covered by the suite. `pnpm test:unit` covers pure helpers only (e.g. `services/time.ts`, `services/rss.ts`, `packages/shared/src/event-time.ts`); routes and SQL are untested. Verify API changes manually (or add tests that exercise them) and say so in your report.
 
 ## Database migrations
 

@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./src/**/*.{tsx,ts,jsx,js}', './index.html'],
+  // render-snapshot.ts: the API's server-rendered HTML snapshot uses the same classes (ADR-022)
+  content: ['./src/**/*.{tsx,ts,jsx,js}', './index.html', '../api/src/services/seo/render-snapshot.ts'],
   theme: {
     extend: {
       fontFamily: {

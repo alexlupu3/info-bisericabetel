@@ -1,10 +1,9 @@
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'crypto'
 import { promises as fsp } from 'fs'
 import { join } from 'path'
 import type { FastifyInstance } from 'fastify'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { z } from 'zod'
 import { and, asc, eq, ne, sql } from 'drizzle-orm'
 import sharp from 'sharp'
 import { db } from '../db/client.js'
@@ -12,7 +11,12 @@ import { contentItems, groups, sites, media } from '../db/schema.js'
 import { logAudit } from '../db/audit.js'
 import { scheduleContentTranslation } from '../services/ai-translation.js'
 import { resortGroupChronologically } from '../services/group-order.js'
-import { isCalendarDay } from '../services/time.js'
+import { getAnalyticsOverview, getItemStats, getShortLinkStats, getTopItems } from '../services/analytics-stats.js'
+import { createShortLink, listShortLinks } from '../services/short-links.js'
+import { isServiceError } from '../services/errors.js'
+import { MCP_SESSION_LIMITS, SessionRegistry } from '../services/mcp-sessions.js'
+import { invalidContentData } from '../services/content-validation.js'
+import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_WIDTH = 1980
@@ -22,72 +26,54 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 // (e.g. CapRover's nginx) must allow at least this much.
 const MCP_BODY_LIMIT = 8 * 1024 * 1024
 
-// Media library URLs are relative (/uploads/<uuid>.webp); external absolute URLs are also accepted.
-const thumbnailSchema = z.string().refine(
-  v => v.startsWith('/uploads/') || URL.canParse(v),
-  'must be a media library path (/uploads/...) or an absolute URL',
-)
-
-// Event dates are calendar days in Romania; a malformed value would otherwise
-// be stored as-is and break date filtering.
-const calendarDaySchema = z.string().refine(isCalendarDay, 'must be a calendar date in YYYY-MM-DD format')
-
 const MCP_ACTOR = 'mcp@betel'
 
-const sessions = new Map<string, StreamableHTTPServerTransport>()
+// Idle/age-expiring, size-capped session registry (FR-084 hardening, ADR-015).
+const sessions = new SessionRegistry<StreamableHTTPServerTransport>(MCP_SESSION_LIMITS)
+const SESSION_SWEEP_MS = 60_000
 
-function err(msg: string) {
-  return { isError: true as const, content: [{ type: 'text' as const, text: msg }] }
+function err(msg: string): ToolResult {
+  return { isError: true, content: [{ type: 'text', text: msg }] }
 }
 
-function ok(data: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+function ok(data: unknown): ToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
+}
+
+// Runs a service call; service errors (validation, not found, bad range) become tool
+// errors with the same message the REST API returns (spec 05 §6.8).
+async function viaService(fn: () => Promise<unknown>): Promise<ToolResult> {
+  try {
+    return ok(await fn())
+  } catch (e) {
+    if (isServiceError(e)) return err(e.message)
+    throw e
+  }
 }
 
 function buildMcpServer(): McpServer {
   const server = new McpServer({ name: 'betel-mcp', version: '1.0.0' })
 
-  // ── list_sites ──────────────────────────────────────────────
+  const handlers: ToolHandlers = {
+    // ── list_sites ──────────────────────────────────────────────
+    list_sites: async () => ok(await db.select().from(sites)),
 
-  server.tool(
-    'list_sites',
-    'List all church sites (slugs, names, accent colours). Use slugs when scoping cards to specific sites.',
-    {},
-    async () => ok(await db.select().from(sites)),
-  )
-
-  // ── list_groups ─────────────────────────────────────────────
-
-  server.tool(
-    'list_groups',
-    'List all content groups. Use group IDs when attaching a card to a group.',
-    {},
-    async () => ok(
+    // ── list_groups ─────────────────────────────────────────────
+    list_groups: async () => ok(
       await db.select().from(groups)
         .where(ne(groups.state, 'deleted'))
         .orderBy(asc(groups.orderPosition)),
     ),
-  )
 
-  // ── list_media ──────────────────────────────────────────────
+    // ── list_media ──────────────────────────────────────────────
+    list_media: async () => ok(await db.select().from(media)),
 
-  server.tool(
-    'list_media',
-    'List images in the media library. Use the returned URLs as thumbnail values when creating cards.',
-    {},
-    async () => ok(await db.select().from(media)),
-  )
-
-  // ── upload_media ────────────────────────────────────────────
-
-  server.tool(
-    'upload_media',
-    'Upload an image (max 5 MB decoded) to the media library from base64-encoded data. Returns the uploaded image ID and its relative URL (e.g. /uploads/<id>.webp). Pass that URL as-is as the thumbnail when creating or updating cards.',
-    {
-      imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
-      filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
-    },
-    async ({ imageData, filename }) => {
+    // ── upload_media ────────────────────────────────────────────
+    upload_media: async ({ imageData, filename, mimeType }) => {
+      // The image is converted to WebP by sharp; mimeType is only checked, as on stdio.
+      if (mimeType !== undefined && !mimeType.startsWith('image/')) {
+        return err(`Unsupported mimeType "${mimeType}". Only image/* types are accepted.`)
+      }
       let inputBuffer: Buffer
       try {
         inputBuffer = Buffer.from(imageData, 'base64')
@@ -133,39 +119,16 @@ function buildMcpServer(): McpServer {
 
       return ok(row)
     },
-  )
 
-  // ── list_cards ──────────────────────────────────────────────
-
-  server.tool(
-    'list_cards',
-    'List all card content items (including drafts and archived). Returns id, state, data, and site scoping.',
-    {},
-    async () => ok(
+    // ── list_cards ──────────────────────────────────────────────
+    list_cards: async () => ok(
       await db.select().from(contentItems)
         .where(and(eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted')))
         .orderBy(asc(contentItems.orderPosition)),
     ),
-  )
 
-  // ── create_card ─────────────────────────────────────────────
-
-  server.tool(
-    'create_card',
-    'Create a new card content item (starts as draft). Returns the created item with its ID.',
-    {
-      title:         z.string().describe('Card title (required)'),
-      description:   z.string().optional().describe('Card body text — supports Markdown'),
-      thumbnail:     thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
-      startDate:     calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
-      endDate:       calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
-      link:          z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
-      cta:           z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
-      sites:         z.array(z.string()).optional().describe('Site slugs to show on; omit or pass [] for all sites'),
-      exclusiveSite: z.string().optional().describe('Restrict card to exactly one site (mutually exclusive with sites[])'),
-      groupId:       z.string().uuid().optional().describe('ID of the group to attach this card to'),
-    },
-    async ({ title, description, thumbnail, startDate, endDate, link, cta,
+    // ── create_card ─────────────────────────────────────────────
+    create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta,
              sites: sitesList, exclusiveSite, groupId }) => {
       const normalizedExclusive = exclusiveSite?.length ? exclusiveSite : null
       if (normalizedExclusive) {
@@ -178,8 +141,12 @@ function buildMcpServer(): McpServer {
       if (thumbnail  !== undefined) data.thumbnail    = thumbnail
       if (startDate  !== undefined) data.startDate    = startDate
       if (endDate    !== undefined) data.endDate      = endDate
+      if (startTime  !== undefined) data.startTime    = startTime
       if (link       !== undefined) data.link         = link
       if (cta        !== undefined) data.cta          = cta
+      // Same rules as POST /api/admin/content: required title, date order, start time.
+      const dataError = invalidContentData('card', data)
+      if (dataError) return err(dataError)
 
       const item = await db.transaction(async (tx) => {
         await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
@@ -211,26 +178,9 @@ function buildMcpServer(): McpServer {
 
       return ok({ ...item, orderPosition })
     },
-  )
 
-  // ── update_card ─────────────────────────────────────────────
-
-  server.tool(
-    'update_card',
-    'Update fields on an existing card. Only the provided fields are changed.',
-    {
-      id:            z.string().uuid().describe('Card ID to update'),
-      title:         z.string().optional().describe('New title'),
-      description:   z.string().optional().describe('New description (Markdown)'),
-      thumbnail:     thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
-      startDate:     calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
-      endDate:       calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
-      link:          z.string().url().optional().describe('New action URL'),
-      cta:           z.string().optional().describe('New CTA label'),
-      sites:         z.array(z.string()).optional().describe('New site slugs array'),
-      exclusiveSite: z.string().optional().describe('New exclusive site slug; pass empty string to clear'),
-    },
-    async ({ id, title, description, thumbnail, startDate, endDate, link, cta,
+    // ── update_card ─────────────────────────────────────────────
+    update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta,
              sites: sitesList, exclusiveSite }) => {
       const [existing] = await db.select().from(contentItems)
         .where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted')))
@@ -262,13 +212,21 @@ function buildMcpServer(): McpServer {
       if (thumbnail   !== undefined) dataFields.thumbnail   = thumbnail
       if (startDate   !== undefined) dataFields.startDate   = startDate
       if (endDate     !== undefined) dataFields.endDate     = endDate
+      if (startTime   !== undefined) dataFields.startTime   = startTime
       if (link        !== undefined) dataFields.link        = link
       if (cta         !== undefined) dataFields.cta         = cta
 
+      // Merge over the stored data; a null value removes the key (PATCH semantics).
       const hasDataChanges = Object.keys(dataFields).length > 0
-      const mergedData = hasDataChanges
-        ? { ...(existing.data as object), ...dataFields }
-        : existing.data
+      const mergedData: Record<string, unknown> = { ...(existing.data as Record<string, unknown>) }
+      for (const [k, v] of Object.entries(dataFields)) {
+        if (v === null) delete mergedData[k]
+        else mergedData[k] = v
+      }
+      // Validate the resulting data exactly like PATCH /api/admin/content/:id: a non-empty
+      // title, a non-reversed date range and no time on a multi-day or undated card.
+      const dataError = invalidContentData('card', mergedData)
+      if (dataError) return err(dataError)
 
       const [updated] = await db.update(contentItems).set({
         ...(hasDataChanges && { data: mergedData }),
@@ -287,26 +245,18 @@ function buildMcpServer(): McpServer {
       if (hasDataChanges) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
         const changedKeys = Object.keys(dataFields).filter(
-          k => JSON.stringify(oldData[k]) !== JSON.stringify(dataFields[k]),
+          k => dataFields[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(dataFields[k]),
         )
         if (changedKeys.length > 0) {
-          scheduleContentTranslation(id, mergedData as Record<string, unknown>, changedKeys)
+          scheduleContentTranslation(id, mergedData, changedKeys)
         }
       }
 
       return ok(updated)
     },
-  )
 
-  // ── publish_card ────────────────────────────────────────────
-
-  server.tool(
-    'publish_card',
-    'Publish a card (transition from draft → published so it appears on the public site).',
-    {
-      id: z.string().uuid().describe('Card ID to publish'),
-    },
-    async ({ id }) => {
+    // ── publish_card ────────────────────────────────────────────
+    publish_card: async ({ id }) => {
       const [existing] = await db.select({ id: contentItems.id, type: contentItems.type, state: contentItems.state })
         .from(contentItems).where(eq(contentItems.id, id))
       if (!existing) return err(`card "${id}" not found`)
@@ -322,7 +272,28 @@ function buildMcpServer(): McpServer {
 
       return ok(updated)
     },
-  )
+
+    // ── Analytics and short links (spec 05): adapters over the services ──
+
+    get_analytics_overview: async (args) => viaService(() => getAnalyticsOverview(args)),
+    get_item_stats: async (args) => viaService(() => getItemStats(args)),
+    get_top_items: async (args) => viaService(() => getTopItems(args)),
+    get_short_link_stats: async (args) => viaService(() => getShortLinkStats(args)),
+    create_short_link: async ({ itemId, label, siteSlug }) => viaService(() =>
+      createShortLink({ contentItemId: itemId, label, siteSlug }, { userEmail: MCP_ACTOR, via: 'mcp' })),
+    list_short_links: async ({ itemId, site, limit }) => viaService(async () =>
+      ({ shortLinks: await listShortLinks({ contentItemId: itemId, siteSlug: site, limit }) })),
+  }
+
+  // A tool exists on both surfaces or on neither: register every contract entry (ADR-024).
+  for (const name of toolNames) {
+    const tool = toolContract[name]
+    server.registerTool(
+      name,
+      { description: tool.description, inputSchema: tool.input, annotations: tool.annotations },
+      handlers[name] as never,
+    )
+  }
 
   return server
 }
@@ -338,8 +309,25 @@ export async function mcpRoutes(app: FastifyInstance) {
     return
   }
 
+  // Expire abandoned sessions even when no new session is being created.
+  const sweeper = setInterval(() => { sessions.sweep() }, SESSION_SWEEP_MS)
+  sweeper.unref()
+  app.addHook('onClose', async () => {
+    clearInterval(sweeper)
+    sessions.closeAll()
+  })
+
+  // Constant-time comparison of the bearer header (FR-084). Both sides are hashed to
+  // fixed-length SHA-256 digests first, so timingSafeEqual always compares the candidate
+  // with the expected value and the time taken does not depend on the header's length.
+  const expected = createHash('sha256').update(`Bearer ${MCP_SECRET}`).digest()
+  function authorized(header: unknown): boolean {
+    if (typeof header !== 'string') return false
+    return timingSafeEqual(createHash('sha256').update(header).digest(), expected)
+  }
+
   function requireAuth(req: any, reply: any, done: any) {
-    if (req.headers.authorization !== `Bearer ${MCP_SECRET}`) {
+    if (!authorized(req.headers.authorization)) {
       reply.code(401).send({ error: 'Unauthorized' })
       return
     }
@@ -347,7 +335,12 @@ export async function mcpRoutes(app: FastifyInstance) {
   }
 
   // POST: initialise a new session or resume an existing one
-  app.post('/mcp', { preHandler: requireAuth, bodyLimit: MCP_BODY_LIMIT }, async (req, reply) => {
+  // Rate limit runs before auth (onRequest), so guessing the secret is throttled too.
+  app.post('/mcp', {
+    preHandler: requireAuth,
+    bodyLimit: MCP_BODY_LIMIT,
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  }, async (req, reply) => {
     reply.hijack()
     const sessionId = req.headers['mcp-session-id'] as string | undefined
     let transport = sessionId ? sessions.get(sessionId) : undefined
@@ -355,7 +348,7 @@ export async function mcpRoutes(app: FastifyInstance) {
     if (!transport) {
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (id) => { sessions.set(id, transport!) },
+        onsessioninitialized: (id) => { sessions.add(id, transport!) },
       })
       transport.onclose = () => {
         if (transport!.sessionId) sessions.delete(transport!.sessionId)
@@ -386,8 +379,8 @@ export async function mcpRoutes(app: FastifyInstance) {
     if (sessionId) {
       const transport = sessions.get(sessionId)
       if (transport) {
-        await transport.close()
         sessions.delete(sessionId)
+        await transport.close()
       }
     }
     reply.raw.writeHead(200)

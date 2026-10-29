@@ -7,6 +7,7 @@ Production runs as a **single Docker container** deployed to [CapRover](https://
 - Serves uploaded media files at `/uploads/` via `@fastify/static`
 - Serves the frontend SPA from `dist/public/` via `@fastify/static`
 - Registers all API routes under the `/api` prefix (e.g. `/api/sites`, `/api/auth/login`)
+- Serves the RSS event feeds at `/feed.xml` and `/:siteSlug/feed.xml` and the agent index `/llms.txt` (ADR-021)
 - Handles short-link redirects at `/s/:code` and, when `MCP_SECRET` is set, the remote MCP endpoint at `/mcp`
 - Falls back to `index.html` for any unmatched non-`/api` route (SPA client-side routing support)
 
@@ -37,7 +38,8 @@ See [ADR-006](../decisions/ADR-006-single-container-deployment.md) for the ratio
 3. **Container HTTP Port:** set it to `80` in the CapRover app settings. This is CapRover's default.
 4. **Persistent volume:** mount a persistent directory at the path used for `UPLOADS_DIR` (the image default is `/app/uploads`), so uploaded media survives redeploys.
 5. **HTTPS:** enable HTTPS and force-redirect in CapRover.
-6. **First admin:** open `/admin/setup` once, or `POST /api/setup` with `{ "email", "password" }`. The endpoint creates the first super-admin only while the `users` table is empty, and returns 409 afterwards.
+6. **Public URL and search:** set `PUBLIC_BASE_URL` to the HTTPS origin, e.g. `https://info.bisericabetel.com` (startup fails without it). After the first deploy: verify the domain in Google Search Console (DNS TXT on `bisericabetel.com` as a Domain property — preferred — or set `GOOGLE_SITE_VERIFICATION`), submit `{PUBLIC_BASE_URL}/sitemap.xml`, add the hub URL to the church's Google Business Profile(s) and link it from the main website and social profiles. Check that `curl -A GPTBot {PUBLIC_BASE_URL}/` returns the content snapshot and paste `/`, `/{slug}` and `/i/{id}` into the Rich Results Test. Paste `{PUBLIC_BASE_URL}/feed.xml` into the W3C Feed Validator (`https://validator.w3.org/feed/`; recommendations about the `ev`/`betel` namespaces are acceptable) and check `curl -sI {PUBLIC_BASE_URL}/feed.xml` (200, `application/rss+xml`, `ETag`, `Cache-Control: public, max-age=300`).
+7. **First admin:** open `/admin/setup` once, or `POST /api/setup` with `{ "email", "password" }`. The endpoint creates the first super-admin only while the `users` table is empty, and returns 409 afterwards.
 
 ### Health check
 
@@ -57,7 +59,21 @@ There is no nginx layer in the project. The unused `nginx/nginx.conf` reference 
 
 ## HTTP Caching Strategy
 
-Fastify sets differentiated `Cache-Control` headers. Hashed `assets/*` are cached as immutable. `index.html`, the service worker files and the web manifest use `no-cache`. Other static files are cached for one day. The PWA service worker auto-updates. The rules, rationale and consequences are in [ADR-013](../decisions/ADR-013-http-cache-strategy.md). The implementation is in `packages/api/src/index.ts`.
+Fastify sets differentiated `Cache-Control` headers. Hashed `assets/*` are cached as immutable. `index.html`, the service worker files and the web manifest use `no-cache`; so do the server-rendered pages `/`, `/:siteSlug` and `/i/:itemId`, which also carry a strong `ETag` (304 on `If-None-Match`) and are cached in memory for `SEO_CACHE_TTL_SECONDS`. `robots.txt` is cached for an hour, `sitemap.xml` for ten minutes; the RSS feeds and `/llms.txt` use `public, max-age=300` with a strong `ETag` over a deterministic body (no in-memory cache). Other static files are cached for one day. The PWA service worker auto-updates. The rules, rationale and consequences are in [ADR-013](../decisions/ADR-013-http-cache-strategy.md). The implementation is in `packages/api/src/index.ts`.
+
+### Server-rendered pages and Core Web Vitals
+
+`/`, `/:siteSlug` and `/i/:itemId` are rendered by the API from the built `index.html` (ADR-022), so Vite dev (`pnpm dev`) shows the plain SPA. To inspect the real output, build both packages and run the API: `pnpm build && pnpm build:api`, copy `packages/app/dist` to `packages/api/dist/public`, then start `node packages/api/dist/index.js` with the root `.env` (or use `docker compose up --build`). Useful checks: `curl -s localhost:3100/ | head -60` (title, description, canonical, Open Graph, one `application/ld+json`, snapshot inside `#root`, `#betel-initial-data`); `curl -si localhost:3100/does-not-exist` (404 + `noindex`); `curl -si localhost:3100/admin/content` (`X-Robots-Tag`); `curl -s localhost:3100/sitemap.xml | xmllint --noout -`; `curl -s localhost:3100/feed.xml | xmllint --noout -` and `curl -s localhost:3100/llms.txt`.
+
+Core Web Vitals budget (FR-073: LCP ≤ 2.5 s, TBT ≤ 200 ms, CLS ≤ 0.1, HTML ≤ 60 KB gzipped) against that production build, five runs per URL, median per metric:
+
+```bash
+npx lighthouse@12 http://localhost:3100/ --preset=mobile --only-categories=performance \
+  --output=json --output-path=lighthouse/home-1.json        # repeat 1..5, and for /{slug}
+curl -s localhost:3100/ | gzip -c | wc -c                 # ≤ 61440 bytes
+```
+
+Attach the JSON reports (not committed) and the median table, with the `lighthouseVersion` from the report, to the PR.
 
 ## Local Development
 

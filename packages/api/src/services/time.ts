@@ -5,7 +5,9 @@
 // stays visible until the end of its last day in Romania, wherever the server
 // or the visitor happens to be.
 
-export const CHURCH_TIME_ZONE = 'Europe/Bucharest'
+import { CHURCH_TIME_ZONE } from '@betel/shared'
+
+export { CHURCH_TIME_ZONE }
 
 const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -26,6 +28,17 @@ export function isTimeZone(tz: string): boolean {
     return false
   }
 }
+
+// Resolves the `tz` parameter of the analytics endpoints and MCP tools (ADR-017):
+// missing → the church's timezone; anything that is not an IANA zone name → null.
+// Offset strings such as "+02:00" are refused because Postgres reads their sign
+// the opposite way to ISO 8601.
+export function resolveTimeZone(raw: string | undefined | null): string | null {
+  if (!raw) return CHURCH_TIME_ZONE
+  return /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(raw) && isTimeZone(raw) ? raw : null
+}
+
+export const INVALID_TZ = 'Invalid tz. Use an IANA timezone name, e.g. Europe/Bucharest.'
 
 function zonedParts(tz: string, at: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -69,12 +82,19 @@ export function startOfDayIn(day: string, tz: string): Date {
 }
 
 // Returns an error message when `data.startDate` / `data.endDate` is present
-// but is not a YYYY-MM-DD calendar day. Null values mean "clear the field".
+// but is not a YYYY-MM-DD calendar day, or when both are set and the range is
+// reversed (endDate before startDate). Null values mean "clear the field".
+// Callers that merge a partial update must pass the merged result, so a change
+// to one end of the range is checked against the stored other end.
 export function invalidEventDate(data: Record<string, unknown>): string | null {
   for (const key of ['startDate', 'endDate']) {
     const value = data[key]
     if (value === undefined || value === null) continue
     if (!isCalendarDay(value)) return `${key} must be a calendar date in YYYY-MM-DD format`
+  }
+  const { startDate, endDate } = data
+  if (typeof startDate === 'string' && typeof endDate === 'string' && endDate < startDate) {
+    return 'endDate must not be before startDate'
   }
   return null
 }

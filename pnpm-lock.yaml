@@ -42,7 +42,7 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       '@modelcontextprotocol/sdk':
-        specifier: ^1.12.0
+        specifier: ~1.29.0
         version: 1.29.0(zod@3.25.76)
       bcryptjs:
         specifier: ^3.0.3
@@ -154,9 +154,31 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@betel/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@modelcontextprotocol/sdk':
-        specifier: ^1.12.0
+        specifier: ~1.29.0
         version: 1.29.0(zod@3.25.76)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.6
+        version: 22.19.15
+      esbuild:
+        specifier: ^0.27.4
+        version: 0.27.4
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/shared:
+    dependencies:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -170,8 +192,6 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
-
-  packages/shared: {}
 
 packages:
 

@@ -1,17 +1,13 @@
 import { and, asc, eq, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { contentItems } from '../db/schema.js'
+import { compareEventSchedules, type EventSchedule } from '@betel/shared'
 
-// Stable sort by data.startDate (YYYY-MM-DD, ascending); undated items go last (BR-013).
+// Stable chronological sort (BR-013): by data.startDate, then data.startTime with
+// untimed items first on a date; undated items go last.
 export function sortGroupByStartDate<T extends { id: string; data: unknown }>(items: T[]): T[] {
-  return [...items].sort((a, b) => {
-    const da = ((a.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    const db = ((b.data as Record<string, unknown>)?.startDate as string | undefined) ?? null
-    if (!da && !db) return 0
-    if (!da) return 1
-    if (!db) return -1
-    return da < db ? -1 : da > db ? 1 : 0
-  })
+  return [...items].sort((a, b) =>
+    compareEventSchedules((a.data ?? {}) as EventSchedule, (b.data ?? {}) as EventSchedule))
 }
 
 // Re-sort a group chronologically after an item was created in it and persist the

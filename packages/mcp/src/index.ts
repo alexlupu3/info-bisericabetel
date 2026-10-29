@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { z } from 'zod'
+import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
 const apiUrl = (process.env.BETEL_API_URL || 'http://localhost:3100/api').replace(/\/$/, '')
 const email = process.env.BETEL_EMAIL
@@ -16,22 +16,6 @@ let cachedToken: string | null = null
 let loginPromise: Promise<string> | null = null
 
 const fetchTimeoutMs = 15_000
-
-// Media library URLs are relative (/uploads/<uuid>.webp); external absolute URLs are also accepted.
-const thumbnailSchema = z.string().refine(
-  v => v.startsWith('/uploads/') || URL.canParse(v),
-  'must be a media library path (/uploads/...) or an absolute URL',
-)
-
-// Event dates are calendar days in Romania (YYYY-MM-DD). Mirrors the API's
-// isCalendarDay (packages/api/src/services/time.ts): impossible dates such as
-// 2026-02-30 are rejected here rather than after a round trip to the API.
-const calendarDaySchema = z.string().refine(v => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
-  if (!m) return false
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
-  return d.toISOString().slice(0, 10) === v
-}, 'must be a real calendar date in YYYY-MM-DD format')
 
 function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...options, signal: AbortSignal.timeout(fetchTimeoutMs) })
@@ -106,70 +90,63 @@ async function jsonResponse(res: Response): Promise<{ ok: boolean; data: unknown
 }
 
 // ──────────────────────────────────────────────────────────────
-// Server
+// Tool handlers — schemas and descriptions come from the shared contract
+// (@betel/shared/mcp-tools, ADR-024); every handler calls the REST API.
 // ──────────────────────────────────────────────────────────────
 
-const server = new McpServer({
-  name: 'betel-mcp',
-  version: '1.0.0',
-})
+function text(value: string, isError = false): ToolResult {
+  return { ...(isError && { isError: true }), content: [{ type: 'text', text: value }] }
+}
 
-// ── list_sites ────────────────────────────────────────────────
+function errorText(prefix: string, data: unknown): ToolResult {
+  return text(`${prefix}: ${JSON.stringify(data)}`, true)
+}
 
-server.tool(
-  'list_sites',
-  'List all church sites (slugs, names, accent colours). Use slugs when scoping cards to specific sites.',
-  {},
-  async () => {
+// Query string from tool arguments, skipping undefined values.
+function query(params: Record<string, string | number | boolean | undefined>): string {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) qs.set(k, String(v))
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
+// Spec 05 tools: the REST body is the tool output, untouched; a REST `{ error }` is the
+// tool error text verbatim, so messages match the remote surface (§6.8).
+async function passThrough(res: Response): Promise<ToolResult> {
+  const { ok, data } = await jsonResponse(res)
+  if (ok) return text(JSON.stringify(data, null, 2))
+  const message = data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string'
+    ? (data as { error: string }).error
+    : `Error: ${res.status} ${typeof data === 'string' ? data : JSON.stringify(data)}`
+  return text(message, true)
+}
+
+const handlers: ToolHandlers = {
+  list_sites: async () => {
     const res = await apiFetch('/sites')
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+    if (!ok) return errorText('Error', data)
+    return text(JSON.stringify(data, null, 2))
   },
-)
 
-// ── list_groups ───────────────────────────────────────────────
-
-server.tool(
-  'list_groups',
-  'List all content groups. Use group IDs when attaching a card to a group.',
-  {},
-  async () => {
+  list_groups: async () => {
     const res = await apiFetch('/admin/groups')
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+    if (!ok) return errorText('Error', data)
+    return text(JSON.stringify(data, null, 2))
   },
-)
 
-// ── list_media ────────────────────────────────────────────────
-
-server.tool(
-  'list_media',
-  'List images in the media library. Use the returned URLs as thumbnail values when creating cards.',
-  {},
-  async () => {
+  list_media: async () => {
     const res = await apiFetch('/admin/media')
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
+    if (!ok) return errorText('Error', data)
+    return text(JSON.stringify(data, null, 2))
   },
-)
 
-// ── upload_media ──────────────────────────────────────────────
-
-server.tool(
-  'upload_media',
-  'Upload an image to the media library from base64-encoded data. Returns the uploaded image ID and its relative URL (e.g. /uploads/<id>.webp). Pass that URL as-is as the thumbnail when creating or updating cards.',
-  {
-    imageData: z.string().describe('Base64-encoded image data (raw bytes, without a data: URI prefix)'),
-    filename: z.string().optional().describe('Original filename e.g. "photo.jpg" — used for reference only'),
-    mimeType: z.string().optional().describe('MIME type of the image e.g. "image/jpeg" or "image/png". Defaults to "image/jpeg"'),
-  },
-  async ({ imageData, filename, mimeType }) => {
+  upload_media: async ({ imageData, filename, mimeType }) => {
     const resolvedMime = mimeType ?? 'image/jpeg'
     if (!resolvedMime.startsWith('image/')) {
-      return { isError: true, content: [{ type: 'text' as const, text: `Unsupported mimeType "${resolvedMime}". Only image/* types are accepted.` }] }
+      return text(`Unsupported mimeType "${resolvedMime}". Only image/* types are accepted.`, true)
     }
     const buffer = Buffer.from(imageData, 'base64')
     const blob = new Blob([buffer], { type: resolvedMime })
@@ -184,44 +161,19 @@ server.tool(
 
     const res = await apiFetchFormData('/admin/media', formData)
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error uploading media: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: `Media uploaded:\n${JSON.stringify(data, null, 2)}` }] }
+    if (!ok) return errorText('Error uploading media', data)
+    return text(`Media uploaded:\n${JSON.stringify(data, null, 2)}`)
   },
-)
 
-// ── list_cards ────────────────────────────────────────────────
-
-server.tool(
-  'list_cards',
-  'List all card content items (including drafts and archived). Returns id, state, data, and site scoping.',
-  {},
-  async () => {
+  list_cards: async () => {
     const res = await apiFetch('/admin/content')
     const { ok, data } = await jsonResponse(res) as { ok: boolean; data: { items?: unknown[] } }
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error: ${JSON.stringify(data)}` }] }
+    if (!ok) return errorText('Error', data)
     const cards = (data.items ?? []).filter((i: any) => i.type === 'card')
-    return { content: [{ type: 'text' as const, text: JSON.stringify(cards, null, 2) }] }
+    return text(JSON.stringify(cards, null, 2))
   },
-)
 
-// ── create_card ───────────────────────────────────────────────
-
-server.tool(
-  'create_card',
-  'Create a new card content item (starts as draft). Returns the created item with its ID.',
-  {
-    title: z.string().describe('Card title (required)'),
-    description: z.string().optional().describe('Card body text — supports Markdown'),
-    thumbnail: thumbnailSchema.optional().describe('Image URL from the media library (as returned by upload_media / list_media, e.g. /uploads/<id>.webp)'),
-    startDate: calendarDaySchema.optional().describe('Visibility start date, YYYY-MM-DD (Romania calendar day), e.g. 2024-06-01'),
-    endDate: calendarDaySchema.optional().describe('Visibility end date, YYYY-MM-DD; the card stays visible until the end of this day in Romania'),
-    link: z.string().url().optional().describe('Primary action URL opened when the card is tapped'),
-    cta: z.string().optional().describe('Call-to-action button label, e.g. "Read more"'),
-    sites: z.array(z.string()).optional().describe('Site slugs to show this card on; omit or pass [] for all sites'),
-    exclusiveSite: z.string().optional().describe('Restrict card to exactly one site (mutually exclusive with sites[])'),
-    groupId: z.string().uuid().optional().describe('ID of the group to attach this card to'),
-  },
-  async ({ title, description, thumbnail, startDate, endDate, link, cta, sites, exclusiveSite, groupId }) => {
+  create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite, groupId }) => {
     const body = {
       type: 'card',
       sites: sites ?? [],
@@ -233,6 +185,7 @@ server.tool(
         ...(thumbnail !== undefined && { thumbnail }),
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
+        ...(startTime !== undefined && { startTime }),
         ...(link !== undefined && { link }),
         ...(cta !== undefined && { cta }),
       },
@@ -243,35 +196,18 @@ server.tool(
       body: JSON.stringify(body),
     })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error creating card: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: `Card created (draft):\n${JSON.stringify(data, null, 2)}` }] }
+    if (!ok) return errorText('Error creating card', data)
+    return text(`Card created (draft):\n${JSON.stringify(data, null, 2)}`)
   },
-)
 
-// ── update_card ───────────────────────────────────────────────
-
-server.tool(
-  'update_card',
-  'Update fields on an existing card. Only the provided fields are changed.',
-  {
-    id: z.string().uuid().describe('Card ID to update'),
-    title: z.string().optional().describe('New title'),
-    description: z.string().optional().describe('New description (Markdown)'),
-    thumbnail: thumbnailSchema.optional().describe('New thumbnail URL (media library path /uploads/... or absolute URL)'),
-    startDate: calendarDaySchema.optional().describe('New start date, YYYY-MM-DD'),
-    endDate: calendarDaySchema.optional().describe('New end date, YYYY-MM-DD'),
-    link: z.string().url().optional().describe('New action URL'),
-    cta: z.string().optional().describe('New CTA label'),
-    sites: z.array(z.string()).optional().describe('New site slugs array'),
-    exclusiveSite: z.string().optional().describe('New exclusive site slug; pass empty string to clear'),
-  },
-  async ({ id, title, description, thumbnail, startDate, endDate, link, cta, sites, exclusiveSite }) => {
+  update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite }) => {
     const dataFields: Record<string, unknown> = {}
     if (title !== undefined) dataFields.title = title
     if (description !== undefined) dataFields.description = description
     if (thumbnail !== undefined) dataFields.thumbnail = thumbnail
     if (startDate !== undefined) dataFields.startDate = startDate
     if (endDate !== undefined) dataFields.endDate = endDate
+    if (startTime !== undefined) dataFields.startTime = startTime // null clears it on the API
     if (link !== undefined) dataFields.link = link
     if (cta !== undefined) dataFields.cta = cta
 
@@ -285,26 +221,59 @@ server.tool(
       body: JSON.stringify(body),
     })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error updating card: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: `Card updated:\n${JSON.stringify(data, null, 2)}` }] }
+    if (!ok) return errorText('Error updating card', data)
+    return text(`Card updated:\n${JSON.stringify(data, null, 2)}`)
   },
-)
 
-// ── publish_card ──────────────────────────────────────────────
-
-server.tool(
-  'publish_card',
-  'Publish a card (transition from draft → published so it appears on the public site).',
-  {
-    id: z.string().uuid().describe('Card ID to publish'),
-  },
-  async ({ id }) => {
+  publish_card: async ({ id }) => {
     const res = await apiFetch(`/admin/content/${id}/publish`, { method: 'POST' })
     const { ok, data } = await jsonResponse(res)
-    if (!ok) return { isError: true, content: [{ type: 'text' as const, text: `Error publishing card: ${JSON.stringify(data)}` }] }
-    return { content: [{ type: 'text' as const, text: `Card published:\n${JSON.stringify(data, null, 2)}` }] }
+    if (!ok) return errorText('Error publishing card', data)
+    return text(`Card published:\n${JSON.stringify(data, null, 2)}`)
   },
-)
+
+  // ── Analytics and short links (spec 05): REST pass-throughs ──
+
+  get_analytics_overview: async ({ from, to, tz, site, granularity, compare }) =>
+    passThrough(await apiFetch(`/admin/analytics/range${query({ from, to, tz, site, granularity, compare })}`)),
+
+  get_item_stats: async ({ itemId, from, to, tz, site, granularity, compare }) =>
+    passThrough(await apiFetch(`/admin/analytics/items/${encodeURIComponent(itemId)}/stats${query({ from, to, tz, site, granularity, compare })}`)),
+
+  get_top_items: async ({ from, to, tz, site, type, limit }) =>
+    passThrough(await apiFetch(`/admin/analytics/top-items${query({ from, to, tz, site, type, limit })}`)),
+
+  get_short_link_stats: async ({ code, itemId, from, to, tz, granularity }) =>
+    passThrough(await apiFetch(`/admin/analytics/short-links${query({ code, itemId, from, to, tz, granularity })}`)),
+
+  create_short_link: async ({ itemId, label, siteSlug }) =>
+    passThrough(await apiFetch(`/admin/content/${encodeURIComponent(itemId)}/short-links`, {
+      method: 'POST',
+      body: JSON.stringify({ label, siteSlug: siteSlug ?? null }),
+    })),
+
+  list_short_links: async ({ itemId, site, limit }) =>
+    passThrough(await apiFetch(`/admin/short-links${query({ itemId, site, limit })}`)),
+}
+
+// ──────────────────────────────────────────────────────────────
+// Server
+// ──────────────────────────────────────────────────────────────
+
+const server = new McpServer({
+  name: 'betel-mcp',
+  version: '1.0.0',
+})
+
+// A tool exists on both surfaces or on neither: register every contract entry (ADR-024).
+for (const name of toolNames) {
+  const tool = toolContract[name]
+  server.registerTool(
+    name,
+    { description: tool.description, inputSchema: tool.input, annotations: tool.annotations },
+    handlers[name] as never,
+  )
+}
 
 // ──────────────────────────────────────────────────────────────
 // Start

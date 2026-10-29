@@ -1,6 +1,6 @@
 # Security
 
-All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), `/uploads/*` and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
+All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), the event feeds (`/feed.xml`, `/:siteSlug/feed.xml`), `/llms.txt`, `/uploads/*` and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
 
 ## Security Baseline
 
@@ -10,7 +10,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 - **Password storage:** bcrypt hashes with salt rounds 12, for all write paths (setup, user creation, reset, change password).
 - **Forced password change:** new users and reset users get `must_change_password = true`. The admin SPA then routes the user only to the change-password screen. This is enforced **client-side only**: the API does not reject other requests from a user whose token has `mustChangePassword: true`. `POST /api/auth/change-password` requires the current password and a new password of at least 8 characters, and clears the flag.
 - **First-admin bootstrap:** `POST /api/setup` creates a `super-admin` (password of at least 8 characters) **only when the `users` table is empty**. Once any user exists it returns 409. It is unauthenticated by design. On a fresh deployment, whoever calls it first becomes super-admin, so run it immediately after the first deploy (or use the `seed-admin` script).
-- **Remote MCP:** `/mcp` requires `Authorization: Bearer <MCP_SECRET>`. It is registered only when `MCP_SECRET` is set. See [ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md).
+- **Remote MCP:** `/mcp` requires `Authorization: Bearer <MCP_SECRET>`. It is registered only when `MCP_SECRET` is set. Sessions live in memory and are bounded: closed after 30 minutes idle or 24 hours of age, at most 50 at a time (the least recently used is evicted). See [ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md).
 - **Stdio MCP:** uses a normal admin account (`BETEL_EMAIL` / `BETEL_PASSWORD`) through the login endpoint. See [ADR-012](../decisions/ADR-012-mcp-server.md).
 
 ### Authorization
@@ -24,15 +24,17 @@ All REST paths below include the `/api` prefix under which every API route is re
   - audit log: `/api/admin/logs`
   - error logs: `/api/admin/error-logs`
   - SQL console: `POST /api/admin/sql` (see "SQL console" below)
-- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`.
+- **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`, `GET /robots.txt`, `GET /sitemap.xml`, `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt` (published, non-expired items only, through the same `listPublicContent` gate as the hub; XML-escaped, no HTML), the server-rendered pages `GET /`, `GET /:siteSlug`, `GET /i/:itemId`, and `GET /api/content/:id` (visible items only — published and not expired, the same rule as `GET /api/content`; drafts and archived items return 404, deleted ones 410).
 
 ### Rate limiting
 `@fastify/rate-limit` is registered with `global: false`, so only routes that opt in are limited:
 - `POST /api/events`: 60 requests per minute per IP.
 - `POST /api/errors`: 20 requests per minute per IP.
 - `POST /api/admin/sql`: 30 requests per minute (plugin default key, per IP).
+- `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt`: 120 requests per minute per IP.
+- `POST /mcp`: 120 requests per minute per IP (checked before the secret, so guessing is throttled too).
 
-`POST /api/auth/login`, `POST /api/setup` and `/mcp` are **not** rate-limited.
+`POST /api/auth/login` and `POST /api/setup` are **not** rate-limited.
 
 ### CORS
 `@fastify/cors` is registered with `{ origin: true }`, which reflects **any** request `Origin` back in `Access-Control-Allow-Origin` (credentials are not enabled). In production the SPA and API share one origin, so CORS is not needed at all. This configuration exists for local development convenience and is broader than necessary. Because admin requests authenticate with a bearer header rather than cookies, another site cannot ride an admin's session, but it can freely call the public endpoints from a browser. See [ADR-006](../decisions/ADR-006-single-container-deployment.md).
@@ -46,6 +48,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 - Stored personal data is limited to admin email addresses, password hashes and audit entries. Visitor analytics (`analytics_events`) record event type, site, item, URL and time, with no IP addresses or user identifiers. Frontend error logs (`error_logs`) store message, stack, URL, site and a `device` JSON blob supplied by the client.
 - Temporary passwords (user creation and reset) are 16 hex characters (`randomBytes(8)`). They are returned once in the API response for out-of-band delivery and are never stored in plaintext or logged.
 - Visitors' browsers contact Google Fonts directly (IP address exposure). See `integrations.md`.
+- Server-rendered pages ([ADR-022](../decisions/ADR-022-server-side-head-injection-and-content-snapshot.md)) embed database text in HTML and JSON-LD. All text is HTML-escaped and JSON is serialised with `<`, `>`, `&`, U+2028/2029 escaped, so content can never break out of the `<script>` element. Markdown is rendered server-side as plain text only, and only `http(s)`, root-relative, `mailto:` and `tel:` URLs are emitted as links. The page cache is keyed by path only and holds no visitor data; only 200 responses are cached. `/i/:itemId` applies the same visibility rules as `GET /api/content`. `/admin` and `/admin/*` carry `X-Robots-Tag: noindex, nofollow`.
 
 ### Secret management
 - Secrets (`JWT_SECRET`, `DATABASE_URL` / database password, `MCP_SECRET`, `OPEN_ROUTER_API_KEY`, stdio MCP credentials) come from environment variables: CapRover app settings in production, `.env` locally. They must never be committed. See [configuration.md](configuration.md).
@@ -102,13 +105,13 @@ The system processes very little personal data (admin accounts, anonymous analyt
 ### Audit requirements
 FR-023 requires every content and configuration change to be logged (who, what, when). `logAudit` (`packages/api/src/db/audit.ts`) writes to `audit_log` and never throws, so an audit failure is silently dropped rather than failing the request. The log is viewable by super-admins at `/api/admin/logs`.
 
-Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; `sql_query` and `sql_query_blocked` (SQL console); and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
+Currently audited: content create, update, publish, archive, delete, restore, permanent-delete and duplicate; content and group translation upsert and delete; `group.delete`; language create, update and delete; `translation.bulk-upsert`; `translation.ai-generate`; `reset_password`; `sql_query` and `sql_query_blocked` (SQL console); `short-link.create` and `short-link.delete` (all paths: admin UI, REST, MCP; `detail.via` is `admin` or `mcp`); and `media.upload` (remote MCP only). Writes through the remote MCP endpoint are attributed to `mcp@betel` with no user ID.
 
 Permanent delete purges an item's history by design: `DELETE /api/admin/content/:id/permanent` deletes every audit entry with that `entity_id` (and the item's analytics events) before writing a single `content.permanent-delete` entry, which records who removed the item and when. `audit_log` is therefore not append-only for permanently deleted items; this is intended (repository owner decision, 2026-10-17). See [content-model.md](../domain/content-model.md).
 
 The SQL console is the exception to the best-effort rule: `sql_query` is written before the query runs and fails closed (see "SQL console").
 
-**Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; short-link create and delete; media upload and delete through the admin UI.
+**Not audited (gaps against FR-023):** group create, update and reorder; content reordering; admin user create and delete; site edits; media upload and delete through the admin UI.
 
 ### Known risks and incident concerns
 | Risk | Impact | Mitigation / follow-up |
@@ -118,7 +121,7 @@ The SQL console is the exception to the best-effort rule: `sql_query` is written
 | JWT in `localStorage`, 8 h lifetime, no revocation | Stolen token usable until expiry; deleted users keep access until expiry | Keep XSS surface minimal; consider a token version or deny list |
 | `mustChangePassword` enforced only in the SPA | A user with a temporary password can call the API directly | Reject non-change-password requests in `authenticate` when the flag is set |
 | `POST /api/admin/users` accepts any `role` string, and `DELETE /api/admin/users/:id` has no self-delete or last-super-admin guard | Misconfigured roles; accidental lock-out | Validate role against `admin` / `super-admin`; add guards |
-| `MCP_SECRET` is one shared, full-access, non-expiring token; compared with plain `!==`; no rate limit on `/mcp` | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
+| `MCP_SECRET` is one shared, full-access, non-expiring token (compared in constant time; `POST /mcp` rate-limited to 120/min/IP) | Leaked secret grants card and media write access | Use a long random value, rotate on suspicion, and move to the planned API key layer |
 | `POST /api/setup` is unauthenticated until the first user exists | Takeover of a fresh deployment | Create the first super-admin immediately after the first deploy |
 | SQL console shares the app's connection pool and `session_user`; it drops to `betel_sql_console` with `SET LOCAL ROLE` | A filter bypass that switches role back (`set_config('role', ...)`, `SET ROLE`, `RESET`, `UPDATE pg_settings`) regains the app's rights | Filter blocks these; use a separate `LOGIN` role and pool (ADR-018 follow-up) |
 | SQL console bypasses API business rules (soft-delete, group-delete cascade, translation jobs, FR-035) | Data written through it can violate domain rules | Prefer admin pages; use writes sparingly |

@@ -1,9 +1,9 @@
 # ADR-021: RSS 2.0 event feed: format, link semantics and caching
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented 2026-10-29)
 - **Date:** 2026-10-28
 - **Related:** [ADR-013](ADR-013-http-cache-strategy.md) (HTTP caching), [ADR-014](ADR-014-i18n-strategy.md) (i18n fallback), [ADR-006](ADR-006-single-container-deployment.md) (single container), [ADR-015](ADR-015-remote-mcp-endpoint.md) (existing AI-agent surface), ADR-022 (SEO: `absoluteUrl`, per-item pages `/i/:itemId`), ADR-023 (event start time, shared `compareEventSchedules`); spec 07 `docs/product/specs/07-event-location.md` (`data.location`, `readLocation`; no ADR of its own)
-- **Implements:** FR-060 to FR-064 (`docs/product/specs/02-rss-feed.md`); BR-025, BR-026 (proposed)
+- **Implements:** FR-060 to FR-064 (`docs/product/requirements.md`; the spec `02-rss-feed.md` was removed after shipping, see git history); BR-025, BR-026
 
 ## Context
 

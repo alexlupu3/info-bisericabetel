@@ -22,8 +22,17 @@ import { languagesRoutes } from './routes/languages.js'
 import { adminTranslationsRoutes } from './routes/admin/translations.js'
 import { adminErrorLogsRoutes } from './routes/admin/error-logs.js'
 import { adminSqlRoutes } from './routes/admin/sql.js'
-import { shortLinkRedirectRoute, adminShortLinksRoutes } from './routes/short-links.js'
+import { shortLinkRedirectRoute } from './routes/short-links.js'
+import { adminShortLinksRoutes } from './routes/admin/short-links.js'
 import { mcpRoutes } from './routes/mcp.js'
+import { pagesRoutes } from './routes/pages.js'
+import { robotsRoute } from './routes/robots.js'
+import { sitemapRoute } from './routes/sitemap.js'
+import { feedRoutes } from './routes/feed.js'
+import { llmsTxtRoute } from './routes/llms-txt.js'
+import { initPublicBaseUrl } from './services/public-url.js'
+import { loadTemplate } from './services/seo/template.js'
+import { seoCache } from './services/seo/cache.js'
 import { runMigrations } from './db/migrate.js'
 // Root package.json carries the release version (bumped by `pnpm release`).
 // esbuild inlines this JSON into the bundle, so it also works in the Docker image.
@@ -39,6 +48,11 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), '..', 'u
 const PUBLIC_DIR = path.join(__dirname, 'public')
 
 async function start() {
+  // Fails fast in production when PUBLIC_BASE_URL is missing or malformed (FR-066).
+  initPublicBaseUrl()
+  // index.html of the SPA build, split for server-side head injection (ADR-022).
+  const pageTemplate = loadTemplate(path.join(PUBLIC_DIR, 'index.html'))
+
   await runMigrations()
 
   const app = Fastify({ logger: true })
@@ -57,10 +71,23 @@ async function start() {
   // Short link redirects — registered before SPA static so /s/:code is handled here
   await app.register(shortLinkRedirectRoute)
 
-  // Serve frontend SPA static files
+  // Event feeds and the agent index (spec 02, ADR-021) — before the SPA static handler and
+  // the not-found fallback, outside /api.
+  await app.register(feedRoutes, { version: rootPkg.version })
+  await app.register(llmsTxtRoute)
+
+  // Crawler endpoints and server-rendered public pages (spec 03, ADR-022). Fastify prefers
+  // static routes (/health, /robots.txt, /mcp, SPA files) over the parametric /:siteSlug.
+  await app.register(robotsRoute)
+  await app.register(sitemapRoute)
+  await app.register(pagesRoutes, { template: pageTemplate, publicDir: PUBLIC_DIR })
+
+  // Serve frontend SPA static files. `index: false`: `/` is a server-rendered page, not the
+  // directory index.
   await app.register(fastifyStatic, {
     root: PUBLIC_DIR,
     wildcard: false,
+    index: false,
     decorateReply: false, // already decorated by the uploads plugin above
     setHeaders: (res, filePath) => {
       if (filePath.includes('/assets/')) {
@@ -118,12 +145,23 @@ async function start() {
   await app.register(adminSqlRoutes, { prefix: '/api' })
   await app.register(mcpRoutes)
 
+  // Rendered pages and the sitemap embed content: drop them after any admin or MCP write.
+  app.addHook('onResponse', async req => {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && (req.url.startsWith('/api/admin') || req.url.startsWith('/mcp'))) {
+      seoCache.clear()
+    }
+  })
+
   // SPA fallback: serve index.html for any unmatched non-API route
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api')) {
       return reply.code(404).send({ error: 'Not Found' })
     }
     reply.header('Cache-Control', 'no-cache')
+    // The admin tool must never be indexed (FR-065).
+    if (req.url === '/admin' || req.url.startsWith('/admin/') || req.url.startsWith('/admin?')) {
+      reply.header('X-Robots-Tag', 'noindex, nofollow')
+    }
     return reply.sendFile('index.html', PUBLIC_DIR)
   })
 

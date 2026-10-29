@@ -5,11 +5,11 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 ## Entities
 ### Site
 - Purpose: represent one local campus or location within the church
-- Key attributes: slug (stable unique identifier), name (display label), accent color (used for site-specific branding on the public hub), address, and other operator-defined info fields
+- Key attributes: slug (stable unique identifier), name (display label), accent color (used for site-specific branding on the public hub), address, and other operator-defined info fields; structured address (`street_address`, `postal_code`, `address_locality`, `address_region`, `address_country`), `latitude`/`longitude`, `telephone`, `email` (migration `0013_site_address_fields.sql`, all optional) — used for the site's schema.org `Church` markup and shown in the public footer; the free-text `address` remains the display label when no structured street/locality is set
 - Relationships: used for site scoping on Groups and Content Items (`sites[]`, `exclusive_site`); referenced by ShortLink (`site_slug`), AnalyticsEvent and error logs (`site_slug`)
-- Lifecycle: stored in the `sites` table, never hardcoded in application code. The current sites are seeded by migration `0000_initial.sql`; the super-admin can edit name, accent color, and address on `/admin/locations` (`PATCH /api/admin/sites/:slug`). Creating or deleting sites through the admin is not implemented (FR-019)
+- Lifecycle: stored in the `sites` table, never hardcoded in application code. The current sites are seeded by migration `0000_initial.sql`; the super-admin can edit name, accent color, address and the structured address fields on `/admin/locations` (`PATCH /api/admin/sites/:slug`). Creating or deleting sites through the admin is not implemented (FR-019)
 - Validation rules: slug must be stable and unique
-- Notes: the church is multi-site and growing; the data model must support dynamic site creation at any time. Available sites are fetched at runtime from GET /api/sites and cached client-side via react-query (key: `['sites']`). The `Site` API type is `{ slug: string; name: string; accent: string }`.
+- Notes: the church is multi-site and growing; the data model must support dynamic site creation at any time. Available sites are fetched at runtime from GET /api/sites and cached client-side via react-query (key: `['sites']`). The `Site` API type is `{ slug: string; name: string; accent: string }`. Each site is referenced by its per-site feed URL `/<slug>/feed.xml` and listed in `/llms.txt` (FR-060, FR-064).
 
 ### Content Item
 - Purpose: represent a unit of information shown in the hub
@@ -23,6 +23,7 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 - Date handling: optional `data.startDate` / `data.endDate` (all types) plus the independent `expiresAt` column. See content-model.md — Expiration Behavior.
 - Site exclusivity: nullable `exclusive_site TEXT REFERENCES sites(slug)` (migration `0008_exclusive_site.sql`). See content-model.md — Exclusive Site Scope, BR-006–BR-008, and ADR-009.
 - Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group itself is hard-deleted from the database.
+- Notes: an item with `data.startDate` is also an event for the public RSS feeds (FR-060, BR-025); its canonical URL `/i/<id>` (FR-069) is the feed item link (BR-026).
 
 ### Group
 - Purpose: visually collect Cards and/or Posters into a single display unit
@@ -41,14 +42,16 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 - Validation rules: event_type must be one of the two defined values; site_slug is optional (null in the all-sites view); item_id and url are optional and only relevant for `link_click` events; short_link_id is only set for short-link-originated clicks
 - Notes: writes are fire-and-forget — `POST /api/events` responds 204 before the DB write completes, and the short-link redirect handler inserts the click without awaiting it. Short-link clicks are deduplicated in memory per IP + code within a 10-minute window. The public app deduplicates `site_visit` events within a 30-minute window using `localStorage` keys (`betel-track-visit-{site}`). Events are deleted only together with a permanently deleted item (intended: permanent delete purges the item's history); reporting is done entirely by aggregation. See FR-024, FR-025, and FR-044.
 - Site filtering: the `analytics_events` table has a composite index on `(site_slug, occurred_at)` which makes per-site queries efficient. All three analytics aggregation endpoints (`/overview`, `/items`, `/items/:itemId/daily`) accept an optional `?site=slug` query parameter; omitting it returns cross-site totals. `occurred_at` is stored in UTC and bucketed in the requested `tz` (ADR-017). The admin dashboard exposes this as the `SiteFilter` dropdown (default: "Toate").
-- Short link attribution: `short_link_id` allows aggregation endpoints to distinguish website clicks from short-link clicks per item, and to break down short-link clicks by individual link label. Migration: `0010_short_links.sql`.
+- Short link attribution: `short_link_id` allows aggregation endpoints to distinguish website clicks from short-link clicks per item, and to break down short-link clicks by individual link label. Migration: `0010_short_links.sql`. After a short link is deleted, its historical clicks (now `short_link_id IS NULL`) are reported as website clicks by every aggregation (dashboard, range endpoints and MCP tools alike).
+- Range reporting: the range endpoints and MCP analytics tools (FR-080–FR-082, BR-040) count every `event_type` generically (`byEventType`), so event types added later appear without changes there.
 
 ### ShortLink
 - Purpose: represent a short redirect URL tied to a content item and a distribution channel label, enabling per-channel traffic tracking
 - Key attributes: id (UUID), content_item_id (FK → Content Item, cascade delete on hard-delete), code (TEXT, unique — 6-character alphanumeric, server-generated), label (TEXT — admin-assigned channel name, e.g. "WhatsApp Manastur"), site_slug (TEXT nullable — if set, `data.siteLinks[site_slug]` is used for URL resolution instead of `data.link`), created_at
 - Relationships: belongs to a Content Item (FK with ON DELETE CASCADE); referenced by AnalyticsEvent.short_link_id (FK, `ON DELETE SET NULL`)
-- Lifecycle: created on demand by admins via `POST /api/admin/content/:id/short-links`; deleted by admins via `DELETE /api/admin/content/:id/short-links/:shortLinkId`; cascade-deleted when the parent content item is permanently hard-deleted. Soft-deleted and archived items retain their short links.
-- Validation rules: code must be unique across all short links; label is required; site_slug is optional and must match a known site slug if set
+- Lifecycle: created on demand by admins via `POST /api/admin/content/:id/short-links` or by an AI agent via the MCP `create_short_link` tool (one service, `services/short-links.ts`; both audit-logged, BR-041); deleted by admins via `DELETE /api/admin/content/:id/short-links/:shortLinkId`; cascade-deleted when the parent content item is permanently hard-deleted. Soft-deleted and archived items retain their short links.
+- Validation rules: code must be unique across all short links; label is required (1–100 characters after trimming); site_slug is optional and must match a known site slug if set (400 otherwise); the content item must exist and not be `deleted` (BR-041)
+- Notes: `url` (derived, `PUBLIC_BASE_URL` + `/s/<code>`, not stored) is returned by the list and create endpoints and the MCP tools
 - Notes: the redirect endpoint (`GET /s/:code`, no `/api` prefix) is registered before the SPA static-serving handler so the code route is not intercepted by the SPA fallback. URL resolution and cascade rules: BR-011, BR-012. See FR-044 and ADR-011.
 
 ### Media

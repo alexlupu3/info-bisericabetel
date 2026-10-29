@@ -1,6 +1,7 @@
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import { track } from '../../api/track'
+import FeedImage from './FeedImage'
 
 type PosterData = { imageUrl: string; alt?: string; link?: string; siteLinks?: Record<string, string> }
 
@@ -12,18 +13,22 @@ function ExternalLinkIcon() {
   )
 }
 
-export default function PosterItem({ item, activeSite = null, showSiteLabel = false }: { item: ContentItem; activeSite?: string | null; showSiteLabel?: boolean }) {
+export default function PosterItem({ item, activeSite = null, showSiteLabel = false, eager = false }: { item: ContentItem; activeSite?: string | null; showSiteLabel?: boolean; eager?: boolean }) {
   const d = item.data as PosterData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
 
   const article = (
-    <article className="relative overflow-hidden">
+    <article data-item-id={item.id} className="relative overflow-hidden">
       <div className="relative">
-        <img
+        {/* Poster dimensions are not stored: 4:5 (the common portrait poster) is a size hint
+            only — h-auto lets the real aspect ratio win once the image has loaded. */}
+        <FeedImage
           src={d.imageUrl}
           alt={d.alt ?? ''}
-          className="w-full object-cover"
-          loading="lazy"
+          width={1080}
+          height={1350}
+          eager={eager}
+          className="w-full h-auto object-cover"
         />
         {resolvedLink && (
           <>

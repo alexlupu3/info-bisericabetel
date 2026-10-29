@@ -8,16 +8,19 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js",
     "start": "node dist/index.js",
+    "parity": "tsx src/parity-check.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@betel/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "~1.29.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",
+    "esbuild": "^0.27.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

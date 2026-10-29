@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSites } from '../context/SitesContext'
 import { useLanguage } from '../context/LanguageContext'
-import { UI_KEYS } from '../i18n/keys'
+import { UI_DEFAULTS, UI_KEYS } from '../i18n/keys'
 
 interface Props {
   activeSite: string | null
@@ -26,8 +26,8 @@ export default function SiteSwitcher({ activeSite, accent, onSelect }: Props) {
   }, [])
 
   const activeLabel = activeSite
-    ? (sites.find(s => s.slug === activeSite)?.name ?? t(UI_KEYS.SITES_ALL, 'Toate locațiile'))
-    : t(UI_KEYS.SITES_ALL, 'Toate locațiile')
+    ? (sites.find(s => s.slug === activeSite)?.name ?? t(UI_KEYS.SITES_ALL, UI_DEFAULTS[UI_KEYS.SITES_ALL]))
+    : t(UI_KEYS.SITES_ALL, UI_DEFAULTS[UI_KEYS.SITES_ALL])
 
   function handleSelect(slug: string | null) {
     onSelect(slug)
@@ -50,11 +50,11 @@ export default function SiteSwitcher({ activeSite, accent, onSelect }: Props) {
       {open && (
         <div
           role="listbox"
-          aria-label={t(UI_KEYS.SITES_SELECT_LABEL, 'Selectare locație')}
+          aria-label={t(UI_KEYS.SITES_SELECT_LABEL, UI_DEFAULTS[UI_KEYS.SITES_SELECT_LABEL])}
           className="absolute top-full left-5 mt-1 z-50 bg-[var(--surface)] border border-[var(--border)] rounded shadow-lg py-1 min-w-[11rem]"
         >
           <SiteOption
-            label={t(UI_KEYS.SITES_ALL, 'Toate locațiile')}
+            label={t(UI_KEYS.SITES_ALL, UI_DEFAULTS[UI_KEYS.SITES_ALL])}
             active={activeSite === null}
             accent="var(--muted)"
             onClick={() => handleSelect(null)}

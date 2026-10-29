@@ -1,9 +1,10 @@
 import ReactMarkdown from 'react-markdown'
+import { itemWhen } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
+import FeedImage from './FeedImage'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
-import { formatCalendarDay } from '../../../dates'
 
 type CardData = {
   title: string
@@ -12,6 +13,7 @@ type CardData = {
   startDate?: string
   date?: string       // legacy field — new cards use startDate
   endDate?: string
+  startTime?: string  // HH:mm, Romania wall clock; single-day events only (BR-035)
   link?: string
   cta?: string
   siteLinks?: Record<string, string>
@@ -27,109 +29,69 @@ function ExternalLinkIcon() {
 
 export default function CardItem({
   item,
-  accent,
+  accent: _accent,
   variant = 'stacked',
   activeSite = null,
   showSiteLabel = false,
+  headingLevel = 2,
+  eager = false,
 }: {
   item: ContentItem
   accent: string
   variant?: 'stacked' | 'horizontal'
   activeSite?: string | null
   showSiteLabel?: boolean
+  /** h2 at the feed root, h3 inside a group (FR-072: no skipped heading levels). */
+  headingLevel?: 2 | 3
+  /** First image of the page: loaded eagerly with high priority (LCP). */
+  eager?: boolean
 }) {
   const d = item.data as CardData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
   const { dateLocale } = useLanguage()
-  const dateStr = formatDateRange(d.startDate ?? d.date, d.endDate, dateLocale)
+  // Same date line as the server-rendered snapshot (spec 03): text + ISO for <time> (spec 04).
+  const when = itemWhen(item.data, dateLocale)
+  const Heading = headingLevel === 3 ? 'h3' : 'h2'
+  const horizontal = variant === 'horizontal'
 
-  if (variant === 'horizontal') {
-    const article = (
-      <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col sm:flex-row sm:items-start${resolvedLink ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
-        {d.thumbnail && (
-          <div className="aspect-[16/9] sm:w-1/2 overflow-hidden bg-[var(--surface)] flex-shrink-0">
-            <img
-              src={d.thumbnail}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-        <div className="p-5 flex flex-col justify-between flex-1 gap-3">
-          <div>
-            {dateStr && (
-              <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-                {dateStr}
-              </p>
-            )}
-            <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
-            <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
-            {d.description && (
-              <div className="font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none">
-                <ReactMarkdown>{d.description}</ReactMarkdown>
-              </div>
-            )}
-          </div>
-          {resolvedLink && d.cta && (
-            <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
-              {d.cta}
-            </span>
-          )}
-        </div>
-        {resolvedLink && !d.cta && (
-          <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
-            <ExternalLinkIcon />
-          </span>
-        )}
-      </article>
-    )
+  const dateLine = when && (
+    <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
+      {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : when.text}
+    </p>
+  )
 
-    if (resolvedLink) {
-      return (
-        <a
-          href={resolvedLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => track('link_click', activeSite, item.id, resolvedLink)}
-          className="group block cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
-        >
-          {article}
-        </a>
-      )
-    }
-
-    return article
-  }
+  const cta = resolvedLink && d.cta && (
+    <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
+      {d.cta}
+    </span>
+  )
 
   const article = (
-    <article className={`relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden${resolvedLink ? ' transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : ''}`}>
+    <article
+      data-item-id={item.id}
+      className={[
+        'relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden',
+        horizontal ? 'flex flex-col sm:flex-row sm:items-start' : '',
+        resolvedLink ? 'transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : '',
+      ].filter(Boolean).join(' ')}
+    >
       {d.thumbnail && (
-        <div className="aspect-[16/9] overflow-hidden bg-[var(--surface)]">
-          <img
-            src={d.thumbnail}
-            alt=""
-            className="w-full h-full object-cover"
-          />
+        <div className={`aspect-[16/9] overflow-hidden bg-[var(--surface)]${horizontal ? ' sm:w-1/2 flex-shrink-0' : ''}`}>
+          <FeedImage src={d.thumbnail} alt="" width={1600} height={900} eager={eager} className="w-full h-full object-cover" />
         </div>
       )}
-      <div className="p-4">
-        {dateStr && (
-          <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-            {dateStr}
-          </p>
-        )}
-        <h2 className="betel-title-bold text-xl leading-tight mb-2">{d.title}</h2>
-        <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
-        {d.description && (
-          <div className="font-content text-sm text-[var(--muted)] leading-relaxed mb-4 prose prose-sm max-w-none">
-            <ReactMarkdown>{d.description}</ReactMarkdown>
-          </div>
-        )}
-        {resolvedLink && d.cta && (
-          <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
-            {d.cta}
-          </span>
-        )}
+      <div className={horizontal ? 'p-5 flex flex-col justify-between flex-1 gap-3' : 'p-4'}>
+        <div>
+          {dateLine}
+          <Heading className="betel-title-bold text-xl leading-tight mb-2">{d.title}</Heading>
+          <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
+          {d.description && (
+            <div className={`font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none${horizontal ? '' : ' mb-4'}`}>
+              <ReactMarkdown>{d.description}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+        {cta}
       </div>
       {resolvedLink && !d.cta && (
         <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
@@ -154,11 +116,4 @@ export default function CardItem({
   }
 
   return article
-}
-
-function formatDateRange(start?: string, end?: string, dateLocale = 'ro-RO') {
-  if (!start) return null
-  const fmt = (d: string) =>
-    formatCalendarDay(d, dateLocale, { day: 'numeric', month: 'long' })
-  return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start)
 }

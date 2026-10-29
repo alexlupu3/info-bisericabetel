@@ -124,6 +124,37 @@ describe('Content form — type-specific fields', () => {
     })
   })
 
+  it('drops an end date that a later start date would leave before it (regression: reversed range)', () => {
+    cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: {
+      id: 'rt2', type: 'richtext', state: 'draft', sites: [], orderPosition: 0,
+      groupId: null, expiresAt: null, data: { body: 'Anunț', startDate: '2026-05-20' },
+      createdAt: '', updatedAt: '',
+    }}).as('create')
+
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('richtext')
+    cy.get('[data-testid="create-body-input"]').type('Anunț')
+    cy.get('[data-testid="create-date-input"]').type('2026-05-10')
+    cy.get('[data-testid="create-end-date-input"]').type('2026-05-15')
+    // Moving the start past the end must not keep the old end date.
+    cy.get('[data-testid="create-date-input"]').type('2026-05-20')
+    cy.get('[data-testid="create-end-date-input"]').should('have.value', '')
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.wait('@create').its('request.body.data').should(data => {
+      expect(data.startDate).to.eq('2026-05-20')
+      expect(data.endDate).to.eq(null)
+    })
+  })
+
+  it('keeps an end date that is still on or after a changed start date', () => {
+    cy.get('[data-testid="create-content-btn"]').click()
+    cy.get('[data-testid="create-type-select"]').select('richtext')
+    cy.get('[data-testid="create-date-input"]').type('2026-05-10')
+    cy.get('[data-testid="create-end-date-input"]').type('2026-05-15')
+    cy.get('[data-testid="create-date-input"]').type('2026-05-12')
+    cy.get('[data-testid="create-end-date-input"]').should('have.value', '2026-05-15')
+  })
+
   it('default type is card when opening the create form', () => {
     cy.get('[data-testid="create-content-btn"]').click()
     cy.get('[data-testid="create-type-select"]').should('have.value', 'card')

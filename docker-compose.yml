@@ -17,6 +17,8 @@
 #   JWT_SECRET           required — min 32 chars, signs admin JWTs
 #   OPEN_ROUTER_API_KEY  optional — enables AI auto-translation
 #   MCP_SECRET           optional — enables the remote /mcp endpoint
+#   PUBLIC_BASE_URL      optional here — public origin (default http://localhost:${APP_HOST_PORT:-8080})
+#   SEO_* / GOOGLE_SITE_VERIFICATION  optional — SEO identity (configuration.md)
 #   APP_HOST_PORT        optional — host port for the app (default 8080)
 #   DB_HOST_PORT         optional — host port for PostgreSQL (default 5432)
 #
@@ -59,6 +61,15 @@ services:
       UPLOADS_DIR: /uploads
       OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:-}
       MCP_SECRET: ${MCP_SECRET:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${APP_HOST_PORT:-8080}}
+      SEO_ORG_NAME: ${SEO_ORG_NAME:-}
+      SEO_SITE_NAME: ${SEO_SITE_NAME:-}
+      SEO_SITE_ALTERNATE_NAMES: ${SEO_SITE_ALTERNATE_NAMES:-}
+      SEO_ORG_WEBSITE: ${SEO_ORG_WEBSITE:-}
+      SEO_ORG_SAME_AS: ${SEO_ORG_SAME_AS:-}
+      SEO_ORG_LOGO_PATH: ${SEO_ORG_LOGO_PATH:-}
+      SEO_DEFAULT_COUNTRY: ${SEO_DEFAULT_COUNTRY:-}
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
     volumes:
       - uploads:/uploads
     ports:

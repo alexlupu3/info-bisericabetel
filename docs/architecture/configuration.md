@@ -26,13 +26,22 @@ An empty value (`KEY=`) counts as "set" for most code. `example.env` therefore k
 | `UPLOADS_DIR` | No (Yes in production) | `<cwd>/../uploads` in code; `/app/uploads` in the Docker image (`docker-compose.yml` sets `/uploads`, backed by the `uploads` volume) | `src/index.ts`, `src/routes/admin/media.ts`, `src/routes/mcp.ts` | Directory for uploaded media, served at `/uploads/`. In production it must be a persistent volume. With `pnpm dev:api` the default resolves to `packages/uploads/`. |
 | `OPEN_ROUTER_API_KEY` | No | unset (feature off) | `src/services/ai-translation.ts` | Enables AI auto-translation of content items and groups via OpenRouter ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)). |
 | `MCP_SECRET` | No | unset (endpoint off) | `src/routes/mcp.ts` | Enables the remote MCP endpoint at `/mcp`. Clients authenticate with `Authorization: Bearer <MCP_SECRET>` ([ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md)). |
-| `NODE_ENV` | No | `production` in the Docker image | not read by app code | Conventional only. Set by the `Dockerfile` and `docker-compose.yml`. |
+| `PUBLIC_BASE_URL` | Yes in production | `http://localhost:3100` (development only, logs a warning) | `src/services/public-url.ts` | Public origin of the hub (`https://info.bisericabetel.com`), no path or trailing slash (trailing slashes are stripped). Base for canonical URLs, Open Graph, JSON-LD, `sitemap.xml`, `robots.txt`, short-link previews, and every absolute URL in the RSS feeds and `/llms.txt` (spec 02). Also used for the `url` field of short links returned by the admin API and the MCP `create_short_link` / `list_short_links` tools (spec 05). Startup fails in production when missing or malformed. |
+| `SEO_ORG_NAME` | No | `Biserica Baptistă Betel` | `src/services/seo/organization.ts` | Organisation name used in titles, `og:site_name` and `Organization.name`. |
+| `SEO_SITE_NAME` | No | `Betel Info` | `src/services/seo/organization.ts` | `WebSite.name` (Google site name) and the hub title. `SEO_SITE_ALTERNATE_NAMES` (comma-separated, default `Info Biserica Betel`) → `WebSite.alternateName`. |
+| `SEO_ORG_WEBSITE` | No | `https://www.bisericabetel.com` | `src/services/seo/organization.ts` | `Organization.url`, first `sameAs` entry, and the hero link of server-rendered pages. |
+| `SEO_ORG_SAME_AS` | No | unset | `src/services/seo/organization.ts` | Comma-separated official profile URLs for `Organization.sameAs`. |
+| `SEO_ORG_LOGO_PATH` | No | `/icons/icon-512.png` | `src/services/seo/organization.ts` | Crawlable PNG (≥112×112) for `Organization.logo` and the default `og:image`. |
+| `SEO_DEFAULT_COUNTRY` | No | `RO` | `src/services/seo/organization.ts` | `addressCountry` fallback for sites without a country. |
+| `GOOGLE_SITE_VERIFICATION` | No | unset | `src/services/seo/organization.ts` (rendered by `render-head.ts`) | Renders `<meta name="google-site-verification">` on `/`. |
+| `SEO_CACHE_TTL_SECONDS` | No | `60` | `src/services/seo/cache.ts` | TTL of the in-memory cache of rendered pages and the sitemap; `0` disables. Admin and MCP writes clear it. |
+| `NODE_ENV` | No | `production` in the Docker image | `src/services/public-url.ts` | `production` makes `PUBLIC_BASE_URL` mandatory. Set by the `Dockerfile` and `docker-compose.yml`. |
 
 ## Frontend dev server (`packages/app`)
 
 | Variable | Required | Default | Read in | Purpose |
 |---|---|---|---|---|
-| `API_TARGET` | No | `http://localhost:3100` | `vite.config.ts` | Target of the Vite dev proxy for `/api`. Pass it in the shell, e.g. `API_TARGET=http://localhost:8080 pnpm dev`. |
+| `API_TARGET` | No | `http://localhost:3100` | `vite.config.ts` | Target of the Vite dev proxy for `/api`, `/robots.txt` and `/sitemap.xml`. Pass it in the shell, e.g. `API_TARGET=http://localhost:8080 pnpm dev`. |
 
 The production frontend has no build-time variables. It calls the API on the same origin under `/api`.
 
@@ -43,6 +52,8 @@ The production frontend has no build-time variables. It calls the API on the sam
 | `BETEL_EMAIL` | Yes | none (exits) | `src/index.ts` | Admin account email used to log in to the API. |
 | `BETEL_PASSWORD` | Yes | none (exits) | `src/index.ts` | Password for that account. |
 | `BETEL_API_URL` | No | `http://localhost:3100/api` | `src/index.ts` | Base URL of the API, including the `/api` prefix. |
+
+The parity check (`pnpm --filter @betel/mcp parity [--calls]`, `src/parity-check.ts`, development only; ADR-024) spawns the built `dist/index.js` with the variables above and additionally reads `BETEL_MCP_URL` (the remote endpoint, e.g. `http://localhost:3100/mcp`) and `MCP_SECRET`; `PARITY_ITEM_ID` / `PARITY_CODE` optionally pin the item and short link used by `--calls` (discovered from the remote surface otherwise). These are not application settings and are not in `example.env`.
 
 ## Docker Compose only (`docker-compose.yml`)
 

@@ -128,3 +128,66 @@ Member-facing flows come first, followed by admin flows.
   - Query longer than 10 seconds (`timeout`) — cancelled
   - The console role is not installed (`unavailable`, HTTP 503) — a superuser must run migration `0012_sql_console_role.sql`
   - The audit entry cannot be written — HTTP 500 and the query is not run
+
+### Flow 9 (Admin) — Setting the start time of a single-day event
+
+- Trigger: an admin publishes a card for an event that happens at a specific hour on one day
+- Steps:
+  - The admin opens the content form and sets "Dată"
+  - "Până la" and "Ora de început (opțional)" appear
+  - The admin enters the hour (24-hour, Romania time) and saves
+  - The public card shows the date followed by the time in the visitor's language ("14 noiembrie · 18:00")
+- Success state: the time is stored on the item, shared across languages, and used for chronological ordering inside groups
+- Failure or edge states:
+  - The admin later sets "Până la" to a different day — the time input disappears, the time is cleared on save and a hint explains that times apply to single-day events only
+  - The admin clears "Dată" — end date and time are cleared together
+  - The event's hour passes — the card stays visible until the end of the day in Romania (BR-015)
+
+### Flow 10 — Crawler or AI agent reads the hub
+- Trigger: a search engine, link unfurler or AI crawler fetches a public URL
+- Steps:
+  - `GET /robots.txt` allows public paths and points to `/sitemap.xml`
+  - `GET /sitemap.xml` lists the home page, every site page and every visible item page
+  - `GET /`, `/:siteSlug`, `/i/:itemId` return HTML with title, description, canonical, Open Graph and JSON-LD (`WebSite`, `Organization`, `Church`, `Event`, `ItemList`) plus a readable HTML snapshot of the feed — no JavaScript needed
+  - admin, API, short-link and MCP paths are excluded (`robots.txt`, `X-Robots-Tag`)
+- Success state: the page is indexed with the correct title/description; dated events with a single site are eligible for event rich results
+- Failure or edge states: unknown slug/item → 404 with `noindex`; expired or unpublished item page → 404 with `noindex` (deleted → 410); the snapshot and the SPA drift (guarded by the parity test)
+
+### Flow 11 — Visitor opens an item page
+- Trigger: a visitor follows a link to `/i/:itemId` (search result, feed reader, shared link)
+- Steps:
+  - The page shows the item in its site context (the item's exclusive site, or its single site) with the site's name and address in the footer
+  - "Înapoi la toate informațiile" goes to that site's hub (or `/` when the item belongs to all sites)
+- Success state: the visitor sees the item and can continue to the full hub
+- Failure or edge states: the item has expired, was unpublished or deleted → "Această informație nu mai este disponibilă." with a link back to `/`
+
+
+### Flow 12 — AI agent builds an event digest
+- Trigger: an agent with a web-fetch tool is asked what is happening at Biserica Betel in the coming days
+- Steps:
+  - The agent fetches `/llms.txt` (or reads `<link rel="alternate" type="application/rss+xml">` on a hub page, or the comment in `robots.txt`) and learns the feed URLs: `/feed.xml` for all sites and `/<siteSlug>/feed.xml` per site
+  - It fetches a feed, optionally with `?lang=<code>`
+  - It reads the items in document order (chronological), using `ev:startdate` / `betel:startDate` / `betel:startTime` for dates, `ev:location` for the place, `<link>` (the item page `/i/<id>`) to send a person to the item and `betel:actionLink` for the registration or detail page
+  - A later fetch with `If-None-Match` gets `304` while nothing changed
+- Success state: a correct digest with dates, places and links, without knowing `GET /api/content`
+- Failure or edge states: unknown site slug → 404; unknown or disabled language → 400; a missing translation → Romanian text (ADR-014); site-exclusive events appear only in their site's feed (BR-006), which `/llms.txt` lists
+
+### Flow 13 — Member subscribes in a feed reader
+- Trigger: a member pastes `https://<host>/<siteSlug>` (or `/`) into a feed reader
+- Steps:
+  - The reader auto-discovers `/<siteSlug>/feed.xml` (or `/feed.xml`) from the page head
+  - It lists the current and upcoming events; opening an entry goes to the item page `/i/<id>` (Flow 11)
+  - The reader polls at its own cadence; unchanged feeds answer `304`
+- Success state: new events show up in the reader within about five minutes of publishing
+- Failure or edge states: the event expired between the poll and the click → the item page's not-found state (404, `noindex`); a reader that sorts by `pubDate` shows newest-created first instead of chronological order
+
+### Flow 14 (AI agent) — Reporting on an event's performance through MCP
+- Trigger: an editor asks the agent (Claude Desktop, Cursor, Claude iOS) how an announcement performed
+- Steps: the agent finds the item id (`list_cards` / `get_top_items`), calls `get_item_stats` for the wanted range, optionally `get_short_link_stats` per channel, and summarises totals, trend vs the previous period and the best channel
+- Success state: numbers match the admin dashboard's totals for the same days in the same time zone (`tz`, default Europe/Bucharest)
+- Edge states: unknown or deleted item → tool error; no events in the previous period → `previous.*ChangePct = null` for that metric; no events in range → zeros
+
+### Flow 15 (AI agent) — Creating a short link through MCP
+- Trigger: an editor asks for a trackable link for a channel (WhatsApp group, flyer QR)
+- Steps: `create_short_link(itemId, label, siteSlug?)`; the agent returns the `url`; the link appears in the content editor's "Link-uri scurte" tab and in `/admin/logs` as `short-link.create`
+- Edge states: item without a link → `warning`, the link redirects to `/` until a link is set; unknown site → error

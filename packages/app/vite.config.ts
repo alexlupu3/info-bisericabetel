@@ -30,7 +30,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        navigateFallbackDenylist: [/^\/admin/, /^\/s\//],
+        // Server-only routes (specs 02, 03): never answer them with the app shell. Workbox
+        // matches pathname + search, so the feed patterns allow a query (?lang=).
+        navigateFallbackDenylist: [
+          /^\/admin/,
+          /^\/s\//,
+          /^\/robots\.txt$/,
+          /^\/sitemap\.xml$/,
+          /^\/feed\.xml(?:\?|$)/,
+          /^\/[^/]+\/feed\.xml(?:\?|$)/,
+          /^\/llms\.txt(?:\?|$)/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.method === 'GET' && request.url.includes('/api/'),
@@ -47,6 +57,25 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
+        target: process.env.API_TARGET ?? 'http://localhost:3100',
+        changeOrigin: true,
+      },
+      // Crawler endpoints served by the API (spec 03)
+      '/robots.txt': {
+        target: process.env.API_TARGET ?? 'http://localhost:3100',
+        changeOrigin: true,
+      },
+      '/sitemap.xml': {
+        target: process.env.API_TARGET ?? 'http://localhost:3100',
+        changeOrigin: true,
+      },
+      // Event feeds and the agent index served by the API (spec 02): /feed.xml,
+      // /:siteSlug/feed.xml and /llms.txt
+      '^/([^/]+/)?feed\\.xml(\\?|$)': {
+        target: process.env.API_TARGET ?? 'http://localhost:3100',
+        changeOrigin: true,
+      },
+      '/llms.txt': {
         target: process.env.API_TARGET ?? 'http://localhost:3100',
         changeOrigin: true,
       },
