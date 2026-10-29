@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from 'crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'crypto'
 import { promises as fsp } from 'fs'
 import { join } from 'path'
 import type { FastifyInstance } from 'fastify'
@@ -14,6 +14,7 @@ import { resortGroupChronologically } from '../services/group-order.js'
 import { getAnalyticsOverview, getItemStats, getShortLinkStats, getTopItems } from '../services/analytics-stats.js'
 import { createShortLink, listShortLinks } from '../services/short-links.js'
 import { isServiceError } from '../services/errors.js'
+import { MCP_SESSION_LIMITS, SessionRegistry } from '../services/mcp-sessions.js'
 import { invalidContentData } from '../services/content-validation.js'
 import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
@@ -27,7 +28,9 @@ const MCP_BODY_LIMIT = 8 * 1024 * 1024
 
 const MCP_ACTOR = 'mcp@betel'
 
-const sessions = new Map<string, StreamableHTTPServerTransport>()
+// Idle/age-expiring, size-capped session registry (FR-084 hardening, ADR-015).
+const sessions = new SessionRegistry<StreamableHTTPServerTransport>(MCP_SESSION_LIMITS)
+const SESSION_SWEEP_MS = 60_000
 
 function err(msg: string): ToolResult {
   return { isError: true, content: [{ type: 'text', text: msg }] }
@@ -306,16 +309,21 @@ export async function mcpRoutes(app: FastifyInstance) {
     return
   }
 
-  // Constant-time comparison of the bearer header (FR-084).
-  const expected = Buffer.from(`Bearer ${MCP_SECRET}`)
+  // Expire abandoned sessions even when no new session is being created.
+  const sweeper = setInterval(() => { sessions.sweep() }, SESSION_SWEEP_MS)
+  sweeper.unref()
+  app.addHook('onClose', async () => {
+    clearInterval(sweeper)
+    sessions.closeAll()
+  })
+
+  // Constant-time comparison of the bearer header (FR-084). Both sides are hashed to
+  // fixed-length SHA-256 digests first, so timingSafeEqual always compares the candidate
+  // with the expected value and the time taken does not depend on the header's length.
+  const expected = createHash('sha256').update(`Bearer ${MCP_SECRET}`).digest()
   function authorized(header: unknown): boolean {
     if (typeof header !== 'string') return false
-    const given = Buffer.from(header)
-    if (given.length !== expected.length) {
-      timingSafeEqual(expected, expected) // keep the work similar for mismatched lengths
-      return false
-    }
-    return timingSafeEqual(given, expected)
+    return timingSafeEqual(createHash('sha256').update(header).digest(), expected)
   }
 
   function requireAuth(req: any, reply: any, done: any) {
@@ -340,7 +348,7 @@ export async function mcpRoutes(app: FastifyInstance) {
     if (!transport) {
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (id) => { sessions.set(id, transport!) },
+        onsessioninitialized: (id) => { sessions.add(id, transport!) },
       })
       transport.onclose = () => {
         if (transport!.sessionId) sessions.delete(transport!.sessionId)
@@ -371,8 +379,8 @@ export async function mcpRoutes(app: FastifyInstance) {
     if (sessionId) {
       const transport = sessions.get(sessionId)
       if (transport) {
-        await transport.close()
         sessions.delete(sessionId)
+        await transport.close()
       }
     }
     reply.raw.writeHead(200)

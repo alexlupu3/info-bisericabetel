@@ -10,7 +10,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 - **Password storage:** bcrypt hashes with salt rounds 12, for all write paths (setup, user creation, reset, change password).
 - **Forced password change:** new users and reset users get `must_change_password = true`. The admin SPA then routes the user only to the change-password screen. This is enforced **client-side only**: the API does not reject other requests from a user whose token has `mustChangePassword: true`. `POST /api/auth/change-password` requires the current password and a new password of at least 8 characters, and clears the flag.
 - **First-admin bootstrap:** `POST /api/setup` creates a `super-admin` (password of at least 8 characters) **only when the `users` table is empty**. Once any user exists it returns 409. It is unauthenticated by design. On a fresh deployment, whoever calls it first becomes super-admin, so run it immediately after the first deploy (or use the `seed-admin` script).
-- **Remote MCP:** `/mcp` requires `Authorization: Bearer <MCP_SECRET>`. It is registered only when `MCP_SECRET` is set. See [ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md).
+- **Remote MCP:** `/mcp` requires `Authorization: Bearer <MCP_SECRET>`. It is registered only when `MCP_SECRET` is set. Sessions live in memory and are bounded: closed after 30 minutes idle or 24 hours of age, at most 50 at a time (the least recently used is evicted). See [ADR-015](../decisions/ADR-015-remote-mcp-endpoint.md).
 - **Stdio MCP:** uses a normal admin account (`BETEL_EMAIL` / `BETEL_PASSWORD`) through the login endpoint. See [ADR-012](../decisions/ADR-012-mcp-server.md).
 
 ### Authorization
