@@ -19,7 +19,10 @@ async function isBrandInUse(name: string): Promise<boolean> {
 // `/uploads/og/brand-<hex>.jpg`, generated on first request. Registered next to the
 // `/uploads/` static plugin; Fastify prefers this parametric route over its wildcard.
 export async function ogImageRoute(app: FastifyInstance) {
-  app.get<{ Params: { name: string } }>('/uploads/og/:name', async (req, reply) => {
+  // Per IP: generous for link-preview crawlers, bounds anyone looping over names.
+  app.get<{ Params: { name: string } }>('/uploads/og/:name', {
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
+  }, async (req, reply) => {
     const { name } = req.params
     if (!OG_NAME_PATTERN.test(name)) return reply.code(404).send({ error: 'Not Found' })
     if (name.startsWith('brand-') && !(await isBrandInUse(name))) return reply.code(404).send({ error: 'Not Found' })
