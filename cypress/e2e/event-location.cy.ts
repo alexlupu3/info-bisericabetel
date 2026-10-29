@@ -193,6 +193,15 @@ describe('Public card — event location', () => {
     cy.get('time').parent('p').next().should('have.attr', 'data-testid', 'event-location')
   })
 
+  it('centres a glyph on each metadata row with a 4px gap', () => {
+    visitPublic([{ ...publicItem, id: 'p-rows', data: { title: 'Seară de tineret', startDate: '2099-11-14', location: 'Sala mare' } }])
+    cy.get('time').parent('p').as('dateRow')
+    for (const row of ['@dateRow', '[data-testid="event-location"]']) {
+      cy.get(row).should('have.css', 'align-items', 'center').and('have.css', 'column-gap', '4px')
+        .children('svg[aria-hidden="true"]').should('have.length', 1)
+    }
+  })
+
   it('renders the location on a card without a date', () => {
     visitPublic([{ ...publicItem, id: 'p-undated', data: { title: 'Grup de rugăciune', location: 'Sala mică' } }])
     cy.contains('Grup de rugăciune').parents('article').within(() => {

@@ -4,6 +4,7 @@ import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import FeedImage from './FeedImage'
 import EventLocation from './EventLocation'
+import { CalendarIcon, META_ROW_CLASS } from './meta-icons'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
 
@@ -58,8 +59,9 @@ export default function CardItem({
   const horizontal = variant === 'horizontal'
 
   const dateLine = when && (
-    <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-      {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : when.text}
+    <p className={`${META_ROW_CLASS} mb-2`}>
+      <CalendarIcon />
+      {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : <span>{when.text}</span>}
     </p>
   )
 

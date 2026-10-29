@@ -63,13 +63,24 @@ function siteLabel(item: FeedItem, ctx: RenderContext): string {
   return `<div class="flex flex-wrap gap-x-2 gap-y-0.5 -mt-1 mb-3"><span class="text-sm font-bold font-content">${escapeHtml(site.name)}</span></div>`
 }
 
+// Mirror of packages/app/src/public/components/content/meta-icons.tsx: metadata row
+// classes and the calendar / map-pin glyphs of the date and location rows.
+const META_ROW_CLASS = 'flex items-center gap-1 text-[10px] tracking-widest uppercase font-content text-[var(--muted)]'
+const META_ICON_OPEN = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-[1.2em] w-[1.2em] shrink-0" aria-hidden="true" focusable="false">'
+const CALENDAR_ICON = META_ICON_OPEN
+  + '<rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.75"/>'
+  + '<path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>'
+const MAP_PIN_ICON = META_ICON_OPEN
+  + '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>'
+  + '<circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.75"/></svg>'
+
 function whenLine(item: FeedItem): string {
   const when = itemWhen(item.data, DATE_LOCALE)
   if (!when) return ''
   const inner = when.dateTime
     ? `<time datetime="${escapeHtml(when.dateTime)}">${escapeHtml(when.text)}</time>`
-    : escapeHtml(when.text)
-  return `<p class="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">${inner}</p>`
+    : `<span>${escapeHtml(when.text)}</span>`
+  return `<p class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
 }
 
 /** Mirror of EventLocation.tsx (spec 07): map pin + visually-hidden label + the location text. */
@@ -77,10 +88,7 @@ function locationLine(item: FeedItem): string {
   const location = readLocation(item.data)
   if (!location) return ''
   const spacing = itemWhen(item.data, DATE_LOCALE) ? '-mt-1 mb-2' : 'mb-2'
-  return `<p class="flex items-start gap-1.5 text-[10px] tracking-widest uppercase font-content text-[var(--muted)] ${spacing}" data-testid="event-location">`
-    + `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-[1.2em] w-[1.2em] shrink-0" aria-hidden="true" focusable="false">`
-    + `<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>`
-    + `<circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.75"/></svg>`
+  return `<p class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
     + `<span class="sr-only">${escapeHtml(UI_DEFAULTS['location.label'])}: </span>`
     + `<span class="min-w-0 break-words">${escapeHtml(location)}</span></p>`
 }
