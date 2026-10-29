@@ -58,4 +58,3 @@ Spec 05, §6 and §10: `packages/shared/src/mcp-tools.ts`, `packages/api/src/ser
   - `list_short_links` returns `{ shortLinks: [...] }` on both surfaces (same body as `GET /api/admin/short-links`).
   - The legacy remote `upload_media` now accepts the optional `mimeType` of the contract and rejects non-`image/*` values with the stdio server's message; `startTime` moved into the contract (`clockTimeSchema`), so both surfaces validate its format up front.
   - The parity script (`packages/mcp/src/parity-check.ts`) discovers an item id and short-link code from the remote surface when `PARITY_ITEM_ID` / `PARITY_CODE` are not set.
-
