@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildEventFeed, type FeedEntry, type FeedInput, type FeedSite } from './rss.js'
+import { actionLink, buildEventFeed, type FeedEntry, type FeedInput, type FeedSite } from './rss.js'
 import { buildLlmsTxt } from './llms-txt.js'
 import { interpolate, resolveFeedStrings } from './feed-strings.js'
 
@@ -279,4 +279,13 @@ test('llms.txt keeps an editor-controlled site name on one line (regression)', (
   assert.doesNotMatch(txt, /^- \[x\]/m)
   assert.ok(!txt.includes('\u0000'))
   assert.match(txt, /^- \[Evil ## Injected - \\\[x\\\]\(https:\/\/attacker\.test\) \\\[site\\\]\]\(https:\/\/hub\.test\/evil\/feed\.xml\): current and upcoming events for Evil ## Injected - \[x\]\(https:\/\/attacker\.test\) \[site\]$/m)
+})
+
+test('actionLink keeps absolute http(s), mailto: and tel: links and drops the rest', () => {
+  assert.equal(actionLink({ link: 'https://example.org/x' }, null), 'https://example.org/x')
+  assert.equal(actionLink({ link: 'mailto:office@example.org' }, null), 'mailto:office@example.org')
+  assert.equal(actionLink({ link: 'tel:+40700000000' }, null), 'tel:+40700000000')
+  assert.equal(actionLink({ link: '/i/abc' }, null), null)
+  assert.equal(actionLink({ link: 'javascript:alert(1)' }, null), null)
+  assert.equal(actionLink({ link: 'ftp://example.org' }, null), null)
 })

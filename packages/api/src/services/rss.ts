@@ -152,7 +152,12 @@ export function locationText(item: Pick<FeedEntry, 'data' | 'sites' | 'exclusive
   return single ? siteLabel(single) : null
 }
 
-/** Link Resolution Rule: site feed → siteLinks[slug] || link; all-sites feed → link. http(s) only. */
+/**
+ * Link Resolution Rule: site feed → siteLinks[slug] || link; all-sites feed → link.
+ * Kept when it is an absolute http(s) URL or a `mailto:` / `tel:` link (an editor may
+ * point a card at an email address or phone number, and the hub renders those too);
+ * root-relative paths and every other scheme are dropped.
+ */
 export function actionLink(data: Record<string, unknown>, feedSite: FeedSite | null): string | null {
   const siteLinks = data.siteLinks && typeof data.siteLinks === 'object' ? data.siteLinks as Record<string, unknown> : {}
   const raw = (feedSite ? str(siteLinks[feedSite.slug]) : null) ?? str(data.link)
