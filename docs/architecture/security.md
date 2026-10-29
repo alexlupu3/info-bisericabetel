@@ -1,6 +1,6 @@
 # Security
 
-All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), the event feeds (`/feed.xml`, `/:siteSlug/feed.xml`), `/llms.txt`, `/uploads/*` and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
+All REST paths below include the `/api` prefix under which every API route is registered (`packages/api/src/index.ts`). The remote MCP endpoint (`/mcp`), the short-link redirect (`/s/:code`), the event feeds (`/feed.xml`, `/:siteSlug/feed.xml`), `/llms.txt`, `/uploads/*` (including the generated `/uploads/og/*`) and `/health` are outside that prefix. Environment variables are documented in [configuration.md](configuration.md).
 
 ## Security Baseline
 
@@ -15,7 +15,7 @@ All REST paths below include the `/api` prefix under which every API route is re
 
 ### Authorization
 - **Roles:** `admin` and `super-admin` (stored in `users.role`; note the hyphen). Checks are per-route `preHandler`s after `app.authenticate` verifies the JWT.
-- **admin or super-admin:** content (`/api/admin/content/*`), groups, media, short links, analytics, and read-only listings of languages (`GET /api/admin/languages`) and UI translations (`GET /api/admin/translations`).
+- **admin or super-admin:** content (`/api/admin/content/*`), groups, media, short links (including `PATCH …/short-links/:shortLinkId` and `GET …/short-links/:shortLinkId/preview`), analytics, and read-only listings of languages (`GET /api/admin/languages`) and UI translations (`GET /api/admin/translations`).
 - **super-admin only:**
   - users: `/api/admin/users` list, create, delete, and `POST /api/admin/users/:id/reset-password`
   - site edits: `PATCH /api/admin/sites/:slug`
@@ -126,4 +126,6 @@ The SQL console is the exception to the best-effort rule: `sql_query` is written
 | SQL console shares the app's connection pool and `session_user`; it drops to `betel_sql_console` with `SET LOCAL ROLE` | A filter bypass that switches role back (`set_config('role', ...)`, `SET ROLE`, `RESET`, `UPDATE pg_settings`) regains the app's rights | Filter blocks these; use a separate `LOGIN` role and pool (ADR-018 follow-up) |
 | SQL console bypasses API business rules (soft-delete, group-delete cascade, translation jobs, FR-035) | Data written through it can violate domain rules | Prefer admin pages; use writes sparingly |
 | SQL console and `users.password_hash` | Mitigated: the console role has no column grant on `password_hash`; the residual role-switch path above could still reach it | Role grant; every run is audited |
+| Crawler UA spoofing on `/s/:code` | Reveals the content item's title/description/image (already public once published; drafts exposed only to someone holding the code) | Accepted; no privileged data; `?preview=1` makes the same page reachable by design |
+| On-demand JPEG generation at `/uploads/og/:name` | CPU per distinct image, once | Strict name pattern, one in-flight job per name, persisted result; rate-limit if abused |
 | Audit gaps (see above) and silent audit failures | Incomplete forensic trail | Extend `logAudit` coverage |

@@ -23,6 +23,7 @@ Purpose: track unresolved questions that block product or technical decisions, p
 
 ## Known Leftovers
 - Orphaned `/admin/groups` route: `packages/app/src/admin/AdminApp.tsx` still registers `groups` → `GroupsPage` (`packages/app/src/admin/pages/GroupsPage.tsx`), although group management moved to the Content page (ADR-002) and the route is not linked from the navigation. Decision: remove the route and `GroupsPage`. Status: TO DO (not an open question any more).
+- Short-link previews (FR-085–FR-089) are implemented but not yet checked on the real platforms (Meta Sharing Debugger, WhatsApp, Telegram). Status: TO DO.
 - Archived-item filter (FR-016) and site creation (FR-019) are specified but not implemented; see `docs/product/requirements.md`.
 
 ## Resolved (answers recorded in docs)

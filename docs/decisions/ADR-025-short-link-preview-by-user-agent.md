@@ -1,9 +1,9 @@
 # ADR-025: Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented 2026-10-29)
 - **Date:** 2026-10-28
-- **Related:** ADR-011 (dynamic destination resolution), ADR-013 (HTTP cache strategy), ADR-003 (media library), ADR-022 (server-side head injection; `PUBLIC_BASE_URL` contract)
-- **Implements:** FR-085 – FR-089 (proposed; spec `docs/product/specs/06-short-link-previews.md`), BR-045 – BR-046 (proposed)
+- **Related:** ADR-011 (dynamic destination resolution), ADR-013 (HTTP cache strategy), ADR-003 (media library), ADR-022 (server-side head injection; `PUBLIC_BASE_URL` contract), ADR-021 (RSS enclosures link the original upload, not the derivative), ADR-024 (MCP shared tool contract)
+- **Implements:** FR-085 – FR-089, BR-045 – BR-046 (`docs/product/requirements.md`, `docs/domain/business-rules.md`; the spec `06-short-link-previews.md` was removed after shipping, see git history)
 
 ## Context
 
@@ -45,11 +45,12 @@ Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and 
 ## Implementation
 
 - `packages/api/src/routes/short-links.ts` — `X-Robots-Tag` first, then the preview branch before the click log; `?lang`, `?preview`.
-- `packages/api/src/services/share-preview.ts` — `isPreviewCrawler`, `pickLocale`, `resolvePreview`, `renderPreviewHtml`; chains unit-tested in `share-preview.test.ts`.
-- `packages/api/src/services/preview-image.ts` — image chain and derivative paths.
-- `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts` — derivative generation with the size guard and `GET /uploads/og/:name`.
+- `packages/api/src/services/share-preview.ts` — pure: `PREVIEW_CRAWLER_TOKENS`, `isPreviewCrawler`, `pickLocale`, `buildPreview`, `previewDescription`, `safeDestination`, `renderPreviewHtml`; unit-tested in `share-preview.test.ts`. `resolvePreview()` (loads the rows), `updateShortLinkPreviewMode()` and `getShortLinkPreview()` live in `services/short-links.ts`.
+- `packages/api/src/services/preview-image.ts` — `itemImageUrl`, `ogDerivativePath` (null for anything but `/uploads/<uuid>.webp`), `brandDerivativePath`, `accentHex`, `OG_NAME_PATTERN`.
+- `packages/api/src/services/og-image.ts`, `packages/api/src/routes/og-image.ts` — `ensureOgImage` (size guard, in-flight dedup), `deleteOgDerivative` (called by `DELETE /api/admin/media/:id`), `configureOgImages`, and `GET /uploads/og/:name`.
+- `packages/api/src/routes/admin/short-links.ts` — `PATCH …/short-links/:shortLinkId` (audit `short-link.update`) and `GET …/short-links/:shortLinkId/preview?locale=`; `packages/shared/src/mcp-tools.ts` — optional `previewMode` on `create_short_link` (both MCP surfaces).
 - `packages/api/src/db/migrations/0014_short_link_preview_mode.sql`, `schema.ts`, `packages/shared/src/index.ts`.
-- `packages/app/src/admin/components/content/ShortLinksTab.tsx` — share-card preview, mode selector, language variants.
+- `packages/app/src/admin/components/content/ShortLinksTab.tsx`, `ShortLinkPreviewPanel.tsx` — share-card preview, mode selector, language variants.
 
 ## Consequences
 
@@ -60,3 +61,14 @@ Serving the uploaded WebP directly was rejected: no size cap, wrong aspect, and 
 - `uploads/og/` grows by one ≤ 300 KB file per shared image plus one per accent colour in use; media derivatives are removed with their media row, brand derivatives are never removed automatically, and the whole folder can be deleted wholesale at any time (regenerated on demand).
 - A rare very-noisy source image may be served smaller than 1200×630 or replaced by the brand image rather than exceed the bound; the page always declares the real dimensions, and a warning is logged so it can be looked at.
 - A production deploy without `PUBLIC_BASE_URL` fails at startup (spec 03's rule), which is the intended guard: a running production API always builds absolute `og:image` / `og:url` values.
+
+## Update History
+
+- 2026-10-29: Implemented with spec 06. Notes on the as-built state, where it refines the text above:
+  - Only Cards and Posters can be previewed. The title chain reads Card `data.title`; a Poster has no title (never `data.name`), so it is eligible through its image only; Richtext and Video items are ineligible and keep the `302`.
+  - `og:site_name` is spec 03's value, `SEO_ORG_NAME` (default "Biserica Baptistă Betel"); a site-scoped link uses `<site name> · <share name>`. The title fallback is that same share name. `og:locale` reuses spec 03's `ogLocale()` (`en` → `en_US`).
+  - The description's "when" text uses the RSS long format (`feedWhenText`, e.g. `sâmbătă, 14 noiembrie 2026, 18:00 · Sala mare`); an authored description is Markdown-stripped and truncated to 200 characters.
+  - The size guard's final fallback is the neutral brand image (`#111111`, stored under the media name), not a per-site accent.
+  - The admin preview endpoint resolves the default language to the bare short URL and other languages to `?lang=<code>`. Changing a link's mode writes the audit entry `short-link.update`.
+  - Open questions settled with the spec defaults: existing links default to `content`; no per-link image or title overrides; letter-box over blur-crop; drafts and archived items are previewed like published ones (the page only holds data an admin typed for sharing); no `link_preview` analytics event; search crawlers keep the `302`.
+  - Item pages `/i/:itemId` (ADR-022) also use the `/uploads/og/` derivative for `og:image` (resolved in `services/seo/page-data.ts`, emitted by `render-head.ts`). Not yet checked on the real platforms (Meta Sharing Debugger, WhatsApp, Telegram).

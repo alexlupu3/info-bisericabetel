@@ -19,4 +19,6 @@ Define business and ministry terms exactly once and reuse them consistently.
 | LanguageSwitcher | The UI toggle in the public hub footer that allows users to switch the display language | Preference is persisted in localStorage under the key `betel-lang` |
 | Translation status badge | An indicator shown on admin content list items when translations are missing or incomplete for one or more enabled non-default languages | Visible in the admin content list; not shown on the public hub |
 | Short link | A short URL in the form `/s/<code>` that redirects to a content item's destination URL and logs the click server-side | Created by admins; each short link has a label identifying the distribution channel (e.g. "WhatsApp Manastur") |
+| Link preview | The card (image, title, description) a messaging app or social network renders for a shared URL, built from the page's Open Graph tags | Served for short links by FR-085 |
+| Preview mode | Per-short-link setting: `content` (preview built from the content item) or `destination` (crawler is redirected and previews the destination) | Default `content`; FR-088 |
 | Distribution channel | An admin-assigned label on a short link identifying how or where the link was shared (e.g. "QR cod intrare", "WhatsApp Manastur") | Used to distinguish traffic sources for the same content item in analytics |

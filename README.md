@@ -24,7 +24,7 @@ Everything ships as one Fastify server that also serves the built React app, dep
 - **Public hub (PWA):** a single ordered page of cards, posters, rich text and YouTube embeds, filtered per site, in several languages. See [requirements](docs/product/requirements.md) (FR-001 to FR-011) and the [content model](docs/domain/content-model.md).
 - **Content admin:** drag-and-drop ordering, groups, draft/published/archived/deleted states, scheduling and expiry, duplication, per-site link overrides. See the Publishing and "Admin Tool — Content Management" sections of [requirements](docs/product/requirements.md) and ADR-002, ADR-004, ADR-007, ADR-009.
 - **Media library:** image uploads up to 5 MB (any `image/*`). They are re-encoded to WebP, and an image cannot be deleted while it is in use. See FR-017 and ADR-003.
-- **Short links:** admin-created `/s/<code>` links per content item, each labelled with a distribution channel. Clicks are logged and the link redirects to the item's current URL. See FR-044 and ADR-011.
+- **Short links:** admin-created `/s/<code>` links per content item, each labelled with a distribution channel. Clicks are logged and the link redirects to the item's current URL; link-preview crawlers (WhatsApp, Telegram, Slack, …) get the item's image and title instead of the destination's preview. See FR-044, FR-085–FR-089, ADR-011 and ADR-025.
 - **Analytics:** site visits and link clicks per site, with period comparison, per-item daily charts and CSV export. See FR-024, FR-025, FR-043 and ADR-008.
 - **i18n and AI translation:** Romanian is the default. Additional languages are managed in `/admin/translations`. With `OPEN_ROUTER_API_KEY` set, content and groups are auto-translated in the background. See FR-047, FR-037 to FR-041, [ADR-014](docs/decisions/ADR-014-i18n-strategy.md) and ADR-010.
 - **Error capture:** frontend errors caught by the React ErrorBoundary are listed in `/admin/error-logs`. See FR-045.
@@ -157,7 +157,7 @@ The project offers two ways to manage content and read analytics from an MCP cli
 | `get_item_stats` | Clicks of one item by source (website / each short link), site and day |
 | `get_top_items` | Items ranked by clicks in a date range |
 | `get_short_link_stats` | Clicks per short link (by code, by item, or all) |
-| `create_short_link` | Create a tracked short link for an item; returns its public URL |
+| `create_short_link` | Create a tracked short link for an item (optional `previewMode`: `content` or `destination`); returns its public URL |
 | `list_short_links` | List short links with their URL and click count |
 
 ### Remote endpoint (`/mcp`) for Claude web, iOS and other remote clients

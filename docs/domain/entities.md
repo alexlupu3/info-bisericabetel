@@ -47,11 +47,11 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 
 ### ShortLink
 - Purpose: represent a short redirect URL tied to a content item and a distribution channel label, enabling per-channel traffic tracking
-- Key attributes: id (UUID), content_item_id (FK → Content Item, cascade delete on hard-delete), code (TEXT, unique — 6-character alphanumeric, server-generated), label (TEXT — admin-assigned channel name, e.g. "WhatsApp Manastur"), site_slug (TEXT nullable — if set, `data.siteLinks[site_slug]` is used for URL resolution instead of `data.link`), created_at
+- Key attributes: id (UUID), content_item_id (FK → Content Item, cascade delete on hard-delete), code (TEXT, unique — 6-character alphanumeric, server-generated), label (TEXT — admin-assigned channel name, e.g. "WhatsApp Manastur"), site_slug (TEXT nullable — if set, `data.siteLinks[site_slug]` is used for URL resolution instead of `data.link`), preview_mode (TEXT NOT NULL DEFAULT `'content'`, CHECK `content` | `destination` — selects between the content-based link preview and the destination's own preview for crawler requests, FR-088; migration `0014_short_link_preview_mode.sql`), created_at
 - Relationships: belongs to a Content Item (FK with ON DELETE CASCADE); referenced by AnalyticsEvent.short_link_id (FK, `ON DELETE SET NULL`)
 - Lifecycle: created on demand by admins via `POST /api/admin/content/:id/short-links` or by an AI agent via the MCP `create_short_link` tool (one service, `services/short-links.ts`; both audit-logged, BR-041); deleted by admins via `DELETE /api/admin/content/:id/short-links/:shortLinkId`; cascade-deleted when the parent content item is permanently hard-deleted. Soft-deleted and archived items retain their short links.
 - Validation rules: code must be unique across all short links; label is required (1–100 characters after trimming); site_slug is optional and must match a known site slug if set (400 otherwise); the content item must exist and not be `deleted` (BR-041)
-- Notes: `url` (derived, `PUBLIC_BASE_URL` + `/s/<code>`, not stored) is returned by the list and create endpoints and the MCP tools
+- Notes: `url` (derived, `PUBLIC_BASE_URL` + `/s/<code>`, not stored) is returned by the list and create endpoints and the MCP tools. `preview_mode` is set on create (optional `previewMode`, REST and MCP) and changed by `PATCH /api/admin/content/:id/short-links/:shortLinkId` (audit `short-link.update`); it is returned as `previewMode`. Preview behaviour: BR-045, FR-085–FR-089, ADR-025.
 - Notes: the redirect endpoint (`GET /s/:code`, no `/api` prefix) is registered before the SPA static-serving handler so the code route is not intercepted by the SPA fallback. URL resolution and cascade rules: BR-011, BR-012. See FR-044 and ADR-011.
 
 ### Media
@@ -60,6 +60,7 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 - Relationships: referenced by Content Items via JSONB fields (`data.imageUrl` for Posters, `data.thumbnail` for Cards)
 - Lifecycle: created on upload via `POST /api/admin/media` (or the MCP `upload_media` tool); deleted by admin via `DELETE /api/admin/media/:id` only when no content items reference it
 - Validation rules: input must be an `image/*` MIME type, max 5 MB; every upload is re-encoded to WebP (see content-model.md — Image Handling); URL is immutable after creation
+- Notes: a crawler-safe derivative `/uploads/og/<uuid>.jpg` is generated on demand and deleted with the media row; `brand-<accent-hex>.jpg` derivatives are not tied to any row (FR-087).
 - Notes: usage is detected by querying content_items JSONB fields rather than a foreign key relationship. See ADR-003 for rationale and the maintenance obligation if new content types introduce image fields with different names.
 
 ### Language
