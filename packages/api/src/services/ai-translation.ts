@@ -1,6 +1,7 @@
 import { eq, and, ne } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { languages, contentTranslations, groupTranslations, uiTranslations } from '../db/schema.js'
+import { sanitizeTranslatedLocation } from './event-location.js'
 
 const OPEN_ROUTER_BASE = 'https://openrouter.ai/api/v1'
 const MODEL = 'anthropic/claude-haiku-4.5'
@@ -14,7 +15,8 @@ Rules:
 3. Preserve the exact JSON structure — only change string values that contain natural language text
 4. Fields named "imageUrl", "thumbnail", "url", "link", "href", "src" must be left unchanged
 5. Return ONLY valid JSON with no explanation, markdown, or code fences
-6. Translations should be accurate and suitable for a Christian church audience`
+6. Translations should be accurate and suitable for a Christian church audience
+7. The field "location" is a short venue name or address (max 70 characters): translate common nouns such as hall, church, park or floor, but keep proper names, street names and numbers unchanged`
 
 interface OpenRouterUsage {
   prompt_tokens: number
@@ -167,6 +169,7 @@ export async function scheduleContentTranslation(
         for (const { code } of targetLocales) {
           const translatedData = translations[code]
           if (!translatedData || typeof translatedData !== 'object') continue
+          sanitizeTranslatedLocation(translatedData as Record<string, unknown>, contentItemId, code)
           await db.insert(contentTranslations)
             .values({ contentItemId, locale: code, data: translatedData as Record<string, unknown>, updatedAt: new Date() })
             .onConflictDoUpdate({
@@ -197,6 +200,7 @@ export async function scheduleContentTranslation(
             const existing = existingByLocale.get(code)!
             const newFields = partialTranslations[code]
             if (!newFields || typeof newFields !== 'object') continue
+            sanitizeTranslatedLocation(newFields as Record<string, unknown>, contentItemId, code)
             const mergedData = { ...existing.data as Record<string, unknown>, ...newFields as Record<string, unknown> }
             await db.update(contentTranslations)
               .set({ data: mergedData, updatedAt: new Date() })
@@ -215,6 +219,7 @@ export async function scheduleContentTranslation(
           for (const { code } of localesNeedingFull) {
             const translatedData = fullTranslations[code]
             if (!translatedData || typeof translatedData !== 'object') continue
+            sanitizeTranslatedLocation(translatedData as Record<string, unknown>, contentItemId, code)
             await db.insert(contentTranslations)
               .values({ contentItemId, locale: code, data: translatedData as Record<string, unknown>, updatedAt: new Date() })
               .onConflictDoNothing()
