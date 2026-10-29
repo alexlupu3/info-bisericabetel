@@ -86,7 +86,7 @@ export default function SitesComparisonChart({ data, metric, period }: Props) {
           <Line
             type="monotone"
             dataKey="total"
-            stroke="#ffffff"
+            stroke="var(--text)"
             strokeWidth={2}
             dot={false}
             name="Total"

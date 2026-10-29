@@ -180,7 +180,7 @@ function SiteCard({ site }: { site: Site }) {
             </button>
           </div>
           {updateMut.isError && (
-            <p className="text-red-400 text-sm font-content">
+            <p className="text-[var(--danger)] text-sm font-content">
               {(updateMut.error as any)?.message ?? 'Eroare la salvare'}
             </p>
           )}

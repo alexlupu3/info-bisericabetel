@@ -81,7 +81,7 @@ export default function AnalyticsPage() {
 
       {/* Loading / Error for overview */}
       {overview.isLoading && <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>}
-      {overview.isError && <p className="text-red-400 font-content text-sm">Eroare la încărcare.</p>}
+      {overview.isError && <p className="text-[var(--danger)] font-content text-sm">Eroare la încărcare.</p>}
 
       {overview.data && (
         <>
@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
 
       {/* Items table */}
       {items.isLoading && <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>}
-      {items.isError && <p className="text-red-400 font-content text-sm">Eroare la încărcare.</p>}
+      {items.isError && <p className="text-[var(--danger)] font-content text-sm">Eroare la încărcare.</p>}
 
       {items.data && (
         <ItemsTable

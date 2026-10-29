@@ -94,7 +94,7 @@ export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Pro
           <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>
         )}
         {isError && (
-          <p className="text-red-400 font-content text-sm">Eroare la încărcare.</p>
+          <p className="text-[var(--danger)] font-content text-sm">Eroare la încărcare.</p>
         )}
 
         {data && (

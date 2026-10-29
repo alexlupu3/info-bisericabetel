@@ -35,7 +35,7 @@ export default function StatCard({ label, value, change, active, onClick }: Prop
         <span
           className={[
             'flex items-center gap-0.5 text-sm tabular-nums',
-            change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-[var(--muted)]',
+            change > 0 ? 'text-[var(--success)]' : change < 0 ? 'text-[var(--danger)]' : 'text-[var(--muted)]',
           ].join(' ')}
         >
           {change > 0 && <TrendingUp size={14} />}

@@ -233,7 +233,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
                     title="Șterge link"
                     aria-label="Șterge link"
                     data-testid={`short-link-delete-${link.id}`}
-                    className="flex-shrink-0 text-[var(--muted)] hover:text-red-400 transition-colors p-1"
+                    className="flex-shrink-0 text-[var(--muted)] hover:text-[var(--danger)] transition-colors p-1"
                   >
                     <Trash2 size={13} />
                   </button>
