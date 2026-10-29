@@ -107,6 +107,12 @@ Dumps are cached in the gitignored `.local/`. Live users, including their passwo
 | `LIVE_PUBLIC_URL` | No | `https://info.bisericabetel.com` | Base URL of the public website (also `--base URL`). |
 | `UPLOADS_DIR` | No | `packages/uploads` | Where dev images are written; same meaning as for the API. |
 
+### If seeding fails
+
+Both scripts validate and stage everything before they touch the target: images are copied into `<uploads>/.incoming`, then the database is replaced, then the staged images are swapped in. A failure before the database step leaves the target unchanged.
+
+The swap itself is not atomic (a Docker volume root cannot be renamed). If it fails part-way, which needs the disk or Docker to fail during a same-disk delete and rename, the database is already replaced while images are incomplete, and the staged copy stays in `.incoming`. This is an accepted residual risk for local environments: recover by re-running the same command. `pnpm seed:dev --reuse` / `seed:staging --reuse` restore from the cached files in `.local/` without downloading from live again; `seed:public:*` simply fetch again. A leftover `.incoming` folder is safe to delete; the next run replaces it anyway.
+
 ## Removed variables
 
 The following appeared in earlier templates. No code reads them:

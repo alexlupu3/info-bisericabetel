@@ -19,6 +19,8 @@
 // Local users, analytics, audit and error logs are kept; all content, groups,
 // media rows, translations (incl. UI strings) and short links are replaced.
 // The target database must already be migrated (start the API once).
+// If a run fails after the database was written, re-run it; see
+// docs/architecture/configuration.md → "If seeding fails".
 // ─────────────────────────────────────────────────────────────────────────────
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -219,8 +221,12 @@ try {
   }
 
   log('Replacing images')
-  inUploads(`find "$1" -mindepth 1 -maxdepth 1 ! -name .incoming -exec rm -rf {} + &&
-    find "$1/.incoming" -mindepth 1 -maxdepth 1 -exec mv {} "$1/" \\; && rmdir "$1/.incoming"`)
+  try {
+    inUploads(`find "$1" -mindepth 1 -maxdepth 1 ! -name .incoming -exec rm -rf {} + &&
+      find "$1/.incoming" -mindepth 1 -maxdepth 1 -exec mv {} "$1/" \\; && rmdir "$1/.incoming"`)
+  } catch {
+    throw new Error(`replacing images failed after the database was written; re-run: pnpm seed:public:${target}`)
+  }
   log(`Done. Open ${target === 'dev' ? 'http://localhost:5173' : `http://localhost:${process.env.STAGING_APP_PORT || 8080}`}`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

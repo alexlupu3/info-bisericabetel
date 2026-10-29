@@ -21,6 +21,9 @@
 #   --skip-uploads     leave uploads untouched
 #   -y, --yes          do not ask for confirmation
 #
+# If a run fails after the database was replaced, re-run with --reuse; see
+# docs/architecture/configuration.md → "If seeding fails".
+#
 # Only Docker is needed locally: pg_restore/psql run inside the target's
 # PostgreSQL container.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -219,7 +222,7 @@ if [ $SKIP_UPLOADS = 0 ]; then
     sh -c "$SWAP_SH" sh "$DEV_UPLOADS"
   else
     docker run --rm -v betel-staging_uploads:/u alpine:3 sh -c "$SWAP_SH" sh /u
-  fi
+  fi || die "replacing uploads failed after the database was restored; re-run: $0 $TARGET --reuse --yes"
 fi
 
 # ─── 7. Bring the target back ────────────────────────────────────────────────
