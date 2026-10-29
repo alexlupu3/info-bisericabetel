@@ -82,9 +82,14 @@ export function renderHead(model: PageModel): RenderedHead {
   const indexable = model.kind === 'hub' || model.kind === 'site' || model.kind === 'item'
   const canonical = indexable ? absoluteUrl(model.path, baseUrl) : null
 
+  // Item pages prefer the crawler-safe derivative (spec 06 FR-087), then the original image,
+  // then the organisation logo.
+  const share = model.kind === 'item' ? model.shareImage : null
   const ownImage = model.kind === 'item' && model.item ? itemImagePath(model.item) : null
-  const image = absoluteUrl(ownImage ?? config.orgLogoPath, baseUrl)
+  const image = absoluteUrl(share ? `/uploads/og/${share.name}` : ownImage ?? config.orgLogoPath, baseUrl)
   const knownLogoSize = !ownImage && config.orgLogoPath === DEFAULT_LOGO_PATH ? DEFAULT_LOGO_SIZE : null
+  const imageWidth = share ? share.width : knownLogoSize
+  const imageHeight = share ? share.height : knownLogoSize
 
   const tags: Array<string | null> = [
     meta('name', 'description', description),
@@ -99,8 +104,9 @@ export function renderHead(model: PageModel): RenderedHead {
     meta('property', 'og:type', model.kind === 'item' ? 'article' : 'website'),
     meta('property', 'og:site_name', config.orgName),
     meta('property', 'og:image', image),
-    meta('property', 'og:image:width', knownLogoSize),
-    meta('property', 'og:image:height', knownLogoSize),
+    meta('property', 'og:image:type', share ? 'image/jpeg' : null),
+    meta('property', 'og:image:width', imageWidth),
+    meta('property', 'og:image:height', imageHeight),
     meta('property', 'og:locale', ogLocale(model.lang)),
     meta('name', 'twitter:card', ownImage ? 'summary_large_image' : 'summary'),
   ]

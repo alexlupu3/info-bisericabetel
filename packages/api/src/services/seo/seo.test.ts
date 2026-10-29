@@ -106,6 +106,27 @@ test('item page: Event with Bucharest offset, Place from the resolved site, Chur
   assert.match(head.tags, /name="twitter:card" content="summary_large_image"/)
 })
 
+test('item page og:image: share derivative when resolved, original image otherwise', () => {
+  const it = item(UUID(10), { data: { title: 'Afiș', thumbnail: `/uploads/${UUID(11)}.webp` } })
+  const withShare = renderHead(buildPageModel({
+    kind: 'item', path: `/i/${UUID(10)}`, baseUrl: BASE, config, sites, languages, item: it,
+    shareImage: { name: `${UUID(11)}.jpg`, width: 900, height: 472 },
+  }))
+  assert.match(withShare.tags, new RegExp(`property="og:image" content="https://hub\\.test/uploads/og/${UUID(11)}\\.jpg"`))
+  assert.match(withShare.tags, /property="og:image:type" content="image\/jpeg"/)
+  assert.match(withShare.tags, /property="og:image:width" content="900"/)
+  assert.match(withShare.tags, /property="og:image:height" content="472"/)
+  assert.match(withShare.tags, /name="twitter:card" content="summary_large_image"/)
+
+  const without = renderHead(buildPageModel({ kind: 'item', path: `/i/${UUID(10)}`, baseUrl: BASE, config, sites, languages, item: it }))
+  assert.match(without.tags, new RegExp(`property="og:image" content="https://hub\\.test/uploads/${UUID(11)}\\.webp"`))
+  assert.doesNotMatch(without.tags, /og:image:(type|width)/)
+
+  // Hub and site pages never carry a share derivative: the logo stays.
+  const hub = buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items: [], shareImage: { name: 'x.jpg', width: 1, height: 1 } })
+  assert.equal(hub.shareImage, null)
+})
+
 test('item without a resolvable site is not an Event; multi-day events use date-only startDate', () => {
   const noSite = buildPageModel({ kind: 'item', path: '/i/x', baseUrl: BASE, config, sites, languages, item: item(UUID(8), { data: { startDate: '2099-01-01' } }) })
   assert.deepEqual(graphTypes(buildStructuredData(noSite)), ['WebPage'])

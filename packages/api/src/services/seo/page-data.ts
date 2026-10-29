@@ -8,6 +8,8 @@ import { db } from '../../db/client.js'
 import { languages, sites } from '../../db/schema.js'
 import { DEFAULT_LOCALE, findPublicItem, listPublicContent } from '../public-content.js'
 import { publicBaseUrl } from '../public-url.js'
+import { ensureOgImage, type OgImage } from '../og-image.js'
+import { itemImageUrl, ogDerivativePath } from '../preview-image.js'
 import { seoConfig } from './organization.js'
 import { buildPageModel, type FeedItem, type PageModel, type PublicSite } from './page-model.js'
 
@@ -17,6 +19,22 @@ export async function loadSites(): Promise<PublicSite[]> {
 
 export async function loadLanguages(): Promise<Language[]> {
   return db.select().from(languages).where(eq(languages.enabled, true)).orderBy(desc(languages.isDefault), asc(languages.code))
+}
+
+/**
+ * The item's 1200×630 share-image derivative (spec 06 FR-087), generated on first use so
+ * og:image:width/height are real; null when the item has no uploaded image or it fails.
+ */
+async function loadShareImage(item: FeedItem): Promise<OgImage | null> {
+  const upload = itemImageUrl(item.type, item.data)
+  const path = upload ? ogDerivativePath(upload) : null
+  if (!path) return null
+  try {
+    return await ensureOgImage(path.slice('/uploads/og/'.length))
+  } catch (e) {
+    console.error(`seo: could not build ${path}`, e)
+    return null
+  }
 }
 
 export type PageRequest =
@@ -41,6 +59,9 @@ export async function loadPageModel(req: PageRequest): Promise<PageModel> {
   }
 
   const found = await findPublicItem(req.itemId, DEFAULT_LOCALE)
-  if (found.status === 'visible') return buildPageModel({ ...common, kind: 'item', item: found.item as FeedItem })
+  if (found.status === 'visible') {
+    const item = found.item as FeedItem
+    return buildPageModel({ ...common, kind: 'item', item, shareImage: await loadShareImage(item) })
+  }
   return buildPageModel({ ...common, kind: found.status === 'gone' ? 'gone' : 'not-found' })
 }

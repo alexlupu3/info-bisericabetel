@@ -3,9 +3,9 @@
 // already locale-merged (a locale override wins over the base image); the server
 // renders the default locale, so this is the base image there.
 //
-// Spec 06's share-image service (services/preview-image.ts, 1200×630 derivatives)
-// does not exist yet; until it does, og:image on item pages is this image made
-// absolute, with the organisation logo as the last fallback (spec 03 §6.2.3).
+// og:image on item pages uses spec 06's 1200×630 derivative of an uploaded image
+// (services/preview-image.ts + og-image.ts, resolved in page-data.ts); this path is the
+// fallback for images outside /uploads/ and for JSON-LD Event.image (rule (a) only).
 
 import { safeUrl } from './escape.js'
 import type { FeedItem } from './page-model.js'
