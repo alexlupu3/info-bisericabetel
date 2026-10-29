@@ -13,9 +13,18 @@ export interface LlmsTxtInput {
   languages: Array<{ code: string; isDefault: boolean }>
 }
 
-/** Link text inside `[...]`: brackets escaped so a site name cannot break the Markdown link. */
+/**
+ * An editor-controlled value on one line: control characters (newlines included)
+ * become spaces and runs of whitespace collapse, so a site name cannot start a new
+ * heading or link line in the document.
+ */
+function oneLine(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Link text inside `[...]`: one line, brackets escaped so a site name cannot break the Markdown link. */
 function linkText(text: string): string {
-  return text.replace(/[\\[\]]/g, ch => `\\${ch}`).replace(/\s+/g, ' ').trim()
+  return oneLine(text).replace(/[\\[\]]/g, ch => `\\${ch}`)
 }
 
 export function buildLlmsTxt(input: LlmsTxtInput): string {
@@ -36,7 +45,7 @@ export function buildLlmsTxt(input: LlmsTxtInput): string {
     '',
     `- [All sites](${url('/feed.xml')}): every current or upcoming event that is not exclusive to a single site`,
     ...input.sites.map(s =>
-      `- [${linkText(s.name)}](${url(`${slugPath(s.slug)}/feed.xml`)}): current and upcoming events for ${s.name.trim()}`),
+      `- [${linkText(s.name)}](${url(`${slugPath(s.slug)}/feed.xml`)}): current and upcoming events for ${oneLine(s.name)}`),
     '',
     `Add \`?lang=<code>\` for a translation; available codes: ${codes || 'ro (default)'}.`,
     'Items carry `ev:startdate`, `ev:enddate`, `ev:location` and `betel:*` elements with ISO 8601 dates.',

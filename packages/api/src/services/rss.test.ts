@@ -268,3 +268,15 @@ test('llms.txt lists every feed, hub page, language and the JSON API', () => {
   assert.match(txt, /\(https:\/\/hub.test\/api\/content\?site=<slug>&locale=<code>\)/)
   assert.equal(txt, buildLlmsTxt({ baseUrl: BASE, sites, languages: [{ code: 'ro', isDefault: true }, { code: 'en', isDefault: false }] }))
 })
+
+test('llms.txt keeps an editor-controlled site name on one line (regression)', () => {
+  const txt = buildLlmsTxt({
+    baseUrl: BASE,
+    sites: [{ slug: 'evil', name: 'Evil\n## Injected\r\n- [x](https://attacker.test)\u0000 [site]' }],
+    languages: [{ code: 'ro', isDefault: true }],
+  })
+  assert.doesNotMatch(txt, /^## Injected/m)
+  assert.doesNotMatch(txt, /^- \[x\]/m)
+  assert.ok(!txt.includes('\u0000'))
+  assert.match(txt, /^- \[Evil ## Injected - \\\[x\\\]\(https:\/\/attacker\.test\) \\\[site\\\]\]\(https:\/\/hub\.test\/evil\/feed\.xml\): current and upcoming events for Evil ## Injected - \[x\]\(https:\/\/attacker\.test\) \[site\]$/m)
+})
