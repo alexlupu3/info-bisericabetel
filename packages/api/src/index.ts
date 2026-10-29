@@ -1,4 +1,5 @@
 import path from 'path'
+import { fileURLToPath } from 'url'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
@@ -45,7 +46,9 @@ const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required')
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), '..', 'uploads')
-const PUBLIC_DIR = path.join(__dirname, 'public')
+// __dirname exists in the CJS bundle (dist/); under `tsx watch` the source runs as ESM.
+const HERE = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url))
+const PUBLIC_DIR = path.join(HERE, 'public')
 
 async function start() {
   // Fails fast in production when PUBLIC_BASE_URL is missing or malformed (FR-066).

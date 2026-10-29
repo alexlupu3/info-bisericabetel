@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "seed-admin": "dotenv -e ../../.env -- tsx src/scripts/seed-admin.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:sharp && rm -rf dist/migrations && cp -r src/db/migrations dist/migrations && echo '{\"type\":\"commonjs\",\"dependencies\":{\"sharp\":\"^0.32.6\"}}' > dist/package.json",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:sharp --log-override:empty-import-meta=silent && rm -rf dist/migrations && cp -r src/db/migrations dist/migrations && echo '{\"type\":\"commonjs\",\"dependencies\":{\"sharp\":\"^0.32.6\"}}' > dist/package.json",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
     "test": "tsx --test 'src/**/*.test.ts'"

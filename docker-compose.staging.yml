@@ -1,0 +1,90 @@
+# ─── Docker Compose: local STAGING — info.bisericabetel ─────────────────────
+#
+# A production-like stack on this machine: the same Dockerfile CapRover builds,
+# with its own PostgreSQL and uploads volume, fully separate from dev.
+#
+#   pnpm staging:up              # build + start → http://localhost:${STAGING_APP_PORT:-8080}
+#   pnpm seed:staging            # replace staging DB + uploads with a copy of live
+#   pnpm staging:logs / staging:down
+#
+# Rebuild after code changes with `pnpm staging:up` (it always passes --build).
+#
+# Variables read from .env (full reference: docs/architecture/configuration.md):
+#   DB_PASSWORD                  required — reused for the staging database
+#   JWT_SECRET                   required — reused unless STAGING_JWT_SECRET is set
+#   STAGING_JWT_SECRET           optional
+#   STAGING_APP_PORT             optional — host port (127.0.0.1 only) for the app (default 8080)
+#   STAGING_DB_PORT              optional — host port for PostgreSQL (default 5433)
+#   STAGING_OPEN_ROUTER_API_KEY  optional — AI translation is off unless set
+#   STAGING_MCP_SECRET           optional — /mcp is off unless set
+#   STAGING_PUBLIC_BASE_URL      optional — public origin (default http://localhost:${STAGING_APP_PORT:-8080})
+#   SEO_* / GOOGLE_SITE_VERIFICATION  optional — shared with dev (configuration.md)
+#
+# Production keys (OPEN_ROUTER_API_KEY, MCP_SECRET) are deliberately not
+# inherited, so editing staging content never triggers paid translation calls.
+# PUBLIC_BASE_URL is not inherited either: in .env it is the dev origin, and
+# NODE_ENV=production makes the app refuse to start without a valid one.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: betel-staging
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: info_bisericabetel
+      POSTGRES_USER: betel
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${STAGING_DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betel -d info_bisericabetel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 80
+      DATABASE_URL: postgresql://betel:${DB_PASSWORD}@db:5432/info_bisericabetel
+      JWT_SECRET: ${STAGING_JWT_SECRET:-${JWT_SECRET:?Set JWT_SECRET in .env}}
+      UPLOADS_DIR: /app/uploads
+      OPEN_ROUTER_API_KEY: ${STAGING_OPEN_ROUTER_API_KEY:-}
+      MCP_SECRET: ${STAGING_MCP_SECRET:-}
+      PUBLIC_BASE_URL: ${STAGING_PUBLIC_BASE_URL:-http://localhost:${STAGING_APP_PORT:-8080}}
+      SEO_ORG_NAME: ${SEO_ORG_NAME:-}
+      SEO_SITE_NAME: ${SEO_SITE_NAME:-}
+      SEO_SITE_ALTERNATE_NAMES: ${SEO_SITE_ALTERNATE_NAMES:-}
+      SEO_ORG_WEBSITE: ${SEO_ORG_WEBSITE:-}
+      SEO_ORG_SAME_AS: ${SEO_ORG_SAME_AS:-}
+      SEO_ORG_LOGO_PATH: ${SEO_ORG_LOGO_PATH:-}
+      SEO_DEFAULT_COUNTRY: ${SEO_DEFAULT_COUNTRY:-}
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      SEO_CACHE_TTL_SECONDS: ${SEO_CACHE_TTL_SECONDS:-}
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "127.0.0.1:${STAGING_APP_PORT:-8080}:80"
+    # The API listens only after migrations ran against the database, so a
+    # healthy /health proves the DB connection; `up --wait` fails otherwise.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

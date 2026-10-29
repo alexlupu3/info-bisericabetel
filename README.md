@@ -57,8 +57,8 @@ All routes live under `/admin`. The ones marked ★ are visible to the **super-a
 # 1. Configure: set JWT_SECRET, DB_PASSWORD, and the password inside DATABASE_URL
 cp example.env .env
 
-# 2. Start PostgreSQL 16 (bundled compose service, exposed on 127.0.0.1:5432)
-docker compose up -d db
+# 2. Start the dev PostgreSQL 16 (docker-compose.yml, exposed on 127.0.0.1:5432)
+pnpm dev:db
 
 # 3. Install dependencies
 pnpm install
@@ -70,7 +70,7 @@ pnpm dev:api
 pnpm dev
 ```
 
-Vite proxies `/api` to `localhost:3100`. Both the public hub (`/`) and the admin tool (`/admin`) are served from port 5173.
+Vite proxies `/api`, `/uploads` and `/s/` to `localhost:3100`. Both the public hub (`/`) and the admin tool (`/admin`) are served from port 5173.
 
 **6. Create the first admin.** Pick one of these:
 
@@ -79,7 +79,11 @@ Vite proxies `/api` to `localhost:3100`. Both the public hub (`/`) and the admin
 
 Both create a **super-admin**. Further admins are created in `/admin/users`.
 
-The minimum variables are `DATABASE_URL`, `JWT_SECRET` and (for compose) `DB_PASSWORD`. Every variable is documented in [docs/architecture/configuration.md](docs/architecture/configuration.md).
+**Optional: real data.** `pnpm seed:dev` replaces the dev database and uploads with a copy of live (read-only on live). Set `LIVE_SSH` (or `LIVE_DATABASE_URL`, which copies the database only, not uploads) in `.env` first; see [configuration.md](docs/architecture/configuration.md#seeding-from-live-scriptsseed-from-livesh). Live users come along, so log in with live credentials.
+
+Without database access, `pnpm seed:public:dev` rebuilds the dev content from the public website instead: sites, languages, UI strings, currently visible items, their groups and images. Drafts, archived items, users, analytics and short links are not public and are not copied, and local users are kept, so create a local admin first (step 6).
+
+The minimum variables are `DATABASE_URL`, `JWT_SECRET` and (for the compose databases) `DB_PASSWORD`. Every variable is documented in [docs/architecture/configuration.md](docs/architecture/configuration.md).
 
 ## Build
 
@@ -90,7 +94,18 @@ pnpm build:api    # api only → packages/api/dist/ (esbuild bundle + migrations
 pnpm lint         # type-check all packages (tsc --noEmit)
 ```
 
-To run the production image locally, use `docker compose up -d --build`. The app is then available on http://localhost:8080 (the container listens on 80, and the host port is set by `APP_HOST_PORT`).
+### Local staging
+
+To run the production image locally, with its own database and uploads, separate from dev:
+
+```bash
+pnpm staging:up      # build + start → http://localhost:8080 (STAGING_APP_PORT)
+pnpm seed:staging    # optional: copy live data into it (or seed:public:staging)
+pnpm staging:logs    # follow app logs
+pnpm staging:down    # stop (data volumes are kept)
+```
+
+`pnpm staging:up` always rebuilds the image. AI translation and `/mcp` stay off unless `STAGING_OPEN_ROUTER_API_KEY` / `STAGING_MCP_SECRET` are set. Details: [deployment.md](docs/architecture/deployment.md#environments), [configuration.md](docs/architecture/configuration.md).
 
 ## Tests
 
