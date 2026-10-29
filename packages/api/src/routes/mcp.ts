@@ -14,7 +14,7 @@ import { resortGroupChronologically } from '../services/group-order.js'
 import { getAnalyticsOverview, getItemStats, getShortLinkStats, getTopItems } from '../services/analytics-stats.js'
 import { createShortLink, listShortLinks } from '../services/short-links.js'
 import { isServiceError } from '../services/errors.js'
-import { invalidStartTime } from '@betel/shared'
+import { invalidContentData } from '../services/content-validation.js'
 import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
@@ -141,8 +141,9 @@ function buildMcpServer(): McpServer {
       if (startTime  !== undefined) data.startTime    = startTime
       if (link       !== undefined) data.link         = link
       if (cta        !== undefined) data.cta          = cta
-      const timeError = invalidStartTime(data)
-      if (timeError) return err(timeError)
+      // Same rules as POST /api/admin/content: required title, date order, start time.
+      const dataError = invalidContentData('card', data)
+      if (dataError) return err(dataError)
 
       const item = await db.transaction(async (tx) => {
         await tx.execute(sql`SELECT pg_advisory_xact_lock(1001)`)
@@ -219,9 +220,10 @@ function buildMcpServer(): McpServer {
         if (v === null) delete mergedData[k]
         else mergedData[k] = v
       }
-      // Validate the resulting data: a time may not survive on a multi-day or undated card.
-      const timeError = invalidStartTime(mergedData)
-      if (hasDataChanges && timeError) return err(timeError)
+      // Validate the resulting data exactly like PATCH /api/admin/content/:id: a non-empty
+      // title, a non-reversed date range and no time on a multi-day or undated card.
+      const dataError = invalidContentData('card', mergedData)
+      if (dataError) return err(dataError)
 
       const [updated] = await db.update(contentItems).set({
         ...(hasDataChanges && { data: mergedData }),
