@@ -176,6 +176,12 @@ test('og-image: derivative is a 1.91:1 JPEG within the size bound, even for nois
 
     const brand = await ensureOgImage('brand-17d3c3.jpg')
     assert.deepEqual(brand, { name: 'brand-17d3c3.jpg', width: 1200, height: 630 })
+    // The (white) logo is centred on the accent background.
+    const { data } = await sharp(join(dir, 'og', 'brand-17d3c3.jpg')).raw().toBuffer({ resolveWithObject: true })
+    const red = (x: number, y: number) => data[(y * 1200 + x) * 3]
+    assert.ok(red(600, 315) > 240, 'centre is logo')
+    assert.ok(red(20, 20) < 40 && red(1180, 610) < 40, 'corners are background')
+    assert.ok(red(300, 315) < 40 && red(900, 315) < 40, 'logo does not reach the side margins')
     assert.equal(await ensureOgImage('../secret.jpg'), null)
     assert.equal(await ensureOgImage('00000000-0000-4000-8000-000000000000.jpg'), null)
   } finally {

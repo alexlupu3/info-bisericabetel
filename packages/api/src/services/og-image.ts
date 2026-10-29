@@ -67,7 +67,8 @@ function brandComposer(source: string, hex: string): Composer {
     const logoSize = Math.round(height * 0.6)
     const logo = await sharp(source).resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer()
     return sharp({ create: { width, height, channels: 3, background: `#${hex}` } })
-      .composite([{ input: logo }])
+      // Explicit, although 'centre' is sharp's default when no top/left is given.
+      .composite([{ input: logo, gravity: 'centre' }])
       .png()
       .toBuffer()
   }
