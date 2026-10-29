@@ -287,8 +287,8 @@ function buildMcpServer(): McpServer {
     get_item_stats: async (args) => viaService(() => getItemStats(args)),
     get_top_items: async (args) => viaService(() => getTopItems(args)),
     get_short_link_stats: async (args) => viaService(() => getShortLinkStats(args)),
-    create_short_link: async ({ itemId, label, siteSlug }) => viaService(() =>
-      createShortLink({ contentItemId: itemId, label, siteSlug }, { userEmail: MCP_ACTOR, via: 'mcp' })),
+    create_short_link: async ({ itemId, label, siteSlug, previewMode }) => viaService(() =>
+      createShortLink({ contentItemId: itemId, label, siteSlug, previewMode }, { userEmail: MCP_ACTOR, via: 'mcp' })),
     list_short_links: async ({ itemId, site, limit }) => viaService(async () =>
       ({ shortLinks: await listShortLinks({ contentItemId: itemId, siteSlug: site, limit }) })),
   }
