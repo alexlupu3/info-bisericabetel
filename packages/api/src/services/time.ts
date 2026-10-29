@@ -82,12 +82,19 @@ export function startOfDayIn(day: string, tz: string): Date {
 }
 
 // Returns an error message when `data.startDate` / `data.endDate` is present
-// but is not a YYYY-MM-DD calendar day. Null values mean "clear the field".
+// but is not a YYYY-MM-DD calendar day, or when both are set and the range is
+// reversed (endDate before startDate). Null values mean "clear the field".
+// Callers that merge a partial update must pass the merged result, so a change
+// to one end of the range is checked against the stored other end.
 export function invalidEventDate(data: Record<string, unknown>): string | null {
   for (const key of ['startDate', 'endDate']) {
     const value = data[key]
     if (value === undefined || value === null) continue
     if (!isCalendarDay(value)) return `${key} must be a calendar date in YYYY-MM-DD format`
+  }
+  const { startDate, endDate } = data
+  if (typeof startDate === 'string' && typeof endDate === 'string' && endDate < startDate) {
+    return 'endDate must not be before startDate'
   }
   return null
 }

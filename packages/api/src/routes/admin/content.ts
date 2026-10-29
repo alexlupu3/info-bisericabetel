@@ -5,8 +5,8 @@ import { contentItems, groups, contentTranslations, languages, sites as sitesTab
 import { logAudit } from '../../db/audit.js'
 import { scheduleContentTranslation } from '../../services/ai-translation.js'
 import { resortGroupChronologically } from '../../services/group-order.js'
-import { invalidEventDate, parseExpiresAt } from '../../services/time.js'
-import { invalidStartTime } from '@betel/shared'
+import { parseExpiresAt } from '../../services/time.js'
+import { invalidContentData } from '../../services/content-validation.js'
 
 type ItemBody = {
   type: string
@@ -23,22 +23,6 @@ async function siteSlugExists(slug: string): Promise<boolean> {
     .from(sitesTable)
     .where(eq(sitesTable.slug, slug))
   return !!row
-}
-
-const REQUIRED_FIELDS: Record<string, string> = {
-  card:     'title',
-  richtext: 'body',
-  poster:   'imageUrl',
-  video:    'url',
-}
-
-function missingRequiredField(type: string, data: Record<string, unknown>): string | null {
-  const field = REQUIRED_FIELDS[type]
-  if (!field) return null
-  const val = data[field]
-  return (!val || (typeof val === 'string' && val.trim() === ''))
-    ? `${field} is required for content type "${type}"`
-    : null
 }
 
 type OrderBody = { order: string[] }
@@ -75,12 +59,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
   app.post<{ Body: ItemBody }>('/admin/content', { preHandler: auth }, async (req, reply) => {
     const { type, sites = [], exclusiveSite = null, groupId = null, expiresAt = null, data = {} } = req.body
     if (!type) return reply.code(400).send({ error: 'type is required' })
-    const reqFieldError = missingRequiredField(type, data)
-    if (reqFieldError) return reply.code(400).send({ error: reqFieldError })
-    const dateError = invalidEventDate(data)
-    if (dateError) return reply.code(400).send({ error: dateError })
-    const timeError = invalidStartTime(data)
-    if (timeError) return reply.code(400).send({ error: timeError })
+    const dataError = invalidContentData(type, data)
+    if (dataError) return reply.code(400).send({ error: dataError })
     const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
     if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
@@ -149,8 +129,6 @@ export async function adminContentRoutes(app: FastifyInstance) {
 
       const { type, sites, exclusiveSite, groupId, expiresAt, data, state } = req.body
 
-      const dateError = data ? invalidEventDate(data as Record<string, unknown>) : null
-      if (dateError) return reply.code(400).send({ error: dateError })
       const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
       if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
 
@@ -196,15 +174,13 @@ export async function adminContentRoutes(app: FastifyInstance) {
         }
       }
 
-      // Validate that the resulting data still satisfies required-field rules.
+      // Validate the resulting data, not the patch: required field, event dates (a new
+      // startDate is checked against the stored endDate and vice versa) and the start
+      // time (a PATCH that makes a timed event multi-day must also clear startTime, BR-035).
       const resultingType = type ?? existing.type
       const finalData = (mergedData ?? existing.data ?? {}) as Record<string, unknown>
-      const patchFieldError = missingRequiredField(resultingType, finalData)
-      if (patchFieldError) return reply.code(400).send({ error: patchFieldError })
-      // The start time is checked on the merged result, so a PATCH that makes a timed
-      // event multi-day (or clears its date) must also clear startTime (BR-035).
-      const patchTimeError = invalidStartTime(finalData)
-      if (patchTimeError) return reply.code(400).send({ error: patchTimeError })
+      const dataError = invalidContentData(resultingType, finalData)
+      if (dataError) return reply.code(400).send({ error: dataError })
 
       const [updated] = await db.update(contentItems).set({
         ...(type    !== undefined && { type }),

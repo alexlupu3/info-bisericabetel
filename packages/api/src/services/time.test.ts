@@ -31,6 +31,12 @@ test('invalidEventDate rejects malformed startDate/endDate and allows null', () 
   assert.match(invalidEventDate({ endDate: '2026-13-01' }) ?? '', /endDate/)
 })
 
+test('invalidEventDate rejects an endDate before startDate', () => {
+  assert.equal(invalidEventDate({ startDate: '2026-11-12', endDate: '2026-11-10' }), 'endDate must not be before startDate')
+  assert.equal(invalidEventDate({ startDate: '2026-11-10', endDate: '2026-11-10' }), null)
+  assert.equal(invalidEventDate({ endDate: '2026-11-10' }), null)
+})
+
 test('parseExpiresAt treats a bare date as the end of that day in Romania', () => {
   assert.equal(parseExpiresAt('2026-10-25')?.toISOString(), '2026-10-25T22:00:00.000Z')
   assert.equal(parseExpiresAt('2026-07-01')?.toISOString(), '2026-07-01T21:00:00.000Z')
