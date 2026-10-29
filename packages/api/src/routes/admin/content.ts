@@ -7,6 +7,7 @@ import { scheduleContentTranslation } from '../../services/ai-translation.js'
 import { resortGroupChronologically } from '../../services/group-order.js'
 import { parseExpiresAt } from '../../services/time.js'
 import { invalidContentData } from '../../services/content-validation.js'
+import { applyLocation } from '../../services/event-location.js'
 
 type ItemBody = {
   type: string
@@ -59,7 +60,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
   app.post<{ Body: ItemBody }>('/admin/content', { preHandler: auth }, async (req, reply) => {
     const { type, sites = [], exclusiveSite = null, groupId = null, expiresAt = null, data = {} } = req.body
     if (!type) return reply.code(400).send({ error: 'type is required' })
-    const dataError = invalidContentData(type, data)
+    // applyLocation normalises data.location in place (FR-090) before it is stored.
+    const dataError = applyLocation(type, data) ?? invalidContentData(type, data)
     if (dataError) return reply.code(400).send({ error: dataError })
     const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
     if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
@@ -177,9 +179,11 @@ export async function adminContentRoutes(app: FastifyInstance) {
       // Validate the resulting data, not the patch: required field, event dates (a new
       // startDate is checked against the stored endDate and vice versa) and the start
       // time (a PATCH that makes a timed event multi-day must also clear startTime, BR-035).
+      // The location rule also runs on the resulting type, so a type change away from card
+      // must clear data.location (BR-050); it normalises mergedData in place.
       const resultingType = type ?? existing.type
-      const finalData = (mergedData ?? existing.data ?? {}) as Record<string, unknown>
-      const dataError = invalidContentData(resultingType, finalData)
+      const finalData = (mergedData ?? { ...((existing.data ?? {}) as Record<string, unknown>) }) as Record<string, unknown>
+      const dataError = applyLocation(resultingType, finalData) ?? invalidContentData(resultingType, finalData)
       if (dataError) return reply.code(400).send({ error: dataError })
 
       const [updated] = await db.update(contentItems).set({
@@ -203,11 +207,12 @@ export async function adminContentRoutes(app: FastifyInstance) {
       })
       if (data !== undefined && Object.keys(data).length > 0) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
-        const patchData = data as Record<string, unknown>
-        const changedKeys = Object.keys(patchData).filter(
-          k => patchData[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(patchData[k])
+        const newData = updated.data as Record<string, unknown>
+        // Compare stored values (after normalisation); keys the write removed are not sent.
+        const changedKeys = Object.keys(data as Record<string, unknown>).filter(
+          k => k in newData && JSON.stringify(oldData[k]) !== JSON.stringify(newData[k])
         )
-        if (changedKeys.length > 0) scheduleContentTranslation(id, updated.data as Record<string, unknown>, changedKeys)
+        if (changedKeys.length > 0) scheduleContentTranslation(id, newData, changedKeys)
       }
       return updated
     }
@@ -386,13 +391,17 @@ export async function adminContentRoutes(app: FastifyInstance) {
     '/admin/content/:id/translations/:locale', { preHandler: auth }, async (req, reply) => {
       const { id, locale } = req.params
       const { data } = req.body
-      if (!data) return reply.code(400).send({ error: 'data is required' })
+      if (!data || typeof data !== 'object') return reply.code(400).send({ error: 'data is required' })
 
       const [item] = await db.select().from(contentItems).where(eq(contentItems.id, id))
       if (!item) return reply.code(404).send({ error: 'Not found' })
 
       const [lang] = await db.select().from(languages).where(eq(languages.code, locale))
       if (!lang) return reply.code(400).send({ error: `Locale '${locale}' does not exist` })
+
+      // Same location rule as the item itself (BR-051): empty removes the key → Romanian fallback.
+      const locationError = applyLocation(item.type, data)
+      if (locationError) return reply.code(400).send({ error: locationError })
 
       const [translation] = await db.insert(contentTranslations)
         .values({ contentItemId: id, locale, data, updatedAt: new Date() })
