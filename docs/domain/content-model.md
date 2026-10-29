@@ -18,6 +18,7 @@ Single source for the content model: content types and fields, the publishing st
   - Start date — stored in `data.startDate` (see Expiration Behavior)
   - End date — stored in `data.endDate` (see Expiration Behavior)
   - Start time — stored in `data.startTime` (`HH:mm`, Romania local time); single-day events only (see Event start time)
+  - Location — stored in `data.location`; optional plain text, 1–70 UTF-16 code units, where the event takes place (see Event location)
   - Link (URL) — stored in `data.link`; the default/fallback link used when no per-site override applies
   - Call to action text
   - Site link overrides — stored in `data.siteLinks: Record<string, string>`; optional map of site slug → URL that overrides the default link for a specific site view. Resolved client-side at render time (see Link Resolution Rule below).
@@ -73,7 +74,7 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 ## Shared Metadata (all content items and groups)
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)
 - **Sort order:** controlled by drag and drop; applies at root level and within groups
-- **Locale:** Content is authored in Romanian (the default locale). Text fields on content items and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Links and dates are shared across all locales. Images are also shared across locales for Richtext and Embedded YouTube Video types; however, Poster (`imageUrl`) and Card (`thumbnail`) items can have locale-specific images — admins see image pickers in translation mode for those types and can override the image per locale. When a translation exists for the active locale, it is served by the API; otherwise Romanian values are used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. See FR-047, FR-037–FR-041 and ADR-014.
+- **Locale:** Content is authored in Romanian (the default locale). Text fields on content items (including the card location `data.location`) and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Links and dates are shared across all locales. Images are also shared across locales for Richtext and Embedded YouTube Video types; however, Poster (`imageUrl`) and Card (`thumbnail`) items can have locale-specific images — admins see image pickers in translation mode for those types and can override the image per locale. When a translation exists for the active locale, it is served by the API; otherwise Romanian values are used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. See FR-047, FR-037–FR-041 and ADR-014.
 - **Publishing state:** every content item has one of four states:
   - `draft` — created but not yet visible on the public hub
   - `published` — live and visible on the public hub (subject to site scope and expiry; an expired item stays `published` but is hidden — BR-014)
@@ -112,6 +113,9 @@ The admin form applies progressive disclosure: the end date input is hidden unti
 Optional on all types. A string `HH:mm` (24-hour, `00:00`–`23:59`) meaning the wall-clock time in `Europe/Bucharest` on `data.startDate`. Allowed only when `startDate` is set and the item is single-day (`endDate` absent or equal to `startDate`); the admin API and both MCP surfaces validate the resulting data and answer 400 otherwise (BR-035). Absent means "all day / time unknown" and every consumer renders date-only. The time is shared across locales and sites, like the dates. It does **not** affect expiry (BR-015 still applies through the end of the day) and is a secondary sort key for chronological group ordering (BR-013). The instant it denotes is derived with `eventStartInstant()` / `eventStartIso()` from `@betel/shared` (`packages/shared/src/event-time.ts`), which also provides the per-locale "when" formatter used by public cards, feeds, structured data and notifications. The admin form shows the time input only while the item is single-day and clears it otherwise.
 
 Public cards render the date line through `formatEventWhen()`: "14 noiembrie · 18:00" (`ro`), "November 14 · 6:00 PM" (`en`), both parts from `Intl` in the visitor's language, the time always on the Romanian wall clock. Posters, richtext and video items store the time but do not display dates or times.
+
+### Event location (`data.location`)
+Cards only. A plain-text, single-line place name or short address of 1–70 UTF-16 code units describing where the event takes place ("Sala mare, etaj 1"). Every write path (admin API including PATCH type changes, translation API, both MCP surfaces, AI translation) applies one rule to the resulting type and data: it normalises the value (`normalizeLocationText()` in `@betel/shared`: control characters removed, whitespace runs collapsed, trimmed), removes the key when the input is `null` or empty after normalisation, and rejects non-strings, over-long values and non-empty locations on non-card items with HTTP 400 / an MCP tool error (BR-050); stored values are therefore always non-empty. It is translatable per locale like the other text fields, with Romanian fallback at read time, and the AI translation job drops translated values that break the rule (BR-051). Public cards show it as metadata under the date/time row with a map-pin glyph, whether or not the card has a date, never as a link (BR-052); the server-rendered snapshot prints the same row. It is only a human-readable place name: site scope, expiry, sorting and notification targeting ignore it, while the RSS feed and structured data prefer it over the site name when present (BR-053). Consumers read it through `readLocation()` (`packages/shared/src/event-location.ts`), which tolerates unnormalised legacy values.
 
 ### `expiresAt` Column (independent mechanism)
 The `expiresAt` column on `content_items` is a separate, independent expiry mechanism. It is not replaced by the JSONB date fields. Both mechanisms apply independently:
@@ -189,7 +193,7 @@ Admins can duplicate any content item (all four types) via the "Duplică" option
 
 **What is copied:**
 - `type`, `sites[]`, `exclusiveSite`, `groupId`, `expiresAt`
-- All `data` JSONB fields **except** media attachment fields (see below); `startTime` is copied with the other date fields.
+- All `data` JSONB fields **except** media attachment fields (see below); `startTime` is copied with the other date fields; `location` is copied with the other text fields.
 
 **What is not copied (media attachments):**
 - `data.thumbnail` — Card thumbnail image
