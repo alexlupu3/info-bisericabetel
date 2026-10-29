@@ -21,7 +21,7 @@
 // The target database must already be migrated (start the API once).
 // ─────────────────────────────────────────────────────────────────────────────
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
@@ -120,7 +120,7 @@ for (const { code } of languages.filter(l => l.code !== defaultLocale)) {
 const uploadPaths = new Set()
 // Translations store only the fields that differ, so they can reference their own images.
 for (const data of [...[...items.values()].map(it => it.data), ...contentTranslations.values()]) {
-  for (const m of JSON.stringify(data).matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) uploadPaths.add(m[1])
+  for (const m of JSON.stringify(data).matchAll(/\/uploads\/([A-Za-z0-9][A-Za-z0-9._-]*)/g)) uploadPaths.add(m[1])
 }
 const tmp = mkdtempSync(join(ROOT, '.local-public-'))
 const mediaRows = []
@@ -182,30 +182,45 @@ try {
     'COMMIT;',
   ].join('\n')
 
-  log(`Writing ${target} database`)
+  log(`Checking ${target} database`)
   compose('up', '-d', '--wait', 'db')
   const migrated = compose('exec', '-T', 'db', 'psql', '-U', 'betel', '-d', 'info_bisericabetel', '-tAc',
     "select to_regclass('public._migrations') is not null").trim()
   if (migrated !== 't') throw new Error(`the ${target} database is not migrated yet: start the API once (${target === 'dev' ? 'pnpm dev:api' : 'pnpm staging:up'})`)
-  execFileSync('docker', ['compose', '-f', composeFile, 'exec', '-T', 'db', 'psql', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'betel', '-d', 'info_bisericabetel'],
-    { cwd: ROOT, input: sql, stdio: ['pipe', 'inherit', 'inherit'] })
 
-  // ─── 6. Write the images ───────────────────────────────────────────────────
-  log(`Writing ${mediaRows.length} images`)
+  // ─── 6. Stage images, write the database, swap images in ───────────────────
+  // Images are copied into <uploads>/.incoming first, so a failed copy stops
+  // before the database changes; they replace the old files only after COMMIT.
+  // Same default as packages/api/src/index.ts when started via `pnpm dev:api`;
+  // a relative UPLOADS_DIR is resolved against packages/api, the API's cwd.
+  const devUploads = resolve(ROOT, 'packages', 'api', process.env.UPLOADS_DIR || '../uploads')
+  const inUploads = (script, ...extra) => target === 'dev'
+    ? execFileSync('sh', ['-c', script, 'sh', devUploads], { stdio: 'inherit' })
+    : execFileSync('docker', ['run', '--rm', ...extra, '-v', 'betel-staging_uploads:/u', 'alpine:3', 'sh', '-c', script, 'sh', '/u'], { stdio: 'inherit' })
+
+  log(`Staging ${mediaRows.length} images`)
   if (target === 'dev') {
-    // Same default as packages/api/src/index.ts when started via `pnpm dev:api`.
-    // A relative UPLOADS_DIR is resolved against packages/api, the API's cwd.
-    const uploads = resolve(ROOT, 'packages', 'api', process.env.UPLOADS_DIR || '../uploads')
-    mkdirSync(uploads, { recursive: true })
-    for (const f of readdirSync(uploads)) unlinkSync(join(uploads, f))
-    for (const m of mediaRows) execFileSync('cp', [join(tmp, m.filename), join(uploads, m.filename)])
+    mkdirSync(devUploads, { recursive: true })
   } else {
     // Pre-create the volume with compose labels so `docker compose up` adopts it.
     execFileSync('docker', ['volume', 'create', '--label', 'com.docker.compose.project=betel-staging',
       '--label', 'com.docker.compose.volume=uploads', 'betel-staging_uploads'], { stdio: 'ignore' })
-    execFileSync('docker', ['run', '--rm', '-v', 'betel-staging_uploads:/u', '-v', `${tmp}:/src:ro`, 'alpine:3',
-      'sh', '-c', 'find /u -mindepth 1 -delete && cp -a /src/. /u/'], { stdio: 'inherit' })
   }
+  const src = target === 'dev' ? tmp : '/src'
+  inUploads(`rm -rf "$1/.incoming" && mkdir "$1/.incoming" && cp -R "${src}/." "$1/.incoming/"`, '-v', `${tmp}:/src:ro`)
+
+  log(`Writing ${target} database`)
+  try {
+    execFileSync('docker', ['compose', '-f', composeFile, 'exec', '-T', 'db', 'psql', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'betel', '-d', 'info_bisericabetel'],
+      { cwd: ROOT, input: sql, stdio: ['pipe', 'inherit', 'inherit'] })
+  } catch (err) {
+    inUploads('rm -rf "$1/.incoming"')
+    throw err
+  }
+
+  log('Replacing images')
+  inUploads(`find "$1" -mindepth 1 -maxdepth 1 ! -name .incoming -exec rm -rf {} + &&
+    find "$1/.incoming" -mindepth 1 -maxdepth 1 -exec mv {} "$1/" \\; && rmdir "$1/.incoming"`)
   log(`Done. Open ${target === 'dev' ? 'http://localhost:5173' : `http://localhost:${process.env.STAGING_APP_PORT || 8080}`}`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

@@ -73,6 +73,14 @@ services:
       - uploads:/app/uploads
     ports:
       - "127.0.0.1:${STAGING_APP_PORT:-8080}:80"
+    # The API listens only after migrations ran against the database, so a
+    # healthy /health proves the DB connection; `up --wait` fails otherwise.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy

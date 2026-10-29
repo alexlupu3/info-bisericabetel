@@ -135,6 +135,14 @@ if [ $SKIP_UPLOADS = 0 ]; then
   # -xO reads every member, so a truncated archive fails here (-t alone does not).
   [ -s "$UPLOADS_TAR" ] || die "uploads archive missing or empty: $UPLOADS_TAR"
   tar -xOf "$UPLOADS_TAR" > /dev/null || die "uploads archive is not a valid tar: $UPLOADS_TAR"
+  # Only plain files and directories, all inside the archive root: no absolute
+  # paths, no ".." components, no symlinks, hard links or device files.
+  if tar -tf "$UPLOADS_TAR" | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+    die "uploads archive contains absolute or ../ paths: $UPLOADS_TAR"
+  fi
+  if tar -tvf "$UPLOADS_TAR" | grep -Ev '^[-d]' | grep -q . || tar -tvf "$UPLOADS_TAR" | grep -q ' link to '; then
+    die "uploads archive contains links or special files: $UPLOADS_TAR"
+  fi
 fi
 
 # ─── 3. Confirm ──────────────────────────────────────────────────────────────
@@ -146,7 +154,39 @@ if [ $YES = 0 ]; then
   [ "$answer" = y ] || [ "$answer" = Y ] || die "aborted"
 fi
 
-# ─── 4. Restore the database ─────────────────────────────────────────────────
+# ─── 4. Stage uploads ────────────────────────────────────────────────────────
+# Extract into <uploads>/.incoming first, so a failed extraction (e.g. a full
+# disk) stops the script before the database is replaced. The swap into place
+# happens after the database restore succeeded.
+# Permissions are normalised so odd archive modes cannot block the swap or cleanup.
+CLEAR_SH='[ ! -e "$1/.incoming" ] || { chmod -R u+rwX "$1/.incoming" && rm -rf "$1/.incoming"; }'
+STAGE_SH="$CLEAR_SH"' && mkdir "$1/.incoming" && tar -xf - -C "$1/.incoming" && chmod -R u+rwX "$1/.incoming"'
+SWAP_SH='find "$1" -mindepth 1 -maxdepth 1 ! -name .incoming -exec rm -rf {} + &&
+  find "$1/.incoming" -mindepth 1 -maxdepth 1 -exec mv {} "$1/" \; && rmdir "$1/.incoming" &&
+  echo "    $(find "$1" -type f | wc -l | tr -d " ") files in uploads"'
+# On failure before the swap, drop the staged copy and keep the current uploads.
+STAGED=0
+cleanup_staged() {
+  [ $STAGED = 1 ] || return 0
+  if [ "$TARGET" = dev ]; then sh -c "$CLEAR_SH" sh "$DEV_UPLOADS"
+  else docker run --rm -v betel-staging_uploads:/u alpine:3 sh -c "$CLEAR_SH" sh /u; fi
+}
+trap cleanup_staged EXIT
+if [ $SKIP_UPLOADS = 0 ]; then
+  log "Staging uploads from $UPLOADS_TAR"
+  STAGED=1
+  if [ "$TARGET" = dev ]; then
+    mkdir -p "$DEV_UPLOADS"
+    sh -c "$STAGE_SH" sh "$DEV_UPLOADS" < "$UPLOADS_TAR"
+  else
+    # Pre-create the volume with compose labels so `docker compose up` adopts it.
+    docker volume create --label com.docker.compose.project=betel-staging \
+      --label com.docker.compose.volume=uploads betel-staging_uploads > /dev/null
+    docker run --rm -i -v betel-staging_uploads:/u alpine:3 sh -c "$STAGE_SH" sh /u < "$UPLOADS_TAR"
+  fi
+fi
+
+# ─── 5. Restore the database ─────────────────────────────────────────────────
 log "Starting $TARGET database"
 "${COMPOSE[@]}" up -d --wait db
 if [ "$TARGET" = staging ]; then
@@ -171,25 +211,18 @@ tables="$("${COMPOSE[@]}" exec -T db psql -U betel -d info_bisericabetel -tAc \
 "${COMPOSE[@]}" exec -T db psql -U betel -d info_bisericabetel -tAc \
   "select 'sites: '||(select count(*) from sites)||', content items: '||(select count(*) from content_items)||', users: '||(select count(*) from users)||', last migration: '||(select max(name) from _migrations)"
 
-# ─── 5. Restore uploads ──────────────────────────────────────────────────────
+# ─── 6. Swap the staged uploads into place ───────────────────────────────────
 if [ $SKIP_UPLOADS = 0 ]; then
-  log "Restoring uploads from $UPLOADS_TAR"
+  log "Replacing uploads"
+  STAGED=0  # from here on, keep .incoming if the swap fails part-way
   if [ "$TARGET" = dev ]; then
-    mkdir -p "$DEV_UPLOADS"
-    find "$DEV_UPLOADS" -mindepth 1 -delete
-    tar -xf "$UPLOADS_TAR" -C "$DEV_UPLOADS"
-    echo "    $(find "$DEV_UPLOADS" -type f | wc -l | tr -d ' ') files in $DEV_UPLOADS"
+    sh -c "$SWAP_SH" sh "$DEV_UPLOADS"
   else
-    # Pre-create the volume with compose labels so `docker compose up` adopts it.
-    docker volume create --label com.docker.compose.project=betel-staging \
-      --label com.docker.compose.volume=uploads betel-staging_uploads > /dev/null
-    docker run --rm -i -v betel-staging_uploads:/u alpine:3 \
-      sh -c 'find /u -mindepth 1 -delete && tar -xf - -C /u && echo "    $(find /u -type f | wc -l) files in staging uploads volume"' \
-      < "$UPLOADS_TAR"
+    docker run --rm -v betel-staging_uploads:/u alpine:3 sh -c "$SWAP_SH" sh /u
   fi
 fi
 
-# ─── 6. Bring the target back ────────────────────────────────────────────────
+# ─── 7. Bring the target back ────────────────────────────────────────────────
 if [ "$TARGET" = staging ]; then
   log "Starting staging app (applies any newer migrations)"
   "${COMPOSE[@]}" up -d --build --wait
