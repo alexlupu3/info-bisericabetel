@@ -6,6 +6,7 @@ import type { Language, Site } from '@betel/shared'
 import { itemDisplayTitle, itemSiteSlug } from '@betel/shared'
 import { selectUpcomingEvents } from '../upcoming-events.js'
 import type { SeoConfig } from './organization.js'
+import type { OgImage } from '../og-image.js'
 
 /** A `sites` row as GET /api/sites returns it. */
 export type PublicSite = Site & { createdAt?: string | Date }
@@ -53,6 +54,8 @@ export interface PageModel {
   item: FeedItem | null
   /** Eligible events (§6.2.3): ItemList entries on hub pages, the Event on an item page. */
   events: EventEntry[]
+  /** Crawler-safe share image of an item page (spec 06 FR-087); null when the item has no upload. */
+  shareImage: OgImage | null
 }
 
 const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/
@@ -128,6 +131,8 @@ export interface PageModelInput {
   siteSlug?: string | null
   items?: FeedItem[]
   item?: FeedItem | null
+  /** The item's `/uploads/og/` derivative (kind 'item'), resolved by page-data.ts. */
+  shareImage?: OgImage | null
 }
 
 export function buildPageModel(input: PageModelInput): PageModel {
@@ -152,6 +157,7 @@ export function buildPageModel(input: PageModelInput): PageModel {
     return {
       ...base, status: input.status ?? 200, site, items: [], item,
       events: eventSite ? [{ item, site: eventSite }] : [],
+      shareImage: input.shareImage ?? null,
     }
   }
 
@@ -160,11 +166,12 @@ export function buildPageModel(input: PageModelInput): PageModel {
     return {
       ...base, status: input.status ?? 200, site: pageSite, items, item: null,
       events: selectEvents(items, pageSite, input.sites),
+      shareImage: null,
     }
   }
 
   return {
     ...base, status: input.status ?? (input.kind === 'gone' ? 410 : 404),
-    site: null, items: [], item: null, events: [],
+    site: null, items: [], item: null, events: [], shareImage: null,
   }
 }

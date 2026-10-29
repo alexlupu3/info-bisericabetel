@@ -5,10 +5,11 @@
 Production runs as a **single Docker container** deployed to [CapRover](https://caprover.com). There is no separate nginx container and no systemd service management. The Fastify API process handles everything:
 
 - Serves uploaded media files at `/uploads/` via `@fastify/static`
+- Serves share-image derivatives at `/uploads/og/` (generated on demand into `<UPLOADS_DIR>/og/` — part of the persistent volume)
 - Serves the frontend SPA from `dist/public/` via `@fastify/static`
 - Registers all API routes under the `/api` prefix (e.g. `/api/sites`, `/api/auth/login`)
 - Serves the RSS event feeds at `/feed.xml` and `/:siteSlug/feed.xml` and the agent index `/llms.txt` (ADR-021)
-- Handles short-link redirects at `/s/:code` and, when `MCP_SECRET` is set, the remote MCP endpoint at `/mcp`
+- Handles short-link redirects and Open Graph preview pages for link-preview crawlers at `/s/:code` and, when `MCP_SECRET` is set, the remote MCP endpoint at `/mcp`
 - Falls back to `index.html` for any unmatched non-`/api` route (SPA client-side routing support)
 
 CapRover manages TLS termination and its own reverse proxy in front of the container. The container listens on port 80 (`PORT=80` is set in the `Dockerfile`).
@@ -38,7 +39,7 @@ See [ADR-006](../decisions/ADR-006-single-container-deployment.md) for the ratio
 3. **Container HTTP Port:** set it to `80` in the CapRover app settings. This is CapRover's default.
 4. **Persistent volume:** mount a persistent directory at the path used for `UPLOADS_DIR` (the image default is `/app/uploads`), so uploaded media survives redeploys.
 5. **HTTPS:** enable HTTPS and force-redirect in CapRover.
-6. **Public URL and search:** set `PUBLIC_BASE_URL` to the HTTPS origin, e.g. `https://info.bisericabetel.com` (startup fails without it). After the first deploy: verify the domain in Google Search Console (DNS TXT on `bisericabetel.com` as a Domain property — preferred — or set `GOOGLE_SITE_VERIFICATION`), submit `{PUBLIC_BASE_URL}/sitemap.xml`, add the hub URL to the church's Google Business Profile(s) and link it from the main website and social profiles. Check that `curl -A GPTBot {PUBLIC_BASE_URL}/` returns the content snapshot and paste `/`, `/{slug}` and `/i/{id}` into the Rich Results Test. Paste `{PUBLIC_BASE_URL}/feed.xml` into the W3C Feed Validator (`https://validator.w3.org/feed/`; recommendations about the `ev`/`betel` namespaces are acceptable) and check `curl -sI {PUBLIC_BASE_URL}/feed.xml` (200, `application/rss+xml`, `ETag`, `Cache-Control: public, max-age=300`).
+6. **Public URL and search:** set `PUBLIC_BASE_URL` to the HTTPS origin, e.g. `https://info.bisericabetel.com` (startup fails without it; link previews depend on it — [configuration.md](configuration.md)). After the first deploy: verify the domain in Google Search Console (DNS TXT on `bisericabetel.com` as a Domain property — preferred — or set `GOOGLE_SITE_VERIFICATION`), submit `{PUBLIC_BASE_URL}/sitemap.xml`, add the hub URL to the church's Google Business Profile(s) and link it from the main website and social profiles. Check that `curl -A GPTBot {PUBLIC_BASE_URL}/` returns the content snapshot and paste `/`, `/{slug}` and `/i/{id}` into the Rich Results Test. Paste `{PUBLIC_BASE_URL}/feed.xml` into the W3C Feed Validator (`https://validator.w3.org/feed/`; recommendations about the `ev`/`betel` namespaces are acceptable) and check `curl -sI {PUBLIC_BASE_URL}/feed.xml` (200, `application/rss+xml`, `ETag`, `Cache-Control: public, max-age=300`).
 7. **First admin:** open `/admin/setup` once, or `POST /api/setup` with `{ "email", "password" }`. The endpoint creates the first super-admin only while the `users` table is empty, and returns 409 afterwards.
 
 ### Health check

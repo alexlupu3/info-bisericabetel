@@ -10,6 +10,7 @@ import { languages, media } from '../db/schema.js'
 import { DEFAULT_LOCALE, listPublicContent, selectUpcomingEvents } from '../services/public-content.js'
 import { publicBaseUrl } from '../services/public-url.js'
 import { interpolate, loadFeedStrings, resolveFeedStrings } from '../services/feed-strings.js'
+import { dateLocaleFor } from '../services/locale.js'
 import { buildEventFeed, enclosurePath, type FeedMedia, type FeedSite } from '../services/rss.js'
 import { loadSites } from '../services/seo/page-data.js'
 import { etagMatches, strongEtag } from '../services/seo/cache.js'
@@ -21,18 +22,6 @@ export const FEED_CACHE_CONTROL = 'public, max-age=300'
 export const FEED_RATE_LIMIT = { rateLimit: { max: 120, timeWindow: '1 minute' } }
 
 const FEED_LIMIT = 100
-
-// Intl locales for the "when" text, as the public hub maps them (LanguageContext).
-const DATE_LOCALES: Record<string, string> = { ro: 'ro-RO', en: 'en-US', de: 'de-DE', hu: 'hu-HU' }
-
-function dateLocaleFor(lang: string): string {
-  const candidate = DATE_LOCALES[lang] ?? lang
-  try {
-    return Intl.DateTimeFormat.supportedLocalesOf([candidate]).length > 0 ? candidate : 'ro-RO'
-  } catch {
-    return 'ro-RO'
-  }
-}
 
 /**
  * Sends a deterministic text body with a strong ETag and the feed's Cache-Control,

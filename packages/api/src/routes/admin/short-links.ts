@@ -1,5 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import { createShortLink, deleteShortLink, listShortLinks, type ShortLinkActor } from '../../services/short-links.js'
+import {
+  createShortLink,
+  deleteShortLink,
+  getShortLinkPreview,
+  listShortLinks,
+  updateShortLinkPreviewMode,
+  type ShortLinkActor,
+} from '../../services/short-links.js'
 import { sendServiceError } from '../../services/errors.js'
 
 // Admin short-link handlers (spec 05, FR-083). Thin adapters over services/short-links.ts,
@@ -44,14 +51,45 @@ export async function adminShortLinksRoutes(app: FastifyInstance) {
     },
   )
 
-  app.post<{ Params: { id: string }; Body: { label?: string; siteSlug?: string | null } }>(
+  app.post<{ Params: { id: string }; Body: { label?: string; siteSlug?: string | null; previewMode?: unknown } }>(
     '/admin/content/:id/short-links', { preHandler: auth }, async (req, reply) => {
       try {
         const created = await createShortLink(
-          { contentItemId: req.params.id, label: req.body?.label ?? '', siteSlug: req.body?.siteSlug ?? null },
+          {
+            contentItemId: req.params.id,
+            label: req.body?.label ?? '',
+            siteSlug: req.body?.siteSlug ?? null,
+            previewMode: req.body?.previewMode,
+          },
           actorOf(req),
         )
         return reply.code(201).send(created)
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
+    },
+  )
+
+  // Spec 06 FR-089: switch between the content preview and the destination's own preview.
+  app.patch<{ Params: { id: string; shortLinkId: string }; Body: { previewMode?: unknown } }>(
+    '/admin/content/:id/short-links/:shortLinkId', { preHandler: auth }, async (req, reply) => {
+      try {
+        const updated = await updateShortLinkPreviewMode(req.params.shortLinkId, req.params.id, req.body?.previewMode, actorOf(req))
+        if (!updated) return reply.code(404).send({ error: 'Short link not found' })
+        return updated
+      } catch (e) {
+        return sendServiceError(reply, e)
+      }
+    },
+  )
+
+  // The share card a link-preview crawler would get, as JSON (never HTML).
+  app.get<{ Params: { id: string; shortLinkId: string }; Querystring: { locale?: string } }>(
+    '/admin/content/:id/short-links/:shortLinkId/preview', { preHandler: auth }, async (req, reply) => {
+      try {
+        const preview = await getShortLinkPreview(req.params.shortLinkId, req.params.id, req.query.locale)
+        if (!preview) return reply.code(404).send({ error: 'Short link not found' })
+        return preview
       } catch (e) {
         return sendServiceError(reply, e)
       }

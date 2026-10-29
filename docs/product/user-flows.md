@@ -189,7 +189,7 @@ Member-facing flows come first, followed by admin flows.
 
 ### Flow 15 (AI agent) — Creating a short link through MCP
 - Trigger: an editor asks for a trackable link for a channel (WhatsApp group, flyer QR)
-- Steps: `create_short_link(itemId, label, siteSlug?)`; the agent returns the `url`; the link appears in the content editor's "Link-uri scurte" tab and in `/admin/logs` as `short-link.create`
+- Steps: `create_short_link(itemId, label, siteSlug?, previewMode?)`; the agent returns the `url`; the link appears in the content editor's "Link-uri scurte" tab and in `/admin/logs` as `short-link.create`
 - Edge states: item without a link → `warning`, the link redirects to `/` until a link is set; unknown site → error
 
 
@@ -205,3 +205,21 @@ Member-facing flows come first, followed by admin flows.
   - The text passes 50 characters: the counter turns to the accent colour and a hint warns it will wrap on phones; typing stops at 70
   - The admin types only spaces: the location is removed from the card and no row is shown
   - The card has no date: the row is still shown, in the date row's place
+
+### Flow 17 (Admin) — Controlling what a short link looks like when shared
+- Trigger: an admin is about to share a short link in WhatsApp, Telegram, Messenger or similar
+- Steps:
+  - The admin opens the content item's "Link-uri scurte" tab and presses "Previzualizare" on the link's row
+  - The panel shows the share card (image, title, description) in the chosen language; the language dropdown switches between the enabled languages
+  - The admin picks "Conținutul (imagine și titlu)" (default) or "Pagina destinație" (the app previews the destination page instead; the link then behaves as before)
+  - Optionally, the admin opens the preview page (`/s/<code>?preview=1`) or Meta's Sharing Debugger to refresh a card the platform has cached
+- Success state: the choice is stored on the link and audit-logged (`short-link.update`)
+- Failure or edge states: the item has no title and no image, or is a Richtext or Video item → the panel states why the destination's preview will be used; platforms cache previews, so an edited title or image needs a refresh in the platform's own tool
+
+### Flow 18 — Sharing a short link in a messaging app
+- Trigger: someone pastes `https://<host>/s/<code>` into a chat
+- Steps:
+  - The app's link-preview crawler fetches `/s/<code>` and receives a small HTML page with the content's title, description and a 1200×630 image (in the language of the request, Romanian by default)
+  - The chat renders the card; tapping it opens `/s/<code>` in a browser, which redirects to the destination as usual
+- Success state: the card shows the poster and title the admin wrote, not the destination's generic preview; the crawler fetch is not counted as a click
+- Failure or edge states: a crawler not on the allowlist, a link set to "Pagina destinație" or an item with nothing to show → the destination's own preview, exactly as before

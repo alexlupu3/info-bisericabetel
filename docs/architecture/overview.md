@@ -20,10 +20,11 @@ For the package-by-package code map, commands and conventions see [`AGENTS.md`](
 CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PORT=80)
                            ├─ /api/*        REST API
                            ├─ /mcp          remote MCP (only when MCP_SECRET is set)
-                           ├─ /s/:code      short-link redirect
+                           ├─ /s/:code      short-link redirect, or OG preview page for link-preview crawlers (ADR-025)
                            ├─ /feed.xml, /:siteSlug/feed.xml   RSS 2.0 current and upcoming events (ADR-021)
                            ├─ /llms.txt    agent-oriented index of pages, feeds and public API
                            ├─ /uploads/*    uploaded media from the UPLOADS_DIR volume
+                           ├─ /uploads/og/*.jpg  on-demand share-image derivatives
                            ├─ /health       health check
                            ├─ /robots.txt, /sitemap.xml   crawler endpoints (ADR-022)
                            ├─ /, /:siteSlug, /i/:itemId → server-rendered head + content snapshot into the SPA shell
@@ -52,7 +53,7 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 - **Style guide:** the `frontend-design` skill (`.agents/skills/frontend-design/`) contains the church's style guide and must be used for any UI work in `packages/app` (public hub and admin).
 
 ## Backend
-- Fastify 5 (Node.js), bundled with esbuild. In production the Fastify process is the only runtime. All REST routes are registered under the `/api` prefix. The short-link route (`GET /s/:code`) is registered before the SPA static handler so codes are not swallowed by the SPA fallback. A `setNotFoundHandler` returns `index.html` (with `Cache-Control: no-cache`) for unmatched non-`/api` paths and a JSON 404 for unmatched `/api` paths.
+- Fastify 5 (Node.js), bundled with esbuild. In production the Fastify process is the only runtime. All REST routes are registered under the `/api` prefix. The short-link route (`GET /s/:code`) is registered before the SPA static handler so codes are not swallowed by the SPA fallback. Link-preview crawlers (User-Agent allowlist) get a 200 HTML page with Open Graph tags at `/s/:code` instead of the redirect ([ADR-025](../decisions/ADR-025-short-link-preview-by-user-agent.md)); the share images are built on demand by `sharp` (`services/og-image.ts`) and served at `/uploads/og/:name` (`routes/og-image.ts`). A `setNotFoundHandler` returns `index.html` (with `Cache-Control: no-cache`) for unmatched non-`/api` paths and a JSON 404 for unmatched `/api` paths.
 - The event feed and `/llms.txt` routes (`routes/feed.ts`, `routes/llms-txt.ts`) are registered before the SPA static handler, like the short-link route, and share the public content selection with `GET /api/content` (`services/public-content.ts`); the RSS serializer (`services/rss.ts`) is a pure, deterministic function so the strong `ETag` changes only with the data ([ADR-021](../decisions/ADR-021-rss-event-feed.md)).
 - Drizzle ORM over `postgres` (postgres-js). Raw SQL through Drizzle's `sql` tag is used where needed.
 - Background work (AI translation) runs in-process as fire-and-forget `setImmediate` jobs ([ADR-010](../decisions/ADR-010-ai-auto-translation-fire-and-forget.md)). There is no queue.

@@ -167,6 +167,7 @@ export const toolContract = {
       itemId: z.string().uuid().describe('Content item the link points to'),
       label: z.string().trim().min(1).max(100).describe('Channel label shown in analytics'),
       siteSlug: z.string().min(1).optional().describe('Use this site\'s link override (data.siteLinks[siteSlug]) and attribute clicks to this site'),
+      previewMode: z.enum(['content', 'destination']).optional().describe('What messaging apps show when the link is shared: "content" (default) — the item\'s image and title; "destination" — the destination page\'s own preview'),
     },
     annotations: { readOnlyHint: false, idempotentHint: false },
   },

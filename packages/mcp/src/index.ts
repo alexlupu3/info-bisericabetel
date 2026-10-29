@@ -248,10 +248,10 @@ const handlers: ToolHandlers = {
   get_short_link_stats: async ({ code, itemId, from, to, tz, granularity }) =>
     passThrough(await apiFetch(`/admin/analytics/short-links${query({ code, itemId, from, to, tz, granularity })}`)),
 
-  create_short_link: async ({ itemId, label, siteSlug }) =>
+  create_short_link: async ({ itemId, label, siteSlug, previewMode }) =>
     passThrough(await apiFetch(`/admin/content/${encodeURIComponent(itemId)}/short-links`, {
       method: 'POST',
-      body: JSON.stringify({ label, siteSlug: siteSlug ?? null }),
+      body: JSON.stringify({ label, siteSlug: siteSlug ?? null, previewMode }),
     })),
 
   list_short_links: async ({ itemId, site, limit }) =>

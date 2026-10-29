@@ -1,4 +1,6 @@
-import type { Site, SqlQueryResult } from '@betel/shared'
+import type {
+  Site, SqlQueryResult, ShortLink as SharedShortLink, ShortLinkPreview, ShortLinkPreviewMode,
+} from '@betel/shared'
 import { calendarDay, viewerTimeZone } from '../../dates'
 
 const TOKEN_KEY = 'betel-admin-token'
@@ -143,15 +145,9 @@ export interface ItemAnalytics {
   }>
 }
 
-export interface ShortLink {
-  id: string
-  code: string
-  label: string
-  contentItemId: string
-  siteSlug: string | null
-  createdAt: string
-  clickCount: number
-}
+export type { ShortLinkPreview, ShortLinkPreviewMode, ShortLinkPreviewReason } from '@betel/shared'
+/** A short-link row; `url` is the absolute public short URL when the API provides it. */
+export type ShortLink = SharedShortLink & { url?: string }
 
 export type Period = 'day' | 'week' | 'month' | 'custom'
 
@@ -281,8 +277,20 @@ export const api = {
   shortLinks: {
     list:   (contentItemId: string) =>
       get<{ shortLinks: ShortLink[] }>(`/api/admin/content/${contentItemId}/short-links`),
-    create: (contentItemId: string, label: string, siteSlug?: string | null) =>
-      post<ShortLink>(`/api/admin/content/${contentItemId}/short-links`, { label, siteSlug }),
+    create: (
+      contentItemId: string,
+      label: string,
+      siteSlug?: string | null,
+      previewMode?: ShortLinkPreviewMode,
+    ) =>
+      post<ShortLink>(`/api/admin/content/${contentItemId}/short-links`, { label, siteSlug, previewMode }),
+    update: (contentItemId: string, shortLinkId: string, body: { previewMode: ShortLinkPreviewMode }) =>
+      patch<ShortLink>(`/api/admin/content/${contentItemId}/short-links/${shortLinkId}`, body),
+    preview: (contentItemId: string, shortLinkId: string, locale?: string) =>
+      get<ShortLinkPreview>(
+        `/api/admin/content/${contentItemId}/short-links/${shortLinkId}/preview`
+          + (locale ? `?locale=${encodeURIComponent(locale)}` : ''),
+      ),
     remove: (contentItemId: string, shortLinkId: string) =>
       del<void>(`/api/admin/content/${contentItemId}/short-links/${shortLinkId}`),
   },

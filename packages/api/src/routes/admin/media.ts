@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { db } from '../../db/client.js'
 import { media, contentItems, contentTranslations } from '../../db/schema.js'
 import { eq, sql } from 'drizzle-orm'
+import { deleteOgDerivative } from '../../services/og-image.js'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024 // 5 MB — enforced by Fastify (bodyLimit + multipart fileSize). A reverse proxy in front (e.g. CapRover's nginx) must allow at least this much.
@@ -133,6 +134,8 @@ export async function adminMediaRoutes(app: FastifyInstance) {
     } catch {
       // File may already be missing — continue with DB cleanup
     }
+    // Its share-image derivative belongs to the row too (spec 06 FR-087).
+    await deleteOgDerivative(row.filename).catch(err => req.log.warn({ err }, 'could not delete og derivative'))
 
     await db.delete(media).where(eq(media.id, id))
     return reply.code(204).send()
