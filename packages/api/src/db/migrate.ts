@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'fs/promises'
-import { join } from 'path'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 import { sql } from './client.js'
 
 export async function runMigrations() {
@@ -11,7 +12,9 @@ export async function runMigrations() {
     )
   `
 
-  const migrationsDir = join(__dirname, 'migrations')
+  // __dirname exists in the CJS bundle (dist/); under `tsx watch` the source runs as ESM.
+  const here = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURLToPath(import.meta.url))
+  const migrationsDir = join(here, 'migrations')
   const files = (await readdir(migrationsDir))
     .filter(f => f.endsWith('.sql'))
     .sort()

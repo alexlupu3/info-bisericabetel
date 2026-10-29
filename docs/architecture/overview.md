@@ -32,7 +32,7 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 ```
 
 - One container, one process ([ADR-006](../decisions/ADR-006-single-container-deployment.md)). There is no nginx inside the container. CapRover's reverse proxy terminates TLS in front of it.
-- Inside the container the API listens on port 80 (`PORT=80` in the `Dockerfile`). Locally the API defaults to port 3100. `docker compose` maps host `${APP_HOST_PORT:-8080}` to container port 80.
+- Inside the container the API listens on port 80 (`PORT=80` in the `Dockerfile`). Locally the API defaults to port 3100. The local staging compose file maps host `${STAGING_APP_PORT:-8080}` to container port 80 ([deployment.md](deployment.md#environments)).
 - Migrations in `packages/api/src/db/migrations/` are applied automatically at API startup.
 - Optional outbound calls: OpenRouter for AI translation (server side) and Google Fonts (browser side). See `integrations.md`.
 - Environment variables are documented in [configuration.md](configuration.md). Deployment steps are in [deployment.md](deployment.md).
@@ -74,7 +74,7 @@ CapRover nginx (TLS) ──► single container: node dist/index.js (Fastify, PO
 - Files without a corresponding `media` row are orphans. This is possible only in the narrow window between a successful disk write and a failed DB insert.
 
 ## Development and Testing
-- `pnpm dev` runs the Vite dev server on `:5173`; `pnpm dev:api` runs the API on `:3100`. The Vite proxy forwards **only** `/api`, `/robots.txt`, `/sitemap.xml`, `/feed.xml`, `/:siteSlug/feed.xml` and `/llms.txt`, so `/uploads/*` (images) and `/s/:code` (short links) do not work on `:5173`. Open them on the API port, or run the production build, to test those paths.
+- `pnpm dev` runs the Vite dev server on `:5173`; `pnpm dev:api` runs the API on `:3100`. The Vite proxy forwards `/api`, `/uploads`, `/s/`, `/robots.txt`, `/sitemap.xml`, `/feed.xml`, `/:siteSlug/feed.xml` and `/llms.txt` to the API, so media, short links, crawler endpoints and feeds all work on `:5173`. A production-like run is available through local staging ([deployment.md](deployment.md#environments)).
 - E2E tests use Cypress (`cypress/e2e/`). Every spec stubs the API with `cy.intercept`, so the suite exercises the frontend against fixtures and does not cover the API or database.
 - There is no CI pipeline in the repository. Lint, type-check and tests are run locally before merging.
 

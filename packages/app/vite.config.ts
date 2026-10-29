@@ -55,30 +55,19 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: {
-      '/api': {
+    // Everything the API serves outside the SPA.
+    proxy: Object.fromEntries(
+      [
+        // Routes, media, short links
+        '/api', '/uploads', '/s/',
+        // Crawler endpoints (spec 03)
+        '/robots.txt', '/sitemap.xml',
+        // Event feeds and the agent index (spec 02): /feed.xml, /:siteSlug/feed.xml, /llms.txt
+        '^/([^/]+/)?feed\\.xml(\\?|$)', '/llms.txt',
+      ].map(prefix => [prefix, {
         target: process.env.API_TARGET ?? 'http://localhost:3100',
         changeOrigin: true,
-      },
-      // Crawler endpoints served by the API (spec 03)
-      '/robots.txt': {
-        target: process.env.API_TARGET ?? 'http://localhost:3100',
-        changeOrigin: true,
-      },
-      '/sitemap.xml': {
-        target: process.env.API_TARGET ?? 'http://localhost:3100',
-        changeOrigin: true,
-      },
-      // Event feeds and the agent index served by the API (spec 02): /feed.xml,
-      // /:siteSlug/feed.xml and /llms.txt
-      '^/([^/]+/)?feed\\.xml(\\?|$)': {
-        target: process.env.API_TARGET ?? 'http://localhost:3100',
-        changeOrigin: true,
-      },
-      '/llms.txt': {
-        target: process.env.API_TARGET ?? 'http://localhost:3100',
-        changeOrigin: true,
-      },
-    },
+      }]),
+    ),
   },
 })
