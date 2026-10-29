@@ -13,7 +13,9 @@ const items = Array.from({ length: 40 }, (_, i) => ({
   data: { title: `Card ${i}` }, createdAt: '', updatedAt: '',
 }))
 
-function visitAdmin(theme: 'light' | 'dark') {
+// theme = null leaves no saved preference, so useTheme falls back to the
+// (stubbed) system colour scheme
+function visitAdmin(theme: 'light' | 'dark' | null, systemDark = false) {
   cy.intercept('GET', '/api/auth/me', mockUser).as('me')
   cy.intercept('GET', '/api/admin/content', { items }).as('content')
   cy.intercept('GET', '/api/admin/groups', { groups: [] }).as('groups')
@@ -21,7 +23,18 @@ function visitAdmin(theme: 'light' | 'dark') {
   cy.visit(ADMIN_URL, {
     onBeforeLoad(win) {
       win.localStorage.setItem('betel-admin-token', mockToken)
-      win.localStorage.setItem('theme', theme)
+      if (theme) win.localStorage.setItem('theme', theme)
+      else win.localStorage.removeItem('theme')
+      cy.stub(win, 'matchMedia').callsFake((query: string) => ({
+        matches: systemDark && query.includes('prefers-color-scheme: dark'),
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }))
     },
   })
   cy.wait('@me')
@@ -40,6 +53,18 @@ describe('Admin — light / dark theme', () => {
 
   it('uses the dark admin palette when the dark theme is stored', () => {
     visitAdmin('dark')
+    cy.get('html').should('have.attr', 'data-theme', 'dark')
+    bodyBackground().should('eq', 'rgb(10, 10, 10)')
+  })
+
+  it('follows a light system preference when no theme is saved', () => {
+    visitAdmin(null, false)
+    cy.get('html').should('have.attr', 'data-theme', 'light')
+    bodyBackground().should('eq', 'rgb(244, 244, 244)')
+  })
+
+  it('follows a dark system preference when no theme is saved', () => {
+    visitAdmin(null, true)
     cy.get('html').should('have.attr', 'data-theme', 'dark')
     bodyBackground().should('eq', 'rgb(10, 10, 10)')
   })
