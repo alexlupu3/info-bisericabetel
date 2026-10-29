@@ -84,7 +84,7 @@ function GroupRow({ group, onDelete }: { group: Group; onDelete: () => void }) {
         {group.id.slice(0, 8)}
       </span>
       <button onClick={onDelete}
-        className="text-xs font-content text-[var(--muted)] hover:text-red-400 transition-colors flex-shrink-0">
+        className="text-xs font-content text-[var(--muted)] hover:text-[var(--danger)] transition-colors flex-shrink-0">
         Șterge
       </button>
     </li>
@@ -114,7 +114,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated }: { availableSite
 
   return (
     <div className="border border-[var(--border)] p-4 mb-6 space-y-3" data-testid="create-group-form">
-      {error && <p className="text-red-400 text-sm font-content">{error}</p>}
+      {error && <p className="text-[var(--danger)] text-sm font-content">{error}</p>}
       <div>
         <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu *</label>
         <input value={title} onChange={e => setTitle(e.target.value)}

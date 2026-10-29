@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             data-testid="toast"
             className={`px-4 py-3 text-xs font-content tracking-wide border animate-fade-in
               ${t.type === 'error'
-                ? 'bg-[var(--bg)] border-red-400 text-red-400'
+                ? 'bg-[var(--bg)] border-[var(--danger)] text-[var(--danger)]'
                 : 'bg-[var(--text)] border-[var(--text)] text-[var(--bg)]'
               }`}>
             {t.message}

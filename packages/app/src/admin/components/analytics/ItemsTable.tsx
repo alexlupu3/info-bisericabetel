@@ -83,7 +83,7 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
                           setExporting(null)
                         }
                       }}
-                      className="hover:text-[var(--foreground)] transition-colors disabled:opacity-40"
+                      className="hover:text-[var(--text)] transition-colors disabled:opacity-40"
                     >
                       <Download size={14} />
                     </button>

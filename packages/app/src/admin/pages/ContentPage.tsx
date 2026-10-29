@@ -854,7 +854,7 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, onDup
             <button
               data-testid={`item-menu-publish-${itemId}`}
               onClick={() => { setOpen(false); onPublish() }}
-              className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-green-400 transition-colors"
+              className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--success)] transition-colors"
             >
               Publică
             </button>
@@ -863,7 +863,7 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, onDup
             <button
               data-testid={`item-menu-hide-${itemId}`}
               onClick={() => { setOpen(false); onArchive() }}
-              className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-yellow-400 transition-colors"
+              className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--warning)] transition-colors"
             >
               Ascunde
             </button>
@@ -885,7 +885,7 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, onDup
           <button
             data-testid={`item-menu-delete-${itemId}`}
             onClick={() => { setOpen(false); onDelete() }}
-            className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-red-400 transition-colors"
+            className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--danger)] transition-colors"
           >
             Șterge
           </button>
@@ -938,7 +938,7 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
           <button
             data-testid={`group-menu-delete-${groupId}`}
             onClick={() => { setOpen(false); onDelete() }}
-            className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-red-400 transition-colors"
+            className="w-full text-left px-4 py-2 text-xs font-content tracking-widest uppercase hover:bg-[var(--bg)] text-[var(--danger)] transition-colors"
           >
             Șterge grup
           </button>
@@ -965,9 +965,9 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
     useSortable({ id: item.id, data: { ...dragData, contentType: item.type } })
 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }
-  const stateColor = item.state === 'published' ? 'text-green-400'
+  const stateColor = item.state === 'published' ? 'text-[var(--success)]'
     : item.state === 'archived' ? 'text-[var(--muted)]'
-    : item.state === 'deleted' ? 'text-red-400' : 'text-yellow-400'
+    : item.state === 'deleted' ? 'text-[var(--danger)]' : 'text-[var(--warning)]'
   const past = isItemPast(item)
 
   return (
@@ -991,7 +991,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
       {past && (
         <span
           data-testid={`past-badge-${item.id}`}
-          className="hidden sm:inline flex-shrink-0 text-xs font-content uppercase tracking-widest text-amber-500"
+          className="hidden sm:inline flex-shrink-0 text-xs font-content uppercase tracking-widest text-[var(--warning)]"
           title="Conținut din trecut"
         >
           expirat
@@ -1034,9 +1034,9 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
 // ── Drag overlays ──────────────────────────────────────────────────────────────
 
 function ContentRowOverlay({ item }: { item: ContentItem }) {
-  const stateColor = item.state === 'published' ? 'text-green-400'
+  const stateColor = item.state === 'published' ? 'text-[var(--success)]'
     : item.state === 'archived' ? 'text-[var(--muted)]'
-    : item.state === 'deleted' ? 'text-red-400' : 'text-yellow-400'
+    : item.state === 'deleted' ? 'text-[var(--danger)]' : 'text-[var(--warning)]'
   return (
     <li className="flex items-center gap-4 border border-[var(--accent)] bg-[var(--surface)] px-4 py-3 opacity-90 list-none">
       <span className="flex-shrink-0 text-[var(--muted)] p-1"><GripVertical size={16} /></span>
@@ -1341,7 +1341,7 @@ function ImagePicker({ label, value, onChange, testId }: {
         </div>
       )}
 
-      {uploadError && <p className="text-red-400 text-xs font-content mt-1">{uploadError}</p>}
+      {uploadError && <p className="text-[var(--danger)] text-xs font-content mt-1">{uploadError}</p>}
       {showLibrary && (
         <MediaLibraryModal
           onSelect={url => { onChange(url); setShowLibrary(false) }}
@@ -1617,7 +1617,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                   key={t.locale}
                   className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-content rounded ${
                     t.locale === transLocale
-                      ? 'bg-[var(--accent)] text-white'
+                      ? 'bg-[var(--accent)] text-[var(--on-accent)]'
                       : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]'
                   }`}>
                   {t.locale.toUpperCase()}
@@ -1628,7 +1628,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
         </div>
       )}
 
-      {error && <p className="text-red-400 text-sm font-content">{error}</p>}
+      {error && <p className="text-[var(--danger)] text-sm font-content">{error}</p>}
 
       {/* Translation mode — show translatable text fields and optional locale-specific images */}
       {isTranslating ? (
@@ -1899,7 +1899,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             } catch (e: any) { setError(e.message) } finally { setBusy(false) }
           }}
           disabled={busy}
-          className="px-4 py-2 text-xs tracking-widest uppercase font-content text-red-400 hover:text-red-300 transition-colors disabled:opacity-40">
+          className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--danger)] hover:opacity-80 transition-colors disabled:opacity-40">
             Șterge traducerea
           </button>
         )}

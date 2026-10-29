@@ -32,7 +32,7 @@ export default function LoginPage() {
 
         <form onSubmit={submit} className="mt-8 space-y-4" data-testid="login-form">
           {error && (
-            <p className="text-red-400 text-sm font-content" data-testid="login-error">{error}</p>
+            <p className="text-[var(--danger)] text-sm font-content" data-testid="login-error">{error}</p>
           )}
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">

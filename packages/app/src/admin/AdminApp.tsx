@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Menu, Moon, Sun, X } from 'lucide-react'
+import { useTheme } from '../public/hooks/useTheme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import LoginPage from './pages/LoginPage'
@@ -19,14 +20,35 @@ import SetupPage from './pages/SetupPage'
 import SqlConsolePage from './pages/SqlConsolePage'
 
 export default function AdminApp() {
+  // Scope the admin tokens to <html> so the page background follows the
+  // theme past the first viewport when content scrolls.
+  useLayoutEffect(() => {
+    document.documentElement.classList.add('admin-theme')
+    return () => document.documentElement.classList.remove('admin-theme')
+  }, [])
+
   return (
-    <div className="admin-theme">
-      <AuthProvider>
-        <ToastProvider>
-          <Shell />
-        </ToastProvider>
-      </AuthProvider>
-    </div>
+    <AuthProvider>
+      <ToastProvider>
+        <Shell />
+      </ToastProvider>
+    </AuthProvider>
+  )
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme()
+  const label = theme === 'dark' ? 'Temă luminoasă' : 'Temă întunecată'
+  return (
+    <button
+      data-testid="admin-theme-toggle"
+      onClick={toggle}
+      aria-label={label}
+      title={label}
+      className="text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+    >
+      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
   )
 }
 
@@ -59,8 +81,8 @@ function Shell() {
     `text-xs tracking-widest uppercase font-content transition-colors ${isActive ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`
 
   return (
-    <div className="h-screen flex flex-col">
-      <nav className="border-b border-[var(--border)] px-5 py-3 flex items-center justify-between">
+    <div className="min-h-full flex flex-col">
+      <nav className="border-b border-[var(--border)] px-5 py-3 flex items-center justify-between gap-6">
         <div className="flex items-center gap-6">
           <span className="text-sm">
             <span className="betel-title-bold">BETEL</span>
@@ -92,7 +114,8 @@ function Shell() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
           <button onClick={logout}
             className="hidden md:block text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors">
             Ieșire

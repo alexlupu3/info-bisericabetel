@@ -192,7 +192,7 @@ export default function TranslationsPage() {
                     onClick={() => {
                       if (confirm(`Ștergi limba "${lang.name}"?`)) deleteLangMut.mutate(lang.code)
                     }}
-                    className="text-xs font-content text-[var(--muted)] hover:text-red-400 transition-colors"
+                    className="text-xs font-content text-[var(--muted)] hover:text-[var(--danger)] transition-colors"
                   >
                     Șterge
                   </button>
