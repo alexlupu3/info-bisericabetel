@@ -9,7 +9,7 @@
 // cypress/e2e/snapshot-parity.cy.ts compares (title, date, link) per item.
 // Classes are the SPA's Tailwind classes (this file is in the app's Tailwind content).
 
-import { UI_DEFAULTS, itemDisplayTitle, itemPlainText, itemWhen, siteAddressLine } from '@betel/shared'
+import { UI_DEFAULTS, itemDisplayTitle, itemPlainText, itemWhen, readLocation, siteAddressLine } from '@betel/shared'
 import { escapeHtml, safeUrl } from './escape.js'
 import { itemImagePath } from './item-image.js'
 import { groupFeed, type FeedItem, type PageModel, type PublicSite } from './page-model.js'
@@ -72,6 +72,19 @@ function whenLine(item: FeedItem): string {
   return `<p class="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">${inner}</p>`
 }
 
+/** Mirror of EventLocation.tsx (spec 07): map pin + visually-hidden label + the location text. */
+function locationLine(item: FeedItem): string {
+  const location = readLocation(item.data)
+  if (!location) return ''
+  const spacing = itemWhen(item.data, DATE_LOCALE) ? '-mt-1 mb-2' : 'mb-2'
+  return `<p class="flex items-start gap-1.5 text-[10px] tracking-widest uppercase font-content text-[var(--muted)] ${spacing}" data-testid="event-location">`
+    + `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-[1.2em] w-[1.2em] shrink-0" aria-hidden="true" focusable="false">`
+    + `<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>`
+    + `<circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.75"/></svg>`
+    + `<span class="sr-only">${escapeHtml(UI_DEFAULTS['location.label'])}: </span>`
+    + `<span class="min-w-0 break-words">${escapeHtml(location)}</span></p>`
+}
+
 function wrapLink(html: string, href: string | null): string {
   if (!href) return html
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="group block">${html}</a>`
@@ -92,7 +105,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext): string {
         + (thumb
           ? `<div class="aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover"></div>`
           : '')
-        + `<div class="p-4">${whenLine(item)}`
+        + `<div class="p-4">${whenLine(item)}${locationLine(item)}`
         + `<${h} class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)
         + (text ? `<p class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')

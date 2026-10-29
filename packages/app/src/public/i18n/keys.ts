@@ -28,6 +28,8 @@ export const UI_KEYS = {
   FEED_WHERE: 'feed.where',
   FEED_DETAILS: 'feed.details',
   FEED_UNTITLED: 'feed.untitled',
+  // Spec 07 (event location)
+  LOCATION_LABEL: 'location.label',
 } as const
 
 export { UI_DEFAULTS } from '@betel/shared'
