@@ -24,6 +24,8 @@ import { adminTranslationsRoutes } from './routes/admin/translations.js'
 import { adminErrorLogsRoutes } from './routes/admin/error-logs.js'
 import { adminSqlRoutes } from './routes/admin/sql.js'
 import { shortLinkRedirectRoute } from './routes/short-links.js'
+import { ogImageRoute } from './routes/og-image.js'
+import { configureOgImages } from './services/og-image.js'
 import { adminShortLinksRoutes } from './routes/admin/short-links.js'
 import { mcpRoutes } from './routes/mcp.js'
 import { pagesRoutes } from './routes/pages.js'
@@ -71,7 +73,19 @@ async function start() {
     prefix: '/uploads/',
   })
 
-  // Short link redirects — registered before SPA static so /s/:code is handled here
+  // Share-image derivatives under /uploads/og/ (spec 06 FR-087). Fastify matches this
+  // parametric route before the static plugin's /uploads/* wildcard; kept next to it.
+  configureOgImages({
+    uploadsDir: UPLOADS_DIR,
+    // The built app ships the icon in PUBLIC_DIR; under `pnpm dev:api` it is in the app package.
+    brandSources: [
+      path.join(PUBLIC_DIR, 'icons', 'icon-512.png'),
+      path.join(HERE, '..', '..', 'app', 'public', 'icons', 'icon-512.png'),
+    ],
+  })
+  await app.register(ogImageRoute)
+
+  // Short link redirects and link-preview pages — registered before SPA static so /s/:code is handled here
   await app.register(shortLinkRedirectRoute)
 
   // Event feeds and the agent index (spec 02, ADR-021) — before the SPA static handler and
