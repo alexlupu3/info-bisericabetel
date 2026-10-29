@@ -1617,7 +1617,7 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                   key={t.locale}
                   className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-content rounded ${
                     t.locale === transLocale
-                      ? 'bg-[var(--accent)] text-white'
+                      ? 'bg-[var(--accent)] text-[var(--on-accent)]'
                       : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]'
                   }`}>
                   {t.locale.toUpperCase()}

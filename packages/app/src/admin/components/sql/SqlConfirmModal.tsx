@@ -103,7 +103,7 @@ export default function SqlConfirmModal({ query, readOnly, onConfirm, onCancel }
               onClick={handleConfirm}
               className={`px-5 py-2 rounded-full border text-xs tracking-widest uppercase font-content transition-colors
                 ${armedAt !== null
-                  ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
                   : 'border-[var(--border)] text-[var(--text)] hover:border-[var(--accent)]'}`}>
               {armedAt !== null ? `Apasă din nou · ${secondsLeft}s` : 'Confirmă rularea'}
             </button>

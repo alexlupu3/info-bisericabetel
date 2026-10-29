@@ -69,7 +69,8 @@
    tokens and the background covers the whole scrollable page. Light and
    dark follow the same data-theme / system preference as the public hub. */
 :root.admin-theme {
-  --accent: #c94c00;
+  --accent: #bf4800;
+  --on-accent: #ffffff;
   --bg: #f4f4f4;
   --surface: #ffffff;
   --surface-2: #ebebeb;
@@ -86,6 +87,7 @@
 @media (prefers-color-scheme: dark) {
   :root.admin-theme:not([data-theme="light"]) {
     --accent: #ff6200;
+    --on-accent: #000000;
     --bg: #0a0a0a;
     --surface: #111111;
     --surface-2: #1a1a1a;
@@ -102,6 +104,7 @@
 
 :root.admin-theme[data-theme="dark"] {
   --accent: #ff6200;
+  --on-accent: #000000;
   --bg: #0a0a0a;
   --surface: #111111;
   --surface-2: #1a1a1a;
