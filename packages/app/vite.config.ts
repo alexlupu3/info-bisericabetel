@@ -30,6 +30,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Admin is lazy-loaded and only needed by editors; keep it out of every visitor's precache.
+        globIgnores: ['**/AdminApp-*.js'],
         // Server-only routes (specs 02, 03): never answer them with the app shell. Workbox
         // matches pathname + search, so the feed patterns allow a query (?lang=).
         navigateFallbackDenylist: [
