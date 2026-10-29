@@ -33,6 +33,8 @@ export const UI_DEFAULTS = {
   'feed.where': 'Unde',
   'feed.details': 'Detalii',
   'feed.untitled': 'Eveniment',
+  // Spec 07 (event location): screen-reader label of the card's location row
+  'location.label': 'Loc de desfășurare',
 } as const
 
 export type UiKey = keyof typeof UI_DEFAULTS

@@ -24,7 +24,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { isItemPast } from '../../content-expiry'
-import { compareEventSchedules, type EventSchedule } from '@betel/shared'
+import { LOCATION_MAX_LENGTH, LOCATION_SOFT_LENGTH, compareEventSchedules, normalizeLocationText, type EventSchedule } from '@betel/shared'
 import { api, type ContentItem, type Group, type Site } from '../api/client'
 import { useToast } from '../context/ToastContext'
 
@@ -1128,7 +1128,7 @@ function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
 
 type FormData = {
   type: string; sites: string[]; exclusiveSite: string | null; expiresAt: string; groupId: string
-  title: string; body: string; description: string; date: string; endDate: string; startTime: string; link: string; cta: string; imageUrl: string; url: string
+  title: string; body: string; description: string; date: string; endDate: string; startTime: string; location: string; link: string; cta: string; imageUrl: string; url: string
   name: string; thumbnail: string
   siteLinks: Record<string, string>
 }
@@ -1149,6 +1149,7 @@ function itemToForm(item?: ContentItem | null): FormData {
     link:        d.link  ?? '',
     endDate:     d.endDate ?? '',
     startTime:   d.startTime ?? '',
+    location:    d.location ?? '',
     cta:         d.cta   ?? '',
     imageUrl:    d.imageUrl   ?? '',
     url:         d.url        ?? '',
@@ -1170,6 +1171,7 @@ function formToPayload(f: FormData) {
     data.description = f.description || null
     data.link        = f.link        || null
     data.cta         = f.cta         || null
+    data.location    = normalizeLocationText(f.location) || null
     data.thumbnail   = f.thumbnail   || null
     data.siteLinks   = Object.keys(siteLinks).length ? siteLinks : null
   } else if (f.type === 'poster') {
@@ -1408,11 +1410,12 @@ function SiteLinkOverrides({ form, set, availableSites }: {
 
 // ── Translatable fields per content type ──────────────────────────────────────
 
-const TRANSLATABLE_FIELDS: Record<string, Array<{ key: string; label: string; multiline?: boolean }>> = {
+const TRANSLATABLE_FIELDS: Record<string, Array<{ key: string; label: string; multiline?: boolean; maxLength?: number }>> = {
   card: [
     { key: 'title', label: 'Titlu' },
     { key: 'description', label: 'Descriere', multiline: true },
     { key: 'cta', label: 'Text buton' },
+    { key: 'location', label: 'Loc de desfășurare', maxLength: LOCATION_MAX_LENGTH },
   ],
   richtext: [
     { key: 'title', label: 'Titlu' },
@@ -1424,6 +1427,24 @@ const TRANSLATABLE_FIELDS: Record<string, Array<{ key: string; label: string; mu
   video: [
     { key: 'title', label: 'Titlu' },
   ],
+}
+
+// Live length counter for the location input (FR-091): UTF-16 code units, the same
+// measure as maxLength and the API; the accent and hint only advise above the soft limit.
+function LocationCounter({ value, testId }: { value: string; testId: string }) {
+  const long = value.length > LOCATION_SOFT_LENGTH
+  return (
+    <p className="mt-1 text-xs font-content">
+      <span data-testid={testId} className={long ? 'text-[var(--accent)]' : 'text-[var(--muted)]'}>
+        {value.length} / {LOCATION_MAX_LENGTH}
+      </span>
+      {long && (
+        <span data-testid={testId.replace(/counter$/, 'soft-hint')} className="ml-2 text-[var(--muted)]">
+          Peste {LOCATION_SOFT_LENGTH} de caractere, textul se întinde pe două rânduri pe telefon.
+        </span>
+      )}
+    </p>
+  )
 }
 
 const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
@@ -1630,9 +1651,11 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
                   value={transForm[field.key] ?? ''}
                   onChange={e => setTrans(field.key, e.target.value)}
                   placeholder={getOriginalValue(field.key)}
+                  maxLength={field.maxLength}
                   data-testid={`trans-${field.key}-input`}
                   className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
               )}
+              {field.maxLength && <LocationCounter value={transForm[field.key] ?? ''} testId={`trans-${field.key}-counter`} />}
             </div>
           ))}
           {(LOCALE_IMAGE_FIELDS[form.type] ?? []).map(field => (
@@ -1791,6 +1814,18 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             </div>
           )}
         </div>
+
+        {/* Event location (spec 07): cards only, directly below the dates row */}
+        {form.type === 'card' && (
+          <div>
+            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Loc de desfășurare (opțional)</label>
+            <input value={form.location} onChange={e => set({ location: e.target.value })}
+              maxLength={LOCATION_MAX_LENGTH} placeholder="ex: Sala mare, etaj 1"
+              data-testid="create-location-input"
+              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+            <LocationCounter value={form.location} testId="create-location-counter" />
+          </div>
+        )}
 
         <div className="space-y-3">
           <label className="flex items-center gap-1.5 cursor-pointer" title="Ascunde din vizualizarea tuturor locațiilor">

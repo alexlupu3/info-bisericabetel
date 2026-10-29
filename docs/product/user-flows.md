@@ -191,3 +191,17 @@ Member-facing flows come first, followed by admin flows.
 - Trigger: an editor asks for a trackable link for a channel (WhatsApp group, flyer QR)
 - Steps: `create_short_link(itemId, label, siteSlug?)`; the agent returns the `url`; the link appears in the content editor's "Link-uri scurte" tab and in `/admin/logs` as `short-link.create`
 - Edge states: item without a link → `warning`, the link redirects to `/` until a link is set; unknown site → error
+
+
+### Flow 16 (Admin) — Stating where an event takes place
+- Trigger: an admin publishes a card for an event held at a specific place (a hall, a park, another building)
+- Steps:
+  - The admin opens the content form, sets the title and the start date
+  - Below the dates, the admin types the place into "Loc de desfășurare (opțional)"; a counter shows the length out of 70
+  - The admin saves; the public card shows a map-pin row with the place under the date
+  - Optionally, the admin switches the language dropdown and types the translated place name (the AI translation job fills it otherwise)
+- Success state: the location is stored on the card, translated per language and used by the RSS feed and structured data as the human-readable place
+- Failure or edge states:
+  - The text passes 50 characters: the counter turns to the accent colour and a hint warns it will wrap on phones; typing stops at 70
+  - The admin types only spaces: the location is removed from the card and no row is shown
+  - The card has no date: the row is still shown, in the date row's place

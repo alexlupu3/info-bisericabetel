@@ -133,12 +133,14 @@ test('title fallback chain per type, never empty', () => {
   assert.equal(titles[5], 'Predica')
 })
 
-test('location: data.location is not available yet (stub); the single applicable site is used, equal in both places', () => {
+test('location: data.location wins over the site, else the single applicable site, equal in both places', () => {
   const xml = buildEventFeed(input({ items: [
     entry(1, { sites: ['centru'] }),
     entry(2, { sites: ['vest'] }),
     entry(3, { sites: [] }),
     entry(4, { sites: ['centru', 'vest'] }),
+    entry(5, { sites: ['centru'], data: { location: '  Sala   mare ' } }),
+    entry(6, { sites: [], data: { location: 'Parcul Central & co' } }),
   ] }))
   const its = items(xml)
   const where = (i: string) => (all(i, 'description')[0].match(/^Unde: (.*)$/m) ?? [])[1] ?? null
@@ -147,6 +149,8 @@ test('location: data.location is not available yet (stub); the single applicable
   assert.equal(loc(its[1]), 'Vest')
   assert.equal(loc(its[2]), null, 'church-wide item in the all-sites feed has no place')
   assert.equal(loc(its[3]), null)
+  assert.equal(loc(its[4]), 'Sala mare')
+  assert.equal(loc(its[5]), 'Parcul Central & co', 'church-wide item with an explicit location')
   for (const i of its) assert.equal(where(i), loc(i))
 })
 

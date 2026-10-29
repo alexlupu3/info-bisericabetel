@@ -76,7 +76,7 @@ Rules that follow:
 - `packages/shared/src/seo.ts` (title/description builders used by both sides), `packages/shared/src/i18n-defaults.ts` (Romanian UI defaults).
 - `packages/app/src/main.tsx` (inline-data seeding), `public/pages/ItemPage.tsx`, `HomePage.tsx` (`document.title`/canonical sync).
 - No database migration (the optional, provisional `0015_site_address_fields.sql` belongs to spec 03 task T8, not to this decision; renumbered on merge per the specs README).
-- `packages/shared/src/event-location.ts` (`readLocation`, spec 07) is consumed by `structured-data.ts` and `render-snapshot.ts`; until spec 07 lands a same-signature stub returns `null`.
+- `packages/shared/src/event-location.ts` (`readLocation`, FR-094) is consumed by `structured-data.ts` and `render-snapshot.ts`.
 
 ## Consequences
 

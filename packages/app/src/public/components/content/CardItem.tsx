@@ -1,8 +1,10 @@
 import ReactMarkdown from 'react-markdown'
-import { itemWhen } from '@betel/shared'
+import { itemWhen, readLocation } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import FeedImage from './FeedImage'
+import EventLocation from './EventLocation'
+import { CalendarIcon, META_ROW_CLASS } from './meta-icons'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
 
@@ -14,6 +16,7 @@ type CardData = {
   date?: string       // legacy field — new cards use startDate
   endDate?: string
   startTime?: string  // HH:mm, Romania wall clock; single-day events only (BR-035)
+  location?: string   // free-text venue, ≤ 70 characters (BR-050)
   link?: string
   cta?: string
   siteLinks?: Record<string, string>
@@ -51,12 +54,14 @@ export default function CardItem({
   const { dateLocale } = useLanguage()
   // Same date line as the server-rendered snapshot (spec 03): text + ISO for <time> (spec 04).
   const when = itemWhen(item.data, dateLocale)
+  const location = readLocation(item.data)
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const horizontal = variant === 'horizontal'
 
   const dateLine = when && (
-    <p className="text-[10px] tracking-widest uppercase font-content mb-2 text-[var(--muted)]">
-      {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : when.text}
+    <p className={`${META_ROW_CLASS} mb-2`}>
+      <CalendarIcon />
+      {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : <span>{when.text}</span>}
     </p>
   )
 
@@ -83,6 +88,8 @@ export default function CardItem({
       <div className={horizontal ? 'p-5 flex flex-col justify-between flex-1 gap-3' : 'p-4'}>
         <div>
           {dateLine}
+          {/* Pulled up to a 4px gap under the date row so both read as one metadata block. */}
+          <EventLocation location={location} className={when ? '-mt-1 mb-2' : 'mb-2'} />
           <Heading className="betel-title-bold text-xl leading-tight mb-2">{d.title}</Heading>
           <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
           {d.description && (
