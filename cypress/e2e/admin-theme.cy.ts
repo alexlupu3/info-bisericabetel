@@ -90,4 +90,40 @@ describe('Admin — light / dark theme', () => {
     })
     bodyBackground().should('eq', 'rgb(244, 244, 244)')
   })
+
+  describe('before login', () => {
+    function visitLogin(theme: 'light' | 'dark' | null, systemDark: boolean) {
+      cy.intercept('GET', '/api/auth/me', { statusCode: 401, body: { error: 'Unauthorized' } })
+      cy.visit(ADMIN_URL, {
+        onBeforeLoad(win) {
+          win.localStorage.removeItem('betel-admin-token')
+          if (theme) win.localStorage.setItem('theme', theme)
+          else win.localStorage.removeItem('theme')
+          cy.stub(win, 'matchMedia').callsFake((query: string) => ({
+            matches: systemDark && query.includes('prefers-color-scheme: dark'),
+            media: query,
+            onchange: null,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            addListener: () => {},
+            removeListener: () => {},
+            dispatchEvent: () => false,
+          }))
+        },
+      })
+      cy.get('[data-testid="login-form"]').should('be.visible')
+    }
+
+    it('applies a saved dark theme on the login page under a light system preference', () => {
+      visitLogin('dark', false)
+      cy.get('html').should('have.attr', 'data-theme', 'dark')
+      bodyBackground().should('eq', 'rgb(10, 10, 10)')
+    })
+
+    it('applies a saved light theme on the login page under a dark system preference', () => {
+      visitLogin('light', true)
+      cy.get('html').should('have.attr', 'data-theme', 'light')
+      bodyBackground().should('eq', 'rgb(244, 244, 244)')
+    })
+  })
 })
