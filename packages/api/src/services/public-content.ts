@@ -67,12 +67,17 @@ async function queryVisible(where: SQL | undefined, locale: string): Promise<Pub
   const needsTranslation = locale && locale !== DEFAULT_LOCALE
 
   // LEFT JOIN groups so we can sort grouped items by their group's root orderPosition,
-  // then by their own within-group orderPosition.
+  // then by their own within-group orderPosition. Positions are not unique, so the order
+  // ends on unique keys: the SPA snapshot, sitemap and feeds (and their ETags) must not
+  // depend on the order Postgres happens to return ties in.
   const orderByClause = [
     // Root position: use group's orderPosition for grouped items, item's for standalone
     asc(sql`COALESCE(${groups.orderPosition}, ${contentItems.orderPosition})`),
-    // Within-group tiebreaker
+    // Keeps each group's items together when root positions tie (standalone items: NULL, last)
+    asc(groups.id),
+    // Within-group position, then the item id as the final unique key
     asc(contentItems.orderPosition),
+    asc(contentItems.id),
   ] as const
 
   if (needsTranslation) {

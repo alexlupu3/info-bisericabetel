@@ -2,7 +2,7 @@
 // step 3): the same sites, languages and content the SPA would fetch from
 // GET /api/sites, /api/languages and /api/content, in the default locale.
 
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import type { Language } from '@betel/shared'
 import { db } from '../../db/client.js'
 import { languages, sites } from '../../db/schema.js'
@@ -16,7 +16,7 @@ export async function loadSites(): Promise<PublicSite[]> {
 }
 
 export async function loadLanguages(): Promise<Language[]> {
-  return db.select().from(languages).where(eq(languages.enabled, true)).orderBy(desc(languages.isDefault))
+  return db.select().from(languages).where(eq(languages.enabled, true)).orderBy(desc(languages.isDefault), asc(languages.code))
 }
 
 export type PageRequest =
