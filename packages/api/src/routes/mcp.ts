@@ -16,6 +16,8 @@ import { createShortLink, listShortLinks } from '../services/short-links.js'
 import { isServiceError } from '../services/errors.js'
 import { MCP_SESSION_LIMITS, SessionRegistry } from '../services/mcp-sessions.js'
 import { invalidContentData } from '../services/content-validation.js'
+import { applyLocation } from '../services/event-location.js'
+import { dropTranslatedLocation } from '../services/content-translations.js'
 import { toolContract, toolNames, type ToolHandlers, type ToolResult } from '@betel/shared/mcp-tools'
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), '..', 'uploads')
@@ -128,7 +130,7 @@ function buildMcpServer(): McpServer {
     ),
 
     // ── create_card ─────────────────────────────────────────────
-    create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta,
+    create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, location, link, cta,
              sites: sitesList, exclusiveSite, groupId }) => {
       const normalizedExclusive = exclusiveSite?.length ? exclusiveSite : null
       if (normalizedExclusive) {
@@ -142,10 +144,12 @@ function buildMcpServer(): McpServer {
       if (startDate  !== undefined) data.startDate    = startDate
       if (endDate    !== undefined) data.endDate      = endDate
       if (startTime  !== undefined) data.startTime    = startTime
+      if (location   !== undefined) data.location     = location
       if (link       !== undefined) data.link         = link
       if (cta        !== undefined) data.cta          = cta
-      // Same rules as POST /api/admin/content: required title, date order, start time.
-      const dataError = invalidContentData('card', data)
+      // Same rules as POST /api/admin/content: location (normalised in place), required
+      // title, date order, start time.
+      const dataError = applyLocation('card', data) ?? invalidContentData('card', data)
       if (dataError) return err(dataError)
 
       const item = await db.transaction(async (tx) => {
@@ -180,7 +184,7 @@ function buildMcpServer(): McpServer {
     },
 
     // ── update_card ─────────────────────────────────────────────
-    update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta,
+    update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, location, link, cta,
              sites: sitesList, exclusiveSite }) => {
       const [existing] = await db.select().from(contentItems)
         .where(and(eq(contentItems.id, id), eq(contentItems.type, 'card'), ne(contentItems.state, 'deleted')))
@@ -213,6 +217,7 @@ function buildMcpServer(): McpServer {
       if (startDate   !== undefined) dataFields.startDate   = startDate
       if (endDate     !== undefined) dataFields.endDate     = endDate
       if (startTime   !== undefined) dataFields.startTime   = startTime
+      if (location    !== undefined) dataFields.location    = location
       if (link        !== undefined) dataFields.link        = link
       if (cta         !== undefined) dataFields.cta         = cta
 
@@ -224,8 +229,9 @@ function buildMcpServer(): McpServer {
         else mergedData[k] = v
       }
       // Validate the resulting data exactly like PATCH /api/admin/content/:id: a non-empty
-      // title, a non-reversed date range and no time on a multi-day or undated card.
-      const dataError = invalidContentData('card', mergedData)
+      // title, a non-reversed date range, no time on a multi-day or undated card and a
+      // valid location (normalised in place; whitespace-only removes it).
+      const dataError = applyLocation('card', mergedData) ?? invalidContentData('card', mergedData)
       if (dataError) return err(dataError)
 
       const [updated] = await db.update(contentItems).set({
@@ -245,11 +251,13 @@ function buildMcpServer(): McpServer {
       if (hasDataChanges) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
         const changedKeys = Object.keys(dataFields).filter(
-          k => dataFields[k] !== null && JSON.stringify(oldData[k]) !== JSON.stringify(dataFields[k]),
+          k => k in mergedData && JSON.stringify(oldData[k]) !== JSON.stringify(mergedData[k]),
         )
         if (changedKeys.length > 0) {
           scheduleContentTranslation(id, mergedData, changedKeys)
         }
+        // Same as PATCH /api/admin/content/:id: a removed location leaves no translated one behind.
+        if ('location' in oldData && !('location' in mergedData)) await dropTranslatedLocation(id)
       }
 
       return ok(updated)

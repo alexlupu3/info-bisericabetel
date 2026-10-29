@@ -173,7 +173,7 @@ const handlers: ToolHandlers = {
     return text(JSON.stringify(cards, null, 2))
   },
 
-  create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite, groupId }) => {
+  create_card: async ({ title, description, thumbnail, startDate, endDate, startTime, location, link, cta, sites, exclusiveSite, groupId }) => {
     const body = {
       type: 'card',
       sites: sites ?? [],
@@ -186,6 +186,7 @@ const handlers: ToolHandlers = {
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
         ...(startTime !== undefined && { startTime }),
+        ...(location !== undefined && { location }),
         ...(link !== undefined && { link }),
         ...(cta !== undefined && { cta }),
       },
@@ -200,7 +201,7 @@ const handlers: ToolHandlers = {
     return text(`Card created (draft):\n${JSON.stringify(data, null, 2)}`)
   },
 
-  update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, link, cta, sites, exclusiveSite }) => {
+  update_card: async ({ id, title, description, thumbnail, startDate, endDate, startTime, location, link, cta, sites, exclusiveSite }) => {
     const dataFields: Record<string, unknown> = {}
     if (title !== undefined) dataFields.title = title
     if (description !== undefined) dataFields.description = description
@@ -208,6 +209,7 @@ const handlers: ToolHandlers = {
     if (startDate !== undefined) dataFields.startDate = startDate
     if (endDate !== undefined) dataFields.endDate = endDate
     if (startTime !== undefined) dataFields.startTime = startTime // null clears it on the API
+    if (location !== undefined) dataFields.location = location // null clears it; the API validates it
     if (link !== undefined) dataFields.link = link
     if (cta !== undefined) dataFields.cta = cta
 
