@@ -1752,10 +1752,13 @@ function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, on
             <input type="date" value={form.date}
               onChange={e => {
                 const v = e.target.value
+                // An end date the new start date would pass is dropped, never kept as a
+                // reversed range (the API rejects endDate < startDate).
+                const endDate = v && form.endDate && form.endDate >= v ? form.endDate : ''
                 set({
                   date: v,
-                  endDate: v ? form.endDate : '',
-                  startTime: v && (!form.endDate || form.endDate === v) ? form.startTime : '',
+                  endDate,
+                  startTime: v && (!endDate || endDate === v) ? form.startTime : '',
                 })
               }}
               data-testid="create-date-input"
