@@ -28,6 +28,7 @@ RUN pnpm --filter @betel/app build
 
 # ─── Stage 4: api builder ──────────────────────────────────────────────────────
 FROM deps AS api-builder
+COPY tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY packages/api    ./packages/api
 
