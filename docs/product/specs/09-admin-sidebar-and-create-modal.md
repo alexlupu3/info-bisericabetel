@@ -1,0 +1,403 @@
+# Spec 09 — Admin sidebar navigation and create/edit dialogs
+
+- **Owner area:** admin shell (navigation, floating layers, dialog primitive) and the Content page create/edit flows for items and groups (see [README.md](README.md))
+- **FR range:** FR-105 – FR-114
+- **BR range:** BR-060 (BR-061 – BR-064 reserved, unused)
+- **ADR:** ADR-027 (admin dialogs: one native-`<dialog>` primitive; content items and groups are created and edited in a modal) — *Proposed*, full text in §12
+- **Migration:** none
+- **Mockup:** [interactive mockup](https://claude.ai/artifact/NwtdX3FZomdWh7UowRaayG) (role switch super-admin / admin, desktop sidebar expanded / rail, phone FAB drawer, "Element nou" dialog with the unsaved-changes confirmation)
+- **Status:** Ready for implementation, 2026-11-04 (open questions resolved with the product owner, see §11; D-4 and D-6 amended 2026-11-04)
+
+## 1. Summary
+
+The admin top bar holds up to ten uppercase links for a super-admin (Conținut, Locații, Media, Arhivă, Statistici, Utilizatori, Jurnale, Erori, Traduceri, SQL) plus the theme toggle and "Ieșire"; spec 01 adds an eleventh ("Aplicație"). It no longer fits on one line at common laptop widths, it gives every link the same weight, and on phones it becomes a hamburger dropdown that pushes the page down. Separately, "+ Adaugă" opens the create form inline at the top of the Content page, where it scrolls away with the list, competes with drag-and-drop and context menus, and is easy to lose with unsaved input; editing opens a second inline form under the row.
+
+This spec replaces the top bar with a **grouped, role-aware sidebar** (expanded or icon rail on desktop, remembered per device; an off-canvas drawer opened by a **floating action button** at the bottom right on phones) and moves **creating and editing content items and groups into true modal dialogs** built on one accessible dialog primitive: focus trapped, background inert and scroll-locked, `Esc`/backdrop dismissal that never silently discards unsaved input, a full-screen sheet on phones, and a clear landing after save (dialog closes, the new item or group is scrolled into view, highlighted and focused). While a form has unsaved changes, leaving it by any route — closing the dialog, browser Back/Forward, another admin page, reloading or closing the tab — is stopped and confirmed first.
+
+Regular admins see a short flat menu (four pages); super-admins see the same four plus two labelled groups. No permission changes: the menu mirrors today's page-level route guard. (The API allows a little more than the pages expose: `admin` may read languages and UI translations, but the Traduceri page stays super-admin only.)
+
+## 2. Goals / Non-goals
+
+**Goals**
+- G1. One navigation surface for every admin page, grouped by purpose, readable at a glance, with a clear active state.
+- G2. Regular admins see only what they can use, without group headings or system tools.
+- G3. Desktop users can collapse the sidebar to an icon rail to give the Content page more room; the choice survives reloads on that device.
+- G4. Phones get the navigation from a thumb-reachable FAB, without a header menu that shifts the page.
+- G5. Creating and editing a content item or a group happens in a modal dialog that must be finished or dismissed before anything else on the page can be used, and never loses typed input without asking — not even on Back, navigation, reload or tab close.
+- G6. One reusable, accessible dialog primitive for the admin, used by the content and group dialogs and by the media library picker nested inside the content dialog.
+
+**Non-goals**
+- No change to roles, permissions, admin API routes or the database. Traduceri stays super-admin in the UI (FR-041), although the API allows read-only access for `admin`.
+- No site switcher in the admin. The admin has no "current site" today (the Content page lists all sites' items; Statistici has its own site filter, `components/analytics/SiteFilter.tsx`); adding one is a separate feature.
+- No change to the public hub (`/`, `/:siteSlug`, `/i/:itemId`), its header, footer or the PWA install invite (spec 01, public only).
+- Group management stays on the Content page (ADR-002: no separate Groups page); only its two forms move into dialogs (D-4). Group deletion keeps its current `confirm()` prompt.
+- No draft persistence of a half-filled dialog across reloads (D-6); the leave-page warning (FR-113) prevents accidental loss instead.
+- No redesign of the content form's fields; they move into the dialog as they are (the dates row of spec 04 and the location input of spec 07 included).
+- The orphan `/admin/groups` route (ADR-002) is not touched; removing it is a follow-up.
+
+## 3. Current state
+
+| Area | Today | Where |
+|---|---|---|
+| Admin shell | `Shell()` renders a top `<nav>`: brand "BETEL ADMIN", inline `NavLink`s (`hidden md:flex`), theme toggle (`data-testid="admin-theme-toggle"`), "Ieșire". Below `md` a hamburger (`hamburger-btn`) toggles a dropdown (`mobile-menu`) that repeats every link. Links are duplicated in both lists, each guarded by `user.role === 'super-admin'` | `packages/app/src/admin/AdminApp.tsx` lines 62–186 |
+| Routes | `content`, `groups` (not linked, ADR-002), `media`, `archive`, `analytics` for every signed-in user; `locations`, `users`, `logs`, `error-logs`, `translations`, `sql` only rendered for `super-admin` (otherwise the `*` route redirects to `content`). Most pages sit in `PageContainer` (`max-w-[900px]`); `logs`, `error-logs`, `sql` are full width | `AdminApp.tsx` lines 167–183 |
+| Roles | `users.role` is `admin` (default) or `super-admin`. admin or super-admin: content, groups, media, short links, analytics, read-only languages/translations; super-admin only: users, sites, logs, error logs, translations write, SQL | `packages/api/src/db/schema.ts` line 35; `docs/architecture/security.md` → Roles |
+| Planned nav item | Spec 01 adds `/admin/pwa`, super-admin only, nav label "Aplicație" | `docs/product/specs/01-pwa.md` FR-053 |
+| Create flow | "+ Adaugă" (`create-content-btn`) sets `creating`; `<ContentForm>` renders inline at the top of the page (`data-testid="create-form"`). "Adaugă conținut în grup" (`group-add-content-<id>`) sets `creatingInGroup` and renders a second inline `ContentForm` with `defaultGroupId`; after save the group is re-sorted chronologically (user-flows Flow 3) | `packages/app/src/admin/pages/ContentPage.tsx` lines 210–221, 536–571 |
+| Edit flow | Clicking an item name or "Editează" in its context menu sets `editing`; the same `ContentForm` renders inline under the row or inside the group block (`data-testid="edit-form"`) with tabs "Editează" / "Linkuri scurte" (`tab-edit`, `tab-short-links`) and the translation locale select; an effect scrolls it into view | `ContentPage.tsx` lines 213–221, 586–612, 803–810, 1457–1915 |
+| Group forms | "+ Grup nou" (`create-group-btn`) toggles `CreateGroupForm` inline above the list (`create-group-form`: `create-group-title`, `create-group-site-<slug>`, `create-group-submit`; Enter submits). Clicking a group's name (`group-name-<id>`) or "Editează" in its menu (`group-menu-edit-<id>`) opens an inline panel in the group block (`edit-group-panel-<id>`: `edit-group-title-<id>`, `edit-group-site-<slug>`, `edit-group-save-<id>`). Neither has an unsaved-changes check. Toasts "Grup creat" / "Grup actualizat"; `POST /api/admin/groups` returns the created `Group` | `ContentPage.tsx` lines 332–340, 548–555, 674–780, 1073–1128; `api/client.ts` line 233 |
+| Router | The app uses `<BrowserRouter>` (react-router-dom 6.28), not a data router, so react-router's `useBlocker` is not available | `packages/app/src/main.tsx` line 25 |
+| Form state | `ContentForm` owns `form`, `transLocale`, `transForm`, `busy`, `error`; "Anulează" calls `onClose` with no unsaved-changes check; save shows a toast ("Element creat" / "Salvat" / "Traducere salvată") and calls `onSaved` | `ContentPage.tsx` lines 1457–1535, 1880–1912 |
+| Existing modals | Hand-rolled `fixed inset-0 … z-50` overlays without focus trap or scroll lock: `MediaLibraryModal` (opened from inside `ContentForm`'s image picker, so it will be a dialog on top of a dialog), `ItemDailyModal`, `SqlConfirmModal` (has `Esc` and initial focus) | `ContentPage.tsx` lines 1205–1245; `components/analytics/ItemDailyModal.tsx`; `components/sql/SqlConfirmModal.tsx` |
+| Floating controls | Only the toast stack: `fixed bottom-5 right-5 z-50` (`toast-container`). No other fixed bottom control exists in the admin | `packages/app/src/admin/context/ToastContext.tsx` line 25 |
+| Theme | Admin tokens under `:root.admin-theme` (light/dark, `--accent`, `--surface`, `--surface-2`, …); toggle in the top bar (FR-095) | `packages/app/src/index.css` lines 68–119 |
+
+## 4. User flows
+
+### 4.1 Regular admin, desktop
+1. Signs in and lands on `/admin/content`. The left sidebar shows the brand, then four links with icons — **Conținut**, **Media**, **Arhivă**, **Statistici** — without group headings, and in the footer their email with an "Admin" pill, **Hub-ul public** (opens `/` in a new tab), the theme toggle and **Ieșire**.
+2. The current page's link is bold, carries `aria-current="page"` and a thin accent bar.
+3. Clicks the collapse button in the sidebar header: the sidebar becomes a 64 px icon rail; hovering or focusing an icon shows its label as a tooltip. After a reload the rail is still collapsed (same browser).
+
+### 4.2 Super-admin, desktop
+Same as 4.1, but the menu shows four labelled groups: **Conținut** (Conținut, Media, Arhivă), **Rapoarte** (Statistici), **Administrare** (Locații, Utilizatori, Traduceri, and Aplicație once spec 01 ships), **Sistem** (Jurnale, Erori, SQL). In the rail, group headings become thin dividers. The footer pill reads "Super-admin" in the accent colour.
+
+### 4.3 Any admin, phone (< 768 px)
+1. The page shows a slim header (brand + current page name) and a round black FAB with a menu icon at the bottom right.
+2. Tapping the FAB slides a drawer in from the right (next to the thumb) over a dimmed backdrop; the FAB turns into a close (×) button and stays on top; focus moves to the current page's link.
+3. Tapping a link navigates and closes the drawer; `Esc`, the backdrop, the × (drawn where the FAB is) or the browser Back button also close it without leaving the page (Back only removes the drawer's own history entry). Focus is moved to the FAB, or to the new page after a link.
+4. A toast ("Element creat") appears above the FAB, never under it.
+
+### 4.4 Creating an item
+1. On Conținut the admin clicks **+ Adaugă** (or **Adaugă conținut în grup** on a group header). A dialog titled **Element nou** opens over a dimmed, non-scrolling page; the URL gains `?new=1` (`&group=<groupId>` from a group header, which preselects the group). Focus lands in the first field (Tip).
+2. On a phone the dialog is a full-screen sheet with a sticky header (title, ×) and a sticky footer (**Anulează**, **Creează**).
+3. The image picker's "Alege din bibliotecă" opens the media library as a second dialog on top; `Esc` closes only the library.
+4. **Creează** saves. On success the dialog closes, the toast says "Element creat", the list shows the new item — its group is expanded and chronologically re-sorted when it was created in a group (as today) — scrolled into view, highlighted for about 2.5 s and focused (its name button). On a validation or server error the dialog stays open with the message inline and nothing is lost.
+5. Dismissing: with nothing changed, `Esc`, the backdrop, × or **Anulează** close at once. With unsaved changes any of them shows an in-dialog confirmation — **Renunți la modificări?** "Ai modificări nesalvate. Dacă închizi, se pierd." — with **Continuă editarea** (focused) and **Renunță**. Browser Back or Forward behaves the same: the dialog stays, the URL is restored and the confirmation appears; **Renunță** then completes the navigation. Closing or reloading the tab shows the browser's own leave-page dialog (its wording is the browser's; see FR-113); choosing to stay keeps everything as it was.
+6. A pasted or reloaded `/admin/content?new=1` opens an empty create dialog.
+
+### 4.5 Editing an item
+Clicking an item's name or **Editează** in its menu opens the same dialog titled **Editează element** with the item title as context line and the existing tabs (**Editează**, **Linkuri scurte**) and translation locale select; URL `?edit=<itemId>`. Saving closes the dialog and highlights the row. A link to an item that no longer exists strips the parameter and shows the toast "Elementul nu mai există".
+
+### 4.6 Creating and editing a group
+1. **+ Grup nou** opens a small dialog **Grup nou** (URL `?newGroup=1`) with the title field focused and the site checkboxes ("gol = toate"). Enter in the title or **Creează** saves; the dialog closes, the toast says "Grup creat", and the new group block is scrolled into view, highlighted and its name button focused.
+2. Clicking a group's name or **Editează** in its menu opens **Editează grupul** (URL `?editGroup=<groupId>`) with the current title and sites. **Salvează** closes it with the toast "Grup actualizat" and highlights the group. The group's collapsed state is not changed.
+3. Dismissal follows the same rules as the content dialog: an untouched form closes at once; a changed one asks **Renunți la modificări?**; Back, Forward and tab close/reload are guarded the same way.
+
+## 5. Requirements
+
+- **FR-105 — Sidebar navigation.** At viewports ≥ 768 px the admin shell renders a left sidebar instead of the top navigation bar: a header (brand "BETEL ADMIN" and the collapse button), a `<nav aria-label="Navigare admin">` with the page links, and a footer with the signed-in user's email and role pill, a "Hub-ul public" link (`/`, new tab, `rel="noopener"`), the theme toggle (FR-095, `data-testid="admin-theme-toggle"` kept) and "Ieșire". The sidebar is sticky and full viewport height; the page itself keeps document scrolling (the shell grows with long pages, as asserted by `admin-theme.cy.ts`). The active page's link has `aria-current="page"` and a visual state that does not rely on colour alone (bold weight + accent bar). The shell's root wrapper carries `data-testid="admin-shell"`. The old top bar, hamburger and dropdown are removed. Acceptance: on a 1280 px viewport no top navigation exists, every page in the role's menu is reachable from the sidebar, and the link of the current route is marked current.
+- **FR-106 — Role-based menu from one source.** The menu is defined once in `packages/app/src/admin/navigation.ts` as ordered groups of items `{ id, path, label, icon, superAdminOnly }`; the sidebar, the phone drawer and the super-admin route guard in `AdminApp.tsx` all read it, so a **menu page** (a route declared in `navigation.ts`) is linked if and only if its route is rendered for that role (the security note in §12.4). Routes outside the menu are excluded from this invariant: today that is only the legacy, intentionally unlinked `/admin/groups` (ADR-002, rendered for every signed-in user and kept out of the menu; removing it is a follow-up, §2), which keeps its existing guard. Regular admins see Conținut, Media, Arhivă, Statistici as one flat list without group headings; super-admins see the groups Conținut (Conținut, Media, Arhivă), Rapoarte (Statistici), Administrare (Locații, Utilizatori, Traduceri), Sistem (Jurnale, Erori, SQL). Spec 01 appends `{ id: 'pwa', path: 'pwa', label: 'Aplicație', superAdminOnly: true }` to Administrare. Each link has `data-testid="nav-<id>"`. Acceptance: as `admin`, `nav-locations`, `nav-users`, `nav-translations`, `nav-logs`, `nav-error-logs`, `nav-sql` do not exist and no group heading is rendered; as `super-admin` all ten links exist under four headings.
+- **FR-107 — Collapsible rail with a remembered preference.** At ≥ 768 px the sidebar is either expanded (240 px, icon + label) or a rail (64 px, icon only). The collapse button (`data-testid="sidebar-collapse"`) has `aria-controls` pointing at the sidebar, `aria-expanded` reflecting the state and the label "Restrânge meniul" / "Extinde meniul". The choice is stored in `localStorage` key `betel-admin-sidebar` (`expanded` | `collapsed`, read and written in `try/catch`); without a stored value the sidebar is expanded at ≥ 1024 px and a rail from 768 to 1023 px. In the rail every link keeps its accessible name (visually hidden label) and shows a tooltip with the label on hover and on keyboard focus; group headings render as dividers and the footer shows icons only. No single-key keyboard shortcut is added (WCAG 2.1.4). Acceptance: collapsing, reloading and revisiting keeps the rail; each rail link still has the page name as its accessible name.
+- **FR-108 — Phone drawer opened by a floating action button.** Below 768 px the shell renders a slim header (brand + current page label) and, instead of the sidebar, a FAB (`data-testid="nav-fab"`, 56 × 56 px, bottom-right, offset `1rem` plus the safe-area insets) labelled "Deschide meniul" / "Închide meniul", with `aria-expanded` and `aria-controls`. It opens a drawer (`data-testid="nav-drawer"`) from the right edge, max 320 px / 84 % wide, built on the dialog primitive (FR-110) with `aria-label="Meniu admin"`, containing the same menu and footer as the sidebar. Because the drawer lives in the top layer, the FAB itself cannot sit above it: the drawer renders its own close button (`data-testid="nav-drawer-close"`, ×, "Închide meniul") at exactly the FAB's position, so to the user the FAB turns into ×. *History contract:* opening the drawer pushes **one** history entry for the same URL with router state `{ adminDrawer: true }` (`navigate(currentPathAndSearch, { state: { ...location.state, adminDrawer: true } })`); the drawer is open exactly while the current location's state has `adminDrawer`. Closing paths: **browser Back** pops that entry, so the drawer closes and the user stays on the same page (Back never leaves the page while the drawer is open); **`Esc`, backdrop and ×** call `navigate(-1)`, which pops the same entry; **link activation** calls `navigate(to, { replace: true })`, replacing the drawer entry with the destination, so the history ends up as [previous page, destination] and Back from the destination returns to the page the drawer was opened on with the drawer closed (activating the current page's own link just closes the drawer via `navigate(-1)`). **Forward** after a Back-close re-enters the drawer entry and reopens the drawer (consistent with the history; focus goes to the current link). On load, a location whose state still carries `adminDrawer` (a reload with the drawer open restores `history.state`) is replaced with the same location without it, so a reload never opens the drawer. *Focus:* after Back, Forward-out, `Esc`, backdrop or ×, focus returns to the FAB; after a link navigates, focus moves to the new page's main region (`<main id="admin-main" tabIndex={-1}>`). The drawer never coexists with a form dialog (the FAB is hidden while one is open), so FR-113's guard never sees a drawer entry. The FAB is hidden while any modal dialog is open. Acceptance: at 375 × 812 the FAB is visible, the drawer opens with focus on the current link, a link click navigates and closes it, and `Esc` returns focus to the FAB.
+- **FR-109 — Floating layers do not collide.** One z-index scale, defined as CSS custom properties in `index.css` under `:root.admin-theme` and used by every admin overlay: sidebar `--z-sidebar: 30`, FAB `--z-fab: 40`, toasts `--z-toast: 70` (dialogs and the drawer use the browser's top layer and need no z-index). Below 768 px the toast stack sits above the FAB (`bottom: calc(5.5rem + env(safe-area-inset-bottom))`, full width minus 1 rem gutters, right-aligned) and pages get enough bottom padding (`pb-28`) that the FAB never covers the last row or its context menu. While a dialog is open toasts render inside the top dialog (FR-110) so they are not hidden behind the backdrop. Acceptance: at 375 px a toast and the FAB do not overlap (bounding boxes are disjoint) and the last content row's menu trigger is clickable after scrolling to the bottom.
+- **FR-110 — Accessible dialog primitive.** `packages/app/src/admin/components/ui/Dialog.tsx` wraps a native `<dialog>` opened with `showModal()` (ADR-027) and guarantees: `aria-modal="true"`, `aria-labelledby` its visible title (and `aria-describedby` when a description is given); initial focus on a chosen element (default: the first field, never the close button); focus trapped by the top layer; the rest of the app inert; document scroll locked while any dialog is open (`overflow: hidden` on `<html>`, with scrollbar-gutter compensation) and restored after the last one closes; focus returned to the element that opened it (or to a caller-provided target); `Esc` and backdrop clicks routed to an `onRequestClose` callback that the caller may veto (the native `cancel` event is prevented and re-dispatched); a backdrop click counts only when the pointer both went down and up on the backdrop (a text-selection drag from a field must not close it); stacked dialogs handle `Esc` only in the topmost one; reduced-motion users get no transition. Layouts: `compact` (max width 440 px, for the group dialogs), `centered` (max width 640 px, or 720 px for the content edit layout; max height `calc(100dvh - 3rem)`, body scrolls, header and footer fixed) and, below 768 px, `sheet` (full screen, `100dvh`, sticky header with × and sticky footer, safe-area padding). A toast outlet is provided inside the dialog for FR-109. `MediaLibraryModal` moves onto this primitive. Acceptance: with the create dialog open, `Tab`/`Shift+Tab` never reach the page behind it, the page does not scroll with the wheel, and closing returns focus to "+ Adaugă".
+- **FR-111 — Create content in a modal dialog.** "+ Adaugă" and "Adaugă conținut în grup" open the content dialog (`data-testid="content-dialog"`, title "Element nou") containing the existing create form (`data-testid="create-form"` and all field test ids unchanged) instead of rendering it inline; the group header action preselects the group. Dismissal rules (BR-060) — they apply to **every admin form dialog** (content create/edit, group create/edit) through one shared `useUnsavedChanges` hook and one `DiscardConfirm` component: with the form unchanged since opening, `Esc`, backdrop, × (`data-testid="content-dialog-close"`) and "Anulează" close immediately; with changes, each of them opens an in-dialog confirmation (`role="alertdialog"`, `data-testid="discard-confirm"`, title "Renunți la modificări?", buttons "Continuă editarea" — focused — and "Renunță", `data-testid="discard-confirm-keep"` / `discard-confirm-discard`); `Esc` inside the confirmation means "Continuă editarea". "Changed" means the current form value differs from the initial one (a field typed and reverted is not a change). While a save is in flight every dismissal path is disabled and the submit button shows "Se salvează…". Leaving the page while dirty is covered by FR-113. Acceptance: typing a title then pressing `Esc` shows the confirmation; "Continuă editarea" keeps the typed title; "Renunță" closes without an API call; `Esc` on an untouched form closes at once.
+- **FR-112 — Landing after save.** After a successful create the dialog closes, `['admin-content']` is invalidated, the toast "Element creat" is shown, and once the refreshed list contains the new item: its group is expanded if it was collapsed, the group is re-sorted chronologically when the item was created from the group header (existing behaviour), the row is scrolled into view (`block: 'nearest'`), carries `data-highlight="true"` for 2.5 s (accent left border and border colour fading out; static for reduced motion), and focus moves to its name button. If the new row is not in the list (e.g. it was created as hidden and the list filters it), focus returns to the trigger. Edit saves behave the same with the toast "Salvat"; saving a translation keeps the dialog open (as today the form is kept until "Anulează"), see D-5. Acceptance: after creating "Seară de rugăciune" the row `content-row-<newId>` has `data-highlight="true"` and is focused, and no create form is rendered in the page body.
+- **FR-113 — Dialog state in the URL and leave-page protection.** *URL state:* opening the content create dialog pushes `?new=1` (plus `&group=<groupId>` when started from a group), the content edit dialog `?edit=<itemId>`, the group create dialog `?newGroup=1`, the group edit dialog `?editGroup=<groupId>`; closing removes them. Loading `/admin/content` with those parameters opens the matching dialog once the page data is loaded. Unknown `group` ids are ignored (no preselection); an `edit` id that is not in the admin list strips the parameter and shows "Elementul nu mai există", an unknown `editGroup` id shows "Grupul nu mai există". Parameters on other admin routes are ignored.
+  *Leave-page protection (BR-060):* while any admin form dialog is dirty —
+  1. **Reload / tab close / leaving the site:** a `beforeunload` listener is registered on `window` (it calls `event.preventDefault()` and sets `event.returnValue = ''`), so the browser shows its leave-page dialog and the unload is cancelled if the user stays. The listener is registered only while dirty and removed as soon as the form is clean, saved or discarded, so a clean admin never sees the browser dialog. Browsers show their own generic text in this dialog and ignore any custom string; the product wording ("Ai modificări nesalvate. Dacă închizi, se pierd.") is therefore used only in the in-app confirmation.
+  2. **In-app navigation** (browser Back/Forward between admin URLs, any client-side route change such as a sidebar or drawer link, "Ieșire", or a programmatic `navigate`): the navigation does not take effect — the dialog stays open, the URL is put back to the dialog's URL, and the in-app "Renunți la modificări?" confirmation is shown; "Continuă editarea" keeps everything as it was, "Renunță" discards the form and then completes the navigation the user asked for (or the logout). Because the app uses `<BrowserRouter>` (no `useBlocker`), this is implemented by an admin-level `UnsavedChangesProvider` (§6.4) rather than a router blocker.
+  3. **Clean forms** never block: Back closes the dialog (it only pops the dialog's own history entry), and links and reloads work normally.
+  Acceptance: (a) with a dirty dialog, dispatching `new Event('beforeunload', { cancelable: true })` on `window` returns `defaultPrevented === true`; with a clean dialog, after save and after discard it returns `false`. (b) visiting `/admin/content?new=1`, typing a title, then `cy.go('back')` leaves the URL with `new=1`, the dialog open with the typed title and `discard-confirm` visible; "Renunță" then lands on the previous URL with the dialog closed. (c) with an untouched form `cy.go('back')` closes the dialog without a confirmation.
+- **FR-114 — Edit items, and create and edit groups, in dialogs.** *Items:* clicking an item name or "Editează" opens the content dialog in edit layout (title "Editează element", context line = item title, `data-testid="edit-form"`, tabs `tab-edit` / `tab-short-links`, translation locale select) instead of the inline edit form; the inline edit containers and the `editingFormRef` scroll effect are removed. The dismissal rules of FR-111 apply to the Romanian form and to an unsaved translation draft alike; the "Linkuri scurte" tab has no draft state and never asks. *Groups:* "+ Grup nou" (`create-group-btn`) opens the group dialog (`data-testid="group-dialog"`, `compact` layout, title "Grup nou") containing the create form (`create-group-form`, `create-group-title`, `create-group-site-<slug>`, `create-group-submit` unchanged; Enter in the title submits when it is not empty); clicking a group's name (`group-name-<id>`) or "Editează" in the group menu (`group-menu-edit-<id>`) opens the same dialog titled "Editează grupul" with the edit form (`edit-group-panel-<id>` now on the form inside the dialog, `edit-group-title-<id>`, `edit-group-site-<slug>`, `edit-group-save-<id>` unchanged). The inline `CreateGroupForm` and the inline edit panel in `SortableGroupBlock` are removed. Close button `group-dialog-close`; the FR-111 dismissal rules and FR-113 leave-page protection apply. After a create the dialog closes, toast "Grup creat", the new group block (`group-block-<id>`, id from the `Group` returned by `POST /api/admin/groups`) is scrolled into view, carries `data-highlight="true"` for 2.5 s and its `group-name-<id>` button is focused; after an edit the same happens with the toast "Grup actualizat", without changing the group's collapsed state. Acceptance: editing an item inside a collapsed or expanded group opens the content dialog without changing the group's collapsed state, and saving updates the row; "+ Grup nou" → title → Enter creates the group, closes the dialog and highlights the new block; renaming a group and pressing `Esc` shows `discard-confirm`.
+
+## 6. Design
+
+### 6.1 Data model and API
+None. No migration, no endpoint, no shared type. All behaviour is in `packages/app`.
+
+### 6.2 Shell layout
+```
+≥ 768 px                                   < 768 px
+┌──────────┬─────────────────────────┐     ┌──────────────────────┐
+│ BETEL    │ page (PageContainer or  │     │ BETEL ADMIN  Conținut│ ← slim header, not sticky
+│ ADMIN [⇤]│ full width, unchanged)  │     ├──────────────────────┤
+│──────────│                         │     │ page                 │
+│ CONȚINUT │                         │     │                      │
+│ ▌Conținut│                         │     │                      │
+│  Media   │                         │     │          toast ▭     │ ← above the FAB
+│  Arhivă  │                         │     │                 (☰)  │ ← FAB, bottom-right
+│ RAPOARTE │                         │     └──────────────────────┘
+│  …       │                         │
+│──────────│                         │
+│ email    │                         │
+│ ↗ Hub    │                         │
+│ ☾ Temă   │                         │
+│ ⎋ Ieșire │                         │
+└──────────┴─────────────────────────┘
+```
+- `AdminApp.tsx` keeps `AuthProvider`/`ToastProvider`; `Shell` becomes `<div class="min-h-full md:flex">` with `<AdminSidebar>` (hidden below `md`), `<MobileHeader>` + `<NavFab>`/`<NavDrawer>` (below `md`), and `<main id="admin-main" class="flex-1 min-w-0">` holding the existing `<Routes>`. A "Sari la conținut" skip link targets `#admin-main`.
+- Sidebar: `sticky top-0 h-[100dvh] overflow-y-auto`, `bg-[var(--surface)] border-r border-[var(--border)]`, width transition 200 ms (none for reduced motion). Links reuse today's type treatment (`text-xs tracking-widest uppercase font-content`) at a 40 px row height; icons are lucide-react (already a dependency): `FileText` Conținut, `Image` Media, `Archive` Arhivă, `BarChart3` Statistici, `MapPin` Locații, `Users` Utilizatori, `Languages` Traduceri, `Smartphone` Aplicație, `ScrollText` Jurnale, `AlertTriangle` Erori, `Database` SQL, `Globe` Hub-ul public, `Sun`/`Moon`, `LogOut`, `PanelLeftClose`/`PanelLeftOpen`.
+- Active state: `aria-current="page"` from `NavLink`, bold, `--text` colour, 2 px `--accent` bar on the left edge and the icon in `--accent` (the accent stays at a few percent of the screen, per the Betel design language). Hover: `--surface-2` background.
+- Group headings: `<h2>` 10 px uppercase muted labels; each group is a `<ul>` labelled by its heading. For regular admins the single flat list has no headings.
+- Rail tooltips: a small `Tooltip` rendered beside the link on `mouseenter`/`focus`, `aria-hidden` (the link's own visually-hidden label is the accessible name).
+- Keyboard: links are in normal tab order (no roving tabindex — a short list of links is simplest and expected); the collapse button is the first focusable control after the skip link.
+
+### 6.3 Phone drawer and FAB
+- `NavFab`: `fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))]`, `bg-[var(--text)] text-[var(--bg)] rounded-full`, icon `Menu` / `X`, a 2 px accent hairline under the icon as the Betel "sprinkle", `z-[var(--z-fab)]`. Hidden (`hidden` attribute) while a dialog is open.
+- `NavDrawer`: built on `Dialog` with a `drawer` layout (right edge, full height, slide-in 220 ms), its own backdrop, and `initialFocus` on the current link. Its × button is placed at the FAB's coordinates (same size and style, `X` icon), so the FAB appears to morph; focus returns to the FAB on close. Open state is derived from `location.state.adminDrawer` (FR-108 history contract): open pushes the drawer entry, `Esc`/backdrop/× call `navigate(-1)`, links call `navigate(to, { replace: true })`, and a mount-time effect strips a stale `adminDrawer` state after reload.
+- Mobile header: not sticky (it carries no controls, so it may scroll away and give the page the full height).
+
+### 6.4 Dialog primitive and the content dialog
+- Native `<dialog>` + `showModal()` gives the top layer (no z-index fights with the sidebar or FAB), automatic inertness of the rest of the document and a focus trap; the primitive adds what the platform does not do consistently: focus return, scroll lock, `cancel` veto, backdrop-click detection, stacking order for `Esc`, and the toast outlet. Rationale and alternatives: ADR-027.
+- `ContentDialog` (new, `components/content/ContentDialog.tsx`) owns: mode (`create` | `edit`), the URL sync (FR-113), the dirty flag reported by `ContentForm`, the discard confirmation and the after-save landing (FR-112). `ContentForm` itself stays a form: it gains an `onDirtyChange(dirty: boolean)` prop, renders its action buttons into the dialog footer (`footer` render prop) and drops its outer `border … mb-6` wrapper when hosted in the dialog.
+- `ContentForm` is moved out of `ContentPage.tsx` (1 915 lines) into `components/content/ContentForm.tsx` with its helpers (`itemToForm`, `formToPayload`, `ImagePicker`, `MediaLibraryModal`, `SiteLinkOverrides`, `LocationCounter`). This is a move, not a rewrite; it keeps the dialog work reviewable.
+- Dirty check: compare `formToPayload(form)` (and `transForm` in translation mode) with the value captured when the dialog opened, using a stable JSON comparison.
+- `GroupDialog` (new, `components/content/GroupDialog.tsx`) holds `GroupForm` (title + site checkboxes, shared by create and edit, test ids per FR-114) in the `compact` layout; it reuses `useUnsavedChanges`, `DiscardConfirm` and `useDialogSearchParam`. `ContentPage` owns which dialog is open (at most one form dialog at a time; the media library is the only stacked dialog).
+- `UnsavedChangesProvider` (new, `admin/context/UnsavedChangesContext.tsx`, mounted in `Shell` inside the router): form dialogs call `useUnsavedChanges(dirty, { onRequestDiscard })`. While any registration is dirty the provider (1) adds the `beforeunload` listener; (2) listens to `useLocation()` changes and, when the location moves away from the URL captured when the form became dirty, immediately `navigate(capturedUrl, { replace: true })` back, remembers the attempted location and asks the dialog to show `DiscardConfirm` — on "Renunță" it unregisters and navigates to the attempted location (push, or `replace` for a Back/Forward pop so history does not grow); (3) exposes `guard(action)` that the sidebar/drawer links and "Ieșire" call, so a dirty form intercepts them before they navigate (today the modal makes them inert, but the guard keeps the rule true if a non-modal form is ever added). A future migration to a data router may replace (2) with `useBlocker`; it is not done here because `main.tsx` also hosts the public hub.
+- After-save landing: `ContentPage` keeps a `pendingHighlightId` (item or group); after the invalidated query resolves it expands the containing group if needed, then a `useEffect` scrolls, sets `data-highlight` (cleared after 2.5 s) and focuses the row's name button.
+- Copy (Romanian, admin): "Element nou", "Editează element", "Creează", "Salvează", "Anulează", "Închide", "Renunți la modificări?", "Ai modificări nesalvate. Dacă închizi, se pierd.", "Continuă editarea", "Renunță", "Elementul nu mai există", "Grup nou", "Editează grupul", "Grup creat", "Grup actualizat", "Grupul nu mai există", "Deschide meniul", "Închide meniul", "Meniu admin", "Navigare admin", "Restrânge meniul", "Extinde meniul", "Hub-ul public", "Sari la conținut", "Rapoarte", "Administrare", "Sistem".
+
+### 6.5 Configuration, security, performance
+- No environment variables.
+- Security: menu visibility is presentation only; the API's `preHandler` role checks stay the authority (§12.4, `security.md`). The route guard keeps rendering super-admin routes only for super-admins, now driven by `navigation.ts`.
+- Privacy: `betel-admin-sidebar` stores only `expanded`/`collapsed`.
+- Performance: no new dependency (native `<dialog>`, existing lucide-react icons). The admin chunk stays out of the service-worker precache (unchanged).
+
+## 7. Contracts
+
+**Provides**
+- `packages/app/src/admin/navigation.ts` — the single admin menu definition (`ADMIN_NAV: NavGroup[]`, `visibleNav(role)`), consumed by the sidebar, drawer and route guard. Any spec adding an admin page adds one item here (and its route) instead of editing the shell. **Spec 01 (PWA)** consumes it: its "Aplicație" link becomes `{ id: 'pwa', path: 'pwa', label: 'Aplicație', icon: Smartphone, superAdminOnly: true }` in the Administrare group, replacing its planned edit of the top bar in `AdminApp.tsx`.
+- `packages/app/src/admin/components/ui/Dialog.tsx` — the admin dialog primitive (FR-110) for any future admin modal; spec 01's admin page (e.g. confirmation of "re-invite") should use it.
+- Admin z-index tokens `--z-sidebar`, `--z-fab`, `--z-toast` (FR-109).
+- Test ids: `nav-<id>`, `nav-fab`, `nav-drawer`, `nav-drawer-close`, `sidebar-collapse`, `content-dialog`, `content-dialog-close`, `group-dialog`, `group-dialog-close`, `discard-confirm`, `discard-confirm-keep`, `discard-confirm-discard`; kept: `create-content-btn`, `create-group-btn`, `create-group-form`, `create-group-title`, `create-group-site-<slug>`, `create-group-submit`, `group-name-<id>`, `group-menu-edit-<id>`, `edit-group-panel-<id>`, `edit-group-title-<id>`, `edit-group-site-<slug>`, `edit-group-save-<id>`, `create-form`, `edit-form`, all field ids, `admin-theme-toggle`, `toast`, `toast-container`. Removed: `hamburger-btn`, `mobile-menu`.
+
+**Consumes**
+- Spec 04 / 07 form fields (dates row, start time, location) — moved unchanged inside `ContentForm`.
+- Spec 06's `ShortLinksTab` / `ShortLinkPreviewPanel` — rendered unchanged in the edit dialog's "Linkuri scurte" tab.
+
+**Proposed rows for the specs README** (coordinator applies):
+
+Specs table:
+```markdown
+| 9 | [09-admin-sidebar-and-create-modal.md](09-admin-sidebar-and-create-modal.md) — grouped, role-aware admin sidebar (rail on desktop, FAB drawer on phones) and item/group create/edit in modal dialogs | Admin shell / navigation, admin dialogs | FR-105 – FR-114 | ADR-027 | none |
+```
+Business-rules line: append `, 9 → BR-060–064 (BR-061–064 reserved, unused)`.
+
+Fixed contracts bullet:
+```markdown
+- **Admin navigation:** every admin page is declared once in `packages/app/src/admin/navigation.ts` (spec 09); the sidebar, phone drawer and super-admin route guard read it. Spec 01's "Aplicație" page is added there as `{ id: 'pwa', path: 'pwa', label: 'Aplicație', superAdminOnly: true }` in the Administrare group, not in the shell.
+```
+
+Delivery order note: "09 and 01 can land in either order. If 01 lands first it adds 'Aplicație' to the top bar and 09 moves it into `navigation.ts`; if 09 lands first, 01 adds one item to `navigation.ts` (preferred)."
+
+Ownership table:
+```markdown
+| Admin navigation (sidebar, phone drawer, menu definition `packages/app/src/admin/navigation.ts`) and the admin shell layout in `AdminApp.tsx` | 9 Admin sidebar | 1 (adds the "Aplicație" item to `navigation.ts` instead of the top bar) |
+| Admin dialog primitive `packages/app/src/admin/components/ui/Dialog.tsx`, admin overlay z-index tokens, toast placement | 9 Admin sidebar | 1 (any admin modal) |
+| Admin form dialogs for content items and groups (dialog containers, URL state, unsaved-changes and leave-page rule, `UnsavedChangesProvider`) | 9 Admin sidebar | 4 and 7 own the fields inside the content form; 6 owns the short-links tab; 8 adds the pin toggle to the group item rows |
+```
+
+**Overlap check with spec 08 (public section preview):** one real overlap. Spec 08 is mostly public (`GroupBlock.tsx`, `public/i18n/keys.ts`, the snapshot renderer and parity test), but it also adds the admin pin toggle (FR-104) to the group item rows in `packages/app/src/admin/pages/ContentPage.tsx` — the file this spec restructures when the forms move into dialogs. Whichever spec merges second rebases `ContentPage.tsx` (the pin toggle stays on the row; it is not part of any dialog). The other shared file is `packages/app/src/index.css`: 09 adds z-index tokens inside `:root.admin-theme`, 08 adds public hand styles, so a textual merge at worst. The ownership row for admin form dialogs names 8 as the consumer that adds the pin toggle.
+
+**Ordering with spec 01:** if 01 lands first it adds "Aplicație" to the top bar; 09 then moves it into `navigation.ts`. If 09 lands first, 01 adds the item to `navigation.ts` (one line) — preferred.
+
+## 8. Rollout
+
+- No flag: the change is UI-only, admin-only and reversible by revert. Ship sidebar (T1–T3) and dialogs (T4–T6b) as two PRs or one; the sidebar does not depend on the dialog except that the drawer uses the `Dialog` primitive — build T4 first or give the drawer its own minimal focus handling and switch later.
+- No migration, no API deploy order.
+- Rollback: revert the PR(s). `betel-admin-sidebar` left in `localStorage` is harmless.
+- Tell editors in one line (WhatsApp group): "Meniul admin e acum în stânga (pe telefon: butonul rotund din dreapta-jos); «+ Adaugă» și «+ Grup nou» deschid o fereastră."
+
+## 9. Testing
+
+All Cypress specs stub the API (`cy.intercept`); no backend change exists to verify manually.
+
+### 9.1 New specs
+- `cypress/e2e/admin-sidebar.cy.ts` (replaces `admin-mobile-menu.cy.ts`)
+  - Happy flow (super-admin, 1280 × 800): sidebar visible, four group headings, ten `nav-*` links; `nav-content` has `aria-current="page"`; clicking `nav-media` navigates to `/admin/media` and moves `aria-current`; no element `hamburger-btn` exists.
+  - Regular admin: only `nav-content`, `nav-media`, `nav-archive`, `nav-analytics`; no `h2` in the nav; footer shows the email and "Admin".
+  - Collapse: click `sidebar-collapse` → `aria-expanded="false"`, sidebar width ≤ 72 px, `localStorage['betel-admin-sidebar'] === 'collapsed'`; reload → still collapsed; each link still has its label as accessible name (`should('have.attr','aria-label')` or contains visually hidden text).
+  - Default at 1000 × 660 (Cypress default) without stored value: rail; at 1280: expanded.
+  - Phone (375 × 812): `nav-fab` visible, sidebar not visible; click → `nav-drawer` visible, focus on `nav-content`, `nav-drawer-close` occupies the FAB's position; click `nav-media` → navigates, drawer gone; reopen, `Esc` → drawer gone and `nav-fab` focused; backdrop click and `nav-drawer-close` close it. History (FR-108): on `/admin/media` open the drawer, `cy.go('back')` → drawer gone, path still `/admin/media`, `nav-fab` focused; open the drawer, click `nav-content` → on `/admin/content`, then `cy.go('back')` → path `/admin/media` with the drawer closed; open the drawer and `cy.reload()` → drawer closed.
+  - Regression (FR-109): at 375 px trigger a toast (stub a create) and assert the toast's and the FAB's bounding rects do not intersect.
+  - Regression: theme toggle in the sidebar footer still toggles `data-theme` (keeps `admin-theme.cy.ts` meaningful), and in the drawer on phones.
+- `cypress/e2e/admin-content-dialog.cy.ts`
+  - Happy flow: `create-content-btn` → `content-dialog` visible with `role="dialog"`, `aria-modal="true"`, URL contains `new=1`, focus in `create-type-select`; fill title, submit (stub `POST /api/admin/content` returning the item and the follow-up list) → dialog gone, toast "Element creat", `content-row-<id>` has `data-highlight="true"` and is focused, URL has no `new`.
+  - From a group header: `group-add-content-<gid>` → URL has `group=<gid>`, group select preselected; after save the group is expanded and re-sorted (existing chronological assertion).
+  - Dismissal, clean: open, `Esc` → closed, focus back on `create-content-btn`; open, click backdrop (coordinates outside the panel) → closed.
+  - Dismissal, dirty: type a title, `Esc` → `discard-confirm` visible with focus on `discard-confirm-keep`; keep → title still there; `Esc` again then `discard-confirm-discard` → closed and no POST was made (`cy.get('@create.all').should('have.length', 0)`).
+  - Regression: a mouse drag that starts inside the title field and ends on the backdrop does not close the dialog.
+  - Regression (modality): with the dialog open, `dialog[open]` matches `:modal` (`el.matches(':modal')`) and `<html>` has the scroll-lock style. Real `Tab` cycling and background inertness are covered by the manual checks (the suite has no real-keyboard plugin and Cypress does not reliably reproduce native inertness).
+  - Deep link: visit `/admin/content?new=1` → dialog open; `cy.go('back')` on an untouched form → closed. `?edit=<missing>` → toast "Elementul nu mai există", URL cleaned.
+  - Nested: open the media library from the image picker → two `dialog[open]`; `Esc` closes only the library.
+  - Phone (375 × 812): dialog fills the viewport (rect ≈ viewport), footer buttons visible without scrolling, `nav-fab` hidden while open.
+  - Edit (FR-114): click `content-name-<id>` → `edit-form` inside `content-dialog`, title "Editează element"; save → toast "Salvat", row highlighted.
+  - Leave-page, reload/close (FR-113 a): open, type a title, then `cy.window().then(w => { const e = new w.Event('beforeunload', { cancelable: true }); w.dispatchEvent(e); expect(e.defaultPrevented).to.be.true })`; after "Renunță" (and, separately, after a successful save) the same dispatch gives `false`; with an untouched dialog it gives `false`.
+  - Leave-page, Back (FR-113 b): visit `/admin/media`, then `/admin/content`, open "+ Adaugă", type a title, `cy.go('back')` → URL still contains `new=1`, title kept, `discard-confirm` visible; "Continuă editarea" → still open; `cy.go('back')` again → "Renunță" → URL is `/admin/content` and no dialog; a further `cy.go('back')` reaches `/admin/media` (no extra history entries).
+  - Leave-page, Forward: open and close a clean dialog, `cy.go('back')`, reopen and dirty it, `cy.go('forward')` → confirmation shown, URL restored.
+  - Regression: a clean dialog never blocks — `cy.go('back')` closes it without `discard-confirm`, and the `beforeunload` dispatch is not prevented.
+- `cypress/e2e/admin-group-dialog.cy.ts`
+  - Happy flow, create: `create-group-btn` → `group-dialog` visible, URL `newGroup=1`, focus in `create-group-title`; type, tick `create-group-site-<slug>`, `create-group-submit` (stub `POST /api/admin/groups` → `{ id: 'g-new', … }` and the refreshed lists) → dialog closed, toast "Grup creat", `group-block-g-new` has `data-highlight="true"`, `group-name-g-new` focused.
+  - Enter in `create-group-title` submits; empty title keeps `create-group-submit` disabled.
+  - Edit: `group-name-<id>` → `group-dialog` with "Editează grupul", `edit-group-title-<id>` prefilled, URL `editGroup=<id>`; change title, `edit-group-save-<id>` → `PATCH` body has the new title, toast "Grup actualizat", collapsed state unchanged. Same via `group-menu-trigger-<id>` → `group-menu-edit-<id>`.
+  - Dismissal: untouched → `Esc` closes at once; renamed → `Esc` shows `discard-confirm`; "Renunță" → no `PATCH` made.
+  - Leave-page: dirty group dialog → `beforeunload` dispatch prevented; `cy.go('back')` shows `discard-confirm` and keeps `editGroup` in the URL.
+  - Deep link: `/admin/content?editGroup=missing` → toast "Grupul nu mai există", URL cleaned.
+
+### 9.2 Existing specs that need updates
+| Spec | Uses | Change |
+|---|---|---|
+| `admin-mobile-menu.cy.ts` | `hamburger-btn`, `mobile-menu`, "Ieșire" in the dropdown | Delete; covered by `admin-sidebar.cy.ts` |
+| `admin-content-form.cy.ts` | `create-content-btn` (13×), `edit-form` (5×) | Selectors still valid; assertions that the form renders "at the top" / that `edit-form` follows a row must become "inside `content-dialog`"; any "Anulează" after typing now needs `discard-confirm-discard` |
+| `admin-content-translation.cy.ts` | `create-form`, `edit-form`, `create-content-btn` | Same as above; translation-save keeps the dialog open (FR-112) |
+| `admin-groups.cy.ts` | `create-group-btn` (3×), `create-group-form`, `create-group-title`, `create-group-site-centru`, `create-group-submit`, `group-name`, `group-menu-edit` (3×), `edit-group-panel`, `edit-group-title`, `group-add-content`, `create-form`, `window:confirm` (group delete, unaffected) | Group create and edit forms are now inside `group-dialog` (same test ids); assertions that the create form appears above the list or that `edit-group-panel-<id>` is inside `group-block-<id>` become "inside `group-dialog`"; after save assert the dialog is gone instead of the panel; any "Anulează" after typing needs `discard-confirm-discard`. Item create from a group: form in the content dialog, check URL `group=` preselection |
+| `admin-group-chronological-order.cy.ts` | `group-add-content` (5×) | Form in the dialog; re-sort assertion unchanged |
+| `admin-site-link-overrides.cy.ts` | `create-content-btn` (14×) | Should pass unchanged; verify the overrides toggle scrolls inside the dialog body |
+| `admin-media.cy.ts` | `create-content-btn`, `upload-btn` | Media library now a stacked dialog; selectors unchanged |
+| `admin-short-links.cy.ts` | edit form tab `tab-short-links`, `cy.contains('Anulează').first()` | Scope the "Anulează" lookup to the short-link form (the dialog footer also has "Anulează") |
+| `admin-toast.cy.ts` | `create-content-btn`, `toast` | Toast now appears after the dialog closes; position assertions, if any, follow FR-109 |
+| `admin.cy.ts` | `create-form`, `create-content-btn` | Form in the dialog |
+| `event-start-time.cy.ts`, `event-location.cy.ts` | `create-content-btn`, `edit-form` | Form in the dialog; public-side `article` assertions unchanged |
+| `admin-theme.cy.ts` | `admin-theme-toggle`; line 87 finds the shell as `querySelector('nav').parentElement` | Toggle moved to the sidebar footer (same test id). Rewrite the shell lookup to `[data-testid="admin-shell"]` (the first `nav` is now inside the sidebar); the assertion shell height ≥ `scrollHeight` must still hold (document scrolling kept) |
+| `admin-sql-console.cy.ts` | `cy.get('nav').contains('SQL').should('not.exist')` | Still valid (single `<nav>` at desktop width); prefer `nav-sql` should not exist |
+
+`semantic-html.cy.ts` asserts the public `nav[aria-label="Locații"]` and is unaffected.
+
+### 9.3 Manual checks
+- VoiceOver (iOS Safari) and NVDA or VoiceOver (desktop): the sidebar is announced as "Navigare admin, navigation"; the current page is announced as current; the create dialog is announced with its title; the page behind is not reachable with the screen reader's virtual cursor; closing returns to "+ Adaugă".
+- iOS Safari: dialog sheet with the keyboard open keeps the footer reachable (`100dvh`), background does not scroll (rubber-banding), FAB respects the home-indicator inset.
+- Light and dark theme: sidebar, rail tooltip, FAB, backdrop, confirmation contrast ≥ 4.5:1 for text.
+- Leave-page warning in real browsers (Cypress cannot show the native dialog): in Chrome, Firefox and Safari (desktop) and iOS Safari, dirty a content dialog and a group dialog, then reload and close the tab — the browser's own dialog appears and "Stay" keeps the form; with a clean or saved form, reload and close happen without any dialog. Note that browsers only show it after the user has interacted with the page, which is always the case for a dirty form.
+
+## 10. Work breakdown
+
+| # | Task | Files | Depends on |
+|---|---|---|---|
+| T1 | Menu definition and route guard from one source | new `packages/app/src/admin/navigation.ts`; `AdminApp.tsx` (routes read `visibleNav(role)` for super-admin gating) | — |
+| T2 | Desktop sidebar: expanded/rail, persisted preference, tooltips, footer (user, hub link, theme, logout), skip link; remove top bar | new `admin/components/shell/AdminSidebar.tsx`, `SidebarLink.tsx`, `RailTooltip.tsx`, `useSidebarPreference.ts`; `AdminApp.tsx`; `index.css` (admin z-index tokens) | T1 |
+| T3 | Phone header, FAB and drawer; toast placement above the FAB; page bottom padding | new `admin/components/shell/MobileHeader.tsx`, `NavFab.tsx`, `NavDrawer.tsx`; `context/ToastContext.tsx`; `AdminApp.tsx` | T1, T4 (drawer on `Dialog`) |
+| T4 | Dialog primitive (native `<dialog>`, scroll lock, focus return, `cancel` veto, backdrop rule, stacking, sheet layout, toast outlet) and migrate `MediaLibraryModal` | new `admin/components/ui/Dialog.tsx`, `useScrollLock.ts`, `DialogStackContext.tsx`; `context/ToastContext.tsx` (portal into the top dialog) | — |
+| T5 | Move `ContentForm` and its helpers out of `ContentPage.tsx` (pure move, no behaviour change) | new `admin/components/content/ContentForm.tsx` (+ `ImagePicker.tsx`, `MediaLibraryModal.tsx`, `SiteLinkOverrides.tsx`, `form-model.ts` for `itemToForm`/`formToPayload`); `pages/ContentPage.tsx` | — (do first, merge early: it touches the same file as T6) |
+| T6 | Content dialog: create and edit (FR-114), dirty tracking, URL state, after-save landing (expand group, scroll, highlight, focus); remove inline create/edit rendering and `editingFormRef` | new `admin/components/content/ContentDialog.tsx`, `admin/hooks/useDialogSearchParam.ts`; `components/content/ContentForm.tsx`; `pages/ContentPage.tsx` (row `data-highlight`, name button ref) | T4, T5, T6a |
+| T6a | Unsaved-changes infrastructure: `UnsavedChangesProvider` (`beforeunload` while dirty, location-change guard, `guard()` for links/logout), `useUnsavedChanges`, `DiscardConfirm` | new `admin/context/UnsavedChangesContext.tsx`, `admin/components/ui/DiscardConfirm.tsx`; `AdminApp.tsx` (mount provider; sidebar/drawer links and "Ieșire" call `guard()`) | T4 |
+| T6b | Group dialogs: `GroupForm` (create + edit), `GroupDialog`, `?newGroup` / `?editGroup`, after-save landing for groups; remove `CreateGroupForm` and the inline edit panel | new `admin/components/content/GroupDialog.tsx`, `GroupForm.tsx`; `pages/ContentPage.tsx` (`SortableGroupBlock` loses its edit state; group block `data-highlight`) | T4, T6a; after T6 (same file) |
+| T7 | Cypress: new `admin-sidebar.cy.ts`, `admin-content-dialog.cy.ts`, `admin-group-dialog.cy.ts`; update the specs in §9.2; delete `admin-mobile-menu.cy.ts` | `cypress/e2e/*` | T2, T3, T6, T6b |
+| T8 *(optional, follow-up)* | Move `ItemDailyModal` and `SqlConfirmModal` onto `Dialog` | `components/analytics/ItemDailyModal.tsx`, `components/sql/SqlConfirmModal.tsx` | T4 |
+| T9 | Docs (with the code): apply §12 snippets marked "with the code" | `docs/product/requirements.md`, `user-flows.md`, `docs/domain/business-rules.md`, `docs/architecture/security.md`, ADR-002 amendment, ADR-027 status | T2–T6b |
+
+T1/T2/T3 (shell) and T4/T5/T6a/T6/T6b (dialogs) can be built by two developers in parallel; they meet only in `ToastContext.tsx` (T3 placement vs. T4 outlet — small, coordinate) and `AdminApp.tsx` (T4 does not touch it). Use the `frontend-design` skill for T2, T3, T6, T6b.
+
+## 11. Open questions
+
+None open. The product owner answered every question on 2026-11-04 (D-4 and D-6 differ from the original recommendation); the decisions are recorded here so implementers know which alternatives were rejected.
+
+| # | Question | Decision | Rejected alternative |
+|---|---|---|---|
+| D-1 | Should editing move into the same dialog? | **Yes, in this spec** (FR-114, the `?edit=` half of FR-113): one pattern for create and edit, no scroll-into-view workaround, no inline form inside group blocks | Keep inline edit; only create becomes modal |
+| D-2 | Should regular admins see fewer pages than today? | **No: they keep Conținut, Media, Arhivă, Statistici.** They are allowed to use all four, and hiding one would only move work to a super-admin | Hide Arhivă or Statistici (a permission change that would also restrict the API) |
+| D-3 | Which side does the phone drawer open from? | **The right**, next to the FAB and the thumb | The left, mirroring the desktop sidebar |
+| D-4 | Should "+ Grup nou" and the group edit panel become dialogs too? | **Yes, in this spec** (FR-114 *Groups*): same shared dialog component, same closing and unsaved-changes rules; group management stays on the Content page (ADR-002 amended, not reversed) | Keep both group forms inline |
+| D-5 | After saving a translation, close or stay? | **Stay open** (as today), so several locales can be filled in one go; the toast confirms | Close like the Romanian save |
+| D-6 | Keep a draft if the tab is closed or the dialog discarded? | **No drafts.** Instead, while any form dialog has unsaved changes, a `beforeunload` handler makes the browser warn and cancel a reload or tab close if the user stays, and in-app navigation (Back/Forward, route changes, links, logout) is blocked by the "Renunți la modificări?" confirmation (FR-113). The browser's dialog uses its own generic text (custom strings are ignored); the "you will lose progress" wording lives in the in-app confirmation | `localStorage` drafts; no leave-page warning |
+| D-7 | Add a "Hub-ul public" link to the sidebar footer? | **Yes**, it opens `/` in a new tab | Leave it out |
+| D-8 | Default sidebar state between 768 and 1023 px? | **Icon rail**, expanded from 1024 px; a stored preference always wins | Always expanded until the user collapses it |
+
+## 12. Doc integration
+
+### 12.1 `docs/product/requirements.md` — Planned Features (apply now)
+```markdown
+#### Admin Navigation & Form Dialogs
+Spec: [09-admin-sidebar-and-create-modal.md](specs/09-admin-sidebar-and-create-modal.md). ADR-027 (Proposed).
+- FR-105: Admin sidebar replaces the top navigation bar at ≥ 768 px (menu, user, hub link, theme toggle, logout; active page marked). **[Planned]**
+- FR-106: One menu definition (`admin/navigation.ts`) drives the sidebar, phone drawer and super-admin route guard; regular admins see a flat list of four pages, super-admins four labelled groups. **[Planned]**
+- FR-107: The sidebar collapses to an icon rail with tooltips; the choice is remembered per device. **[Planned]**
+- FR-108: Below 768 px a bottom-right floating action button opens the menu as an accessible drawer. **[Planned]**
+- FR-109: Admin floating layers share one z-index scale; toasts never overlap the FAB. **[Planned]**
+- FR-110: A shared accessible admin dialog primitive (native `<dialog>`, focus trap and return, scroll lock, guarded `Esc`/backdrop, stacking, full-screen sheet on phones). **[Planned]**
+- FR-111: Content items are created in a modal dialog; in every admin form dialog unsaved input is never discarded without confirmation. **[Planned]**
+- FR-112: After saving, the dialog closes and the item is scrolled into view, highlighted and focused. **[Planned]**
+- FR-113: Dialog state is in the URL (`?new=1`, `&group=`, `?edit=`, `?newGroup=1`, `?editGroup=`); while a form is dirty, reload/tab close shows the browser's leave-page warning and in-app navigation (Back/Forward, links, logout) is blocked by the in-app confirmation. **[Planned]**
+- FR-114: Content items are edited, and groups created and edited, in the same dialog component. **[Planned]**
+```
+
+### 12.2 `docs/product/roadmap.md` (apply now)
+```markdown
+- **Admin sidebar and content dialog [planned]** — grouped, role-aware sidebar (icon rail on desktop, FAB drawer on phones) replacing the top bar; item and group create/edit in accessible modal dialogs with leave-page protection. Spec 09, FR-105–FR-114, ADR-027.
+```
+
+### 12.3 ADR index row (apply now) and ADR file
+Index row in `docs/decisions/README.md`:
+```markdown
+| [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Proposed |
+```
+File `docs/decisions/ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md`:
+```markdown
+# ADR-027: Admin dialogs use one native `<dialog>` primitive; content items and groups are created and edited in a modal
+
+- **Status:** Proposed
+- **Date:** 2026-11-03
+- **Related:** ADR-002 (group management on the Content page; amended by this ADR for its two forms)
+- **Implements:** FR-108, FR-110, FR-111, FR-113, FR-114
+
+## Context
+The admin has four hand-rolled overlays (`fixed inset-0 z-50` divs) without focus trapping, scroll lock or focus return, and the content create/edit form renders inline in the list, where it scrolls away, competes with drag-and-drop and can be closed with unsaved input. Spec 09 needs a modal create/edit form, a phone navigation drawer and a media picker that opens on top of the form, all accessible.
+
+## Options Considered
+1. **Native `<dialog>` with `showModal()` wrapped in one React primitive.** Top layer (no z-index conflicts with the sidebar, FAB or toasts' stacking), built-in inertness of the background and focus containment, `cancel` event for `Esc`. Needs small additions: scroll lock, focus return, backdrop-click detection, veto of `cancel`, and toasts portalled into the top dialog because the top layer covers fixed elements. Supported by every browser the admin targets.
+2. **Hand-rolled div overlay + `inert` on the app root.** Full control, but focus trap, stacking and `Esc` ordering have to be written and tested by hand; z-index must be managed against every other fixed element.
+3. **A headless UI library (Radix Dialog, Headless UI).** Mature accessibility, but a new dependency and styling layer for four or five dialogs.
+4. **Keep inline forms; only add an unsaved-changes guard.** Least work; does not meet the request that the page be blocked until the form is dismissed.
+
+## Decision
+Option 1. `packages/app/src/admin/components/ui/Dialog.tsx` is the only way to build an admin modal; new admin overlays use it. Content items and groups are created and edited in dialogs whose open state is in the URL (`?new=1`, `?edit=<id>`, `?newGroup=1`, `?editGroup=<id>`). Dismissing a dialog with unsaved input always asks first, and while a form is dirty the admin guards reloads and tab closes with `beforeunload` and in-app navigation with its own confirmation (BR-060); because the app uses `<BrowserRouter>`, the in-app guard is an admin-level provider rather than react-router's `useBlocker`. While a form dialog is open nothing else on the admin page can be used. Group management stays on the Content page (ADR-002); only its forms move into dialogs.
+
+## Consequences
+- One tested place for dialog accessibility; nested dialogs (media library over the content form) work by construction.
+- Toasts must render inside the top open dialog while one is open.
+- Cypress tests interact with `dialog[open]`; the background is inert, so tests can no longer click page controls while a dialog is open.
+- `beforeunload` text cannot be customised: browsers show their own generic warning.
+- Follow-ups: migrate `ItemDailyModal` and `SqlConfirmModal` onto the primitive; if the app moves to a data router, replace the location-change guard with `useBlocker`.
+```
+
+### 12.4 With the code — `docs/domain/business-rules.md` and `docs/architecture/security.md`
+Business rule (the only domain-level rule here; the menu-visibility rule is a security note, and "create and edit in a modal" is a UI decision recorded in ADR-027):
+```markdown
+- BR-060: The admin never discards unsaved form input silently. Closing a changed form by any path (`Esc`, backdrop, close button, "Anulează") or leaving it through in-app navigation (browser Back/Forward, another admin page, logout) asks for confirmation first and does nothing until the editor chooses to discard; reloading or closing the tab with a changed form triggers the browser's leave-page warning, which cancels the unload if the editor stays. An unchanged form never asks; a save in progress cannot be dismissed. No drafts are kept.
+```
+Changelog line: `- BR-060 added: <date> (admin unsaved-input rule, FR-111, FR-113; BR-061 – BR-064 reserved, unused)`.
+
+`security.md` → Roles, one sentence after the role matrix:
+```markdown
+- **Admin menu:** the admin sidebar shows a menu page only to roles whose route guard renders it (`packages/app/src/admin/navigation.ts` drives both); routes outside the menu, such as the legacy unlinked `/admin/groups` (ADR-002), are not linked and keep their own guard. It is presentation only and never replaces the API's role checks; the API may allow more than a page exposes (e.g. `admin` may read languages and UI translations, while the Traduceri page is super-admin only).
+```
+`entities.md`, `glossary.md`, `content-model.md`, `configuration.md`: no change.
+
+### 12.5 With the code — amendments to existing requirements
+- FR-095: replace "offers a sun/moon toggle in the top navigation" with "offers a sun/moon toggle in the sidebar footer (in the drawer on phones)"; in its implementation note, add "admin overlay z-index tokens `--z-sidebar`, `--z-fab`, `--z-toast` (FR-109)" to the list of tokens under `:root.admin-theme`.
+- FR-026 sub-bullets: replace ""+ Grup nou" creates a group inline (title + site-scope checkboxes; empty = all sites)." with ""+ Grup nou" opens the "Grup nou" dialog (title + site-scope checkboxes; empty = all sites) — FR-114."; replace ""Editează" on a group header (or clicking the group title) opens an inline edit panel" with "… opens the "Editează grupul" dialog".
+- FR-026 sub-bullet: replace "Clicking a content item's name opens its inline edit form (same as the "Editează" menu action)." with "Clicking a content item's name opens the content dialog in edit mode (same as the "Editează" menu action) — FR-114."
+- Requirements that name a "nav link" (`/admin/error-logs` "Erori nav link", `/admin/sql` "SQL nav link"): change "nav link" to "sidebar link".
+- On ship: move FR-105 – FR-114 to the permanent admin section with the implementation date; set ADR-027 to Accepted.
+
+### 12.6 With the code — `docs/product/user-flows.md`
+In Flow 3:
+- replace "To edit a content item: admin clicks the item name directly (shortcut) or uses the "Editează" option in the item context menu; both open the inline content form" with "… both open the content dialog (Editează element)".
+- replace "via the "+ adaugă conținut în grup" inline form" with "via "Adaugă conținut în grup", which opens the content dialog with the group preselected".
+- "To assign an item to a group while editing: admin opens the item form …" → "… opens the item in the content dialog …".
+- "To create a group: admin clicks "+ Grup nou", enters a title …, and the group appears immediately as an empty container" → "admin clicks "+ Grup nou"; the "Grup nou" dialog opens; after "Creează" it closes and the new, empty group is highlighted".
+- "To edit a group: … both open the same inline edit panel" → "… both open the "Editează grupul" dialog".
+- The success state ("groups are created, populated, reordered, and collapsed without leaving the Content page") stays true; no change.
+
+New flow:
+```markdown
+### Flow 19 (Admin) — Creating a content item in the dialog
+- Trigger: an admin wants to add a card, poster, text or video
+- Steps:
+  - On Conținut the admin clicks "+ Adaugă" (or "Adaugă conținut în grup" on a group header); the "Element nou" dialog opens over the page (full screen on a phone) and the page behind cannot be used
+  - The admin fills the form and clicks "Creează"
+  - The dialog closes, the toast says "Element creat", and the new item is scrolled into view, highlighted and focused (its group expanded and re-sorted chronologically when created from the group header)
+- Success state: the item exists and the admin can see where it landed
+- Failure or edge states:
+  - Validation or server error: the dialog stays open with the message, nothing typed is lost
+  - The admin presses Esc, clicks outside, "Anulează", Back or Forward after typing: "Renunți la modificări?" asks before anything is discarded; "Continuă editarea" returns to the form unchanged, "Renunță" discards and completes the navigation
+  - The admin closes or reloads the tab with unsaved input: the browser's own leave-page dialog appears (generic browser wording); staying keeps the form as it was
+  - The same rules apply to the "Grup nou" and "Editează grupul" dialogs
+```
+Flow 8 ("The super-admin opens `/admin/sql` ("SQL" nav link)"): "nav link" → "sidebar link".
+
+### 12.7 Other docs
+- `README.md`, `docs/architecture/overview.md`: checked — neither mentions the admin top bar or navigation bar; no change.
+- `docs/product/specs/01-pwa.md` (coordinator, while 01 is unshipped): in §3 "Admin pages" and in its admin-page task, replace "nav + routes in `AdminApp.tsx`" with "add one item to `packages/app/src/admin/navigation.ts` (spec 09) and its route".
+- ADR-002 amendment (append to its Update History, with the code): "<date> — Group creation and group editing moved from inline forms into dialogs on the same Content page (spec 09, ADR-027). The decision itself — no separate Groups page, all group lifecycle actions on the Content page — is unchanged." Its Decision bullet ""+ Grup nou" button creates a group inline" becomes "… opens a dialog on the Content page".
