@@ -1,6 +1,6 @@
 # ADR-026: Phone-only collapsed group preview with CSS geometry and a pin column
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-04
 - **Related:** ADR-022 (server-rendered snapshot and parity), ADR-013 (HTTP cache)
 - **Implements:** FR-096 – FR-104
@@ -23,10 +23,11 @@ Long groups make the phone feed long: nine events stack into several screens bef
 4. Store pins as `content_items.pinned_in_group` (boolean), cleared whenever the stored `group_id` changes; pins reorder only the hand.
 
 ## Implementation
-`packages/shared/src/section-preview.ts` (`previewSlots()`), `GroupBlock.tsx` + `useSectionPreview.ts`, `index.css`, `render-snapshot.ts`, migration `0016_content_pinned_in_group.sql`, `PATCH /api/admin/content/:id` (`pinnedInGroup`).
+`packages/shared/src/section-preview.ts` (`SECTION_PREVIEW_SIZE`, `isCollapsibleGroup`, `previewSlots`, plus `groupSlug` (the anchor id, moved out of `GroupBlock` so the snapshot prints the same id), `groupDomIds` (`group-<groupId>-title` / `-items`) and `tileDate` (day and short month for the date cover)), `GroupBlock.tsx` + `hooks/useSectionPreview.ts`, `index.css`, `render-snapshot.ts`, migration `0015_content_pinned_in_group.sql`, `PATCH /api/admin/content/:id` (`pinnedInGroup`), admin toggle `GroupPinToggle.tsx` rendered from the group rows of `ContentPage.tsx`.
 
 ## Consequences
 - No layout shift on phones and no SEO change; snapshot parity keeps comparing DOM order.
 - Tile content is clipped (descriptions hidden, posters cropped) until the group is opened.
 - A new column and a reset rule on the three write paths that change `group_id` (PATCH, restore, group delete); a future path that changes `group_id` must reset it too.
 - Follow-ups: MCP pinning, a per-group opt-out, expand analytics (spec 08 §11).
+- Deviations from the original spec: (a) the snapshot sets `tabindex="-1"` only on the back tiles' links, not on the hidden items' content (those are `display: none` on phones, and `tabindex="-1"` on them would remove desktop keyboard stops before hydration); (b) collapsing animates the 3 hand tiles back, the other items disappear instantly instead of fading; (c) site labels are hidden inside tiles, like the description and CTA; (d) the "Doar primele 3…" hint is text from the `md` breakpoint and the toggle's title on smaller screens; (e) a site switch resets groups to the hand (`GroupBlock` is keyed by site and group).
