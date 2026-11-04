@@ -71,4 +71,4 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-024](ADR-024-mcp-shared-tool-contract-and-service-layer.md) | MCP tool parity via a shared tool contract and an API service layer | Accepted |
 | [ADR-025](ADR-025-short-link-preview-by-user-agent.md) | Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302 | Accepted |
 | [ADR-026](ADR-026-phone-section-preview.md) | Phone-only collapsed group preview: CSS geometry in both renderers, full DOM kept, pin as a column | Proposed |
-| [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Proposed |
+| [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Accepted |

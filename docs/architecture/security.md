@@ -24,6 +24,7 @@ All REST paths below include the `/api` prefix under which every API route is re
   - audit log: `/api/admin/logs`
   - error logs: `/api/admin/error-logs`
   - SQL console: `POST /api/admin/sql` (see "SQL console" below)
+- **Admin menu:** the admin sidebar shows a menu page only to roles whose route guard renders it (`packages/app/src/admin/navigation.ts` drives both); routes outside the menu, such as the legacy unlinked `/admin/groups` (ADR-002), are not linked and keep their own guard. It is presentation only and never replaces the API's role checks; the API may allow more than a page exposes (e.g. `admin` may read languages and UI translations, while the Traduceri page is super-admin only).
 - **Public (no auth):** `GET /api/sites`, `GET /api/content`, `GET /api/languages`, `GET /api/translations`, `POST /api/events`, `POST /api/errors`, `POST /api/auth/login`, `POST /api/setup`, `GET /s/:code`, `/uploads/*`, `/health`, `GET /robots.txt`, `GET /sitemap.xml`, `GET /feed.xml`, `GET /:siteSlug/feed.xml`, `GET /llms.txt` (published, non-expired items only, through the same `listPublicContent` gate as the hub; XML-escaped, no HTML), the server-rendered pages `GET /`, `GET /:siteSlug`, `GET /i/:itemId`, and `GET /api/content/:id` (visible items only — published and not expired, the same rule as `GET /api/content`; drafts and archived items return 404, deleted ones 410).
 
 ### Rate limiting

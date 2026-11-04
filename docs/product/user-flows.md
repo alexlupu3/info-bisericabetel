@@ -32,16 +32,16 @@ Member-facing flows come first, followed by admin flows.
 - Steps:
   - The admin opens the Content page in the admin tool
   - Groups are displayed as labeled container sections; ungrouped items appear in a "Fără grup" (ungrouped) section at the bottom
-  - To create a group: admin clicks "+ Grup nou", enters a title, optionally ticks site-scope checkboxes (none = all sites), and the group appears immediately as an empty container
-  - To assign an item to a group while editing: admin opens the item form and selects the target group from the group dropdown
+  - To create a group: admin clicks "+ Grup nou"; the "Grup nou" dialog opens, the admin enters a title and optionally ticks site-scope checkboxes (none = all sites); after "Creează" the dialog closes and the new, empty group is highlighted
+  - To assign an item to a group while editing: admin opens the item in the content dialog and selects the target group from the group dropdown
   - To move an item between groups via drag and drop: admin drags the item from its current container and drops it onto the target container; the order and group assignment are persisted in a single interaction
-  - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the same inline edit panel
-  - To edit a content item: admin clicks the item name directly (shortcut) or uses the "Editează" option in the item context menu; both open the inline content form
+  - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the "Editează grupul" dialog
+  - To edit a content item: admin clicks the item name directly (shortcut) or uses the "Editează" option in the item context menu; both open the content dialog (Editează element)
   - To delete a group: admin clicks "Șterge grup" on the group header; all child items are soft-deleted (state → `deleted`, groupId cleared) and the group is hard-deleted. Items are recoverable from `/admin/archive`.
   - To collapse a group: admin clicks the chevron button (▶/▼) on the group header; the item list is hidden and the group cannot receive drops until re-expanded; the drag handle remains active so the collapsed group can still be reordered
   - To collapse or expand all groups at once: admin clicks "▲ Restrânge toate" / "▼ Extinde toate" in the page header (only visible when at least one group exists)
   - To sort a group chronologically: admin clicks the "Sortează cronologic" button (ArrowUpDown icon) on the group header; all items in the group are immediately reordered by start date ascending (undated items move to the end); the order is persisted via the reorder API; if all items are undated the action is a silent no-op
-  - When adding a new content item inside a group (via the "+ adaugă conținut în grup" inline form): after the item is saved, the group is automatically re-sorted chronologically — the new item is inserted in start-date order among existing items; if the new item has no start date it is appended last
+  - When adding a new content item inside a group (via "Adaugă conținut în grup", which opens the content dialog with the group preselected): after the item is saved, the group is automatically re-sorted chronologically — the new item is inserted in start-date order among existing items; if the new item has no start date it is appended last
 - Success state: groups are created, populated, reordered, and collapsed without leaving the Content page; no separate Groups page navigation required
 - Failure or edge states:
   - A group is deleted while it still has items (handled: items are soft-deleted and moved to `/admin/archive`; recoverable via restore)
@@ -115,7 +115,7 @@ Member-facing flows come first, followed by admin flows.
 
 - Trigger: a super-admin needs to inspect or correct data that no admin page exposes
 - Steps:
-  - The super-admin opens `/admin/sql` ("SQL" nav link)
+  - The super-admin opens `/admin/sql` ("SQL" sidebar link)
   - The super-admin types one statement; the "Doar citire" (read-only) checkbox is ticked by default and is cleared only when the statement must write
   - The super-admin clicks run; a warning modal opens
   - The super-admin presses the confirm button twice within 5 seconds; after 5 seconds the first press expires and must be repeated. Escape or Cancel closes the modal without running anything
@@ -223,3 +223,16 @@ Member-facing flows come first, followed by admin flows.
   - The chat renders the card; tapping it opens `/s/<code>` in a browser, which redirects to the destination as usual
 - Success state: the card shows the poster and title the admin wrote, not the destination's generic preview; the crawler fetch is not counted as a click
 - Failure or edge states: a crawler not on the allowlist, a link set to "Pagina destinație" or an item with nothing to show → the destination's own preview, exactly as before
+
+### Flow 19 (Admin) — Creating a content item in the dialog
+- Trigger: an admin wants to add a card, poster, text or video
+- Steps:
+  - On Conținut the admin clicks "+ Adaugă" (or "Adaugă conținut în grup" on a group header); the "Element nou" dialog opens over the page (full screen on a phone) and the page behind cannot be used
+  - The admin fills the form and clicks "Creează"
+  - The dialog closes, the toast says "Element creat", and the new item is scrolled into view, highlighted and focused (its group expanded and re-sorted chronologically when created from the group header)
+- Success state: the item exists and the admin can see where it landed
+- Failure or edge states:
+  - Validation or server error: the dialog stays open with the message, nothing typed is lost
+  - The admin presses Esc, clicks outside, "Anulează", Back or Forward after typing: "Renunți la modificări?" asks before anything is discarded; "Continuă editarea" returns to the form unchanged, "Renunță" discards and completes the navigation
+  - The admin closes or reloads the tab with unsaved input: the browser's own leave-page dialog appears (generic browser wording); staying keeps the form as it was
+  - The same rules apply to the "Grup nou" and "Editează grupul" dialogs

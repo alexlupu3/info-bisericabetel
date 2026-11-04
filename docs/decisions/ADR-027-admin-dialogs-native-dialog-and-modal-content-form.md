@@ -1,12 +1,12 @@
 # ADR-027: Admin dialogs use one native `<dialog>` primitive; content items and groups are created and edited in a modal
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-03
 - **Related:** ADR-002 (group management on the Content page; amended by this ADR for its two forms)
 - **Implements:** FR-108, FR-110, FR-111, FR-113, FR-114
 
 ## Context
-The admin has four hand-rolled overlays (`fixed inset-0 z-50` divs) without focus trapping, scroll lock or focus return, and the content create/edit form renders inline in the list, where it scrolls away, competes with drag-and-drop and can be closed with unsaved input. Spec 09 needs a modal create/edit form, a phone navigation drawer and a media picker that opens on top of the form, all accessible.
+The admin has four hand-rolled overlays (`fixed inset-0 z-50` divs) without focus trapping, scroll lock or focus return, and the content create/edit form renders inline in the list, where it scrolls away, competes with drag-and-drop and can be closed with unsaved input. The admin sidebar and dialogs work (FR-105 – FR-114) needs a modal create/edit form, a phone navigation drawer and a media picker that opens on top of the form, all accessible.
 
 ## Options Considered
 1. **Native `<dialog>` with `showModal()` wrapped in one React primitive.** Top layer (no z-index conflicts with the sidebar, FAB or toasts' stacking), built-in inertness of the background and focus containment, `cancel` event for `Esc`. Needs small additions: scroll lock, focus return, backdrop-click detection, veto of `cancel`, and toasts portalled into the top dialog because the top layer covers fixed elements. Supported by every browser the admin targets.
@@ -22,4 +22,5 @@ Option 1. `packages/app/src/admin/components/ui/Dialog.tsx` is the only way to b
 - Toasts must render inside the top open dialog while one is open.
 - Cypress tests interact with `dialog[open]`; the background is inert, so tests can no longer click page controls while a dialog is open.
 - `beforeunload` text cannot be customised: browsers show their own generic warning.
+- As built: the in-app guard (`admin/context/UnsavedChangesContext.tsx`) renders the admin routes with the location captured when the form became dirty, so a blocked navigation never unmounts the dialog, and reverts Back/Forward with `history.go(-delta)` (replayed on "Renunță") so history keeps its shape; `navigate(capturedUrl, { replace: true })` is only the fallback for non-traversal navigations. The dialog stack is an external store (`DialogStackContext.tsx`) that toasts and the phone FAB read.
 - Follow-ups: migrate `ItemDailyModal` and `SqlConfirmModal` onto the primitive; if the app moves to a data router, replace the location-change guard with `useBlocker`.
