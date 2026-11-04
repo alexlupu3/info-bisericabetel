@@ -67,6 +67,57 @@ function handTransform(slot: number, tile: Box, at: Box): string {
     + `scale(${scale})`
 }
 
+/** Identity with the same function list as handTransform(), so both interpolate alike. */
+const HAND_IDENTITY = 'translate(0px, 0px) translate(0px, 0px) translate(0px, 0px) rotate(0deg) translate(0px, 0px) scale(1)'
+/** Share of the flight over which a hand tile cross-fades into its open card. */
+const CROSSFADE_SHARE = 0.35
+
+/**
+ * Copies of the hand tiles (cross-fade on expand). The copies sit in a detached hand —
+ * `div[data-preview="hand"] > ul[data-preview-list]` laid exactly over the list, in document
+ * coordinates — so the hand CSS draws them exactly like the tiles. They carry no ids, test
+ * ids, links' tab stops or expand overlays, and are inert and hidden from assistive tech.
+ */
+function buildHandGhost(list: HTMLElement, items: HTMLElement[], slotOf: (index: number) => number | undefined) {
+  const rect = list.getBoundingClientRect()
+  const wrap = document.createElement('div')
+  wrap.setAttribute('data-preview', 'hand')
+  wrap.setAttribute('data-hand-ghost', '')
+  wrap.setAttribute('aria-hidden', 'true')
+  wrap.inert = true
+  Object.assign(wrap.style, {
+    position: 'absolute',
+    left: `${rect.left + window.scrollX}px`,
+    top: `${rect.top + window.scrollY}px`,
+    width: `${rect.width}px`,
+    margin: '0',
+    zIndex: '20',
+    pointerEvents: 'none',
+  })
+  const ul = document.createElement('ul')
+  ul.className = list.className
+  ul.setAttribute('data-preview-list', '')
+  ul.style.margin = '0'
+  const tiles = new Map<number, HTMLElement>()
+  items.forEach((li, index) => {
+    if (slotOf(index) === undefined) return
+    const copy = li.cloneNode(true) as HTMLElement
+    copy.removeAttribute('aria-hidden')
+    copy.querySelectorAll('[data-hand-expand]').forEach(el => el.remove())
+    copy.querySelectorAll('[id], [data-item-id], [data-testid]').forEach(el => {
+      el.removeAttribute('id')
+      el.removeAttribute('data-item-id')
+      el.removeAttribute('data-testid')
+    })
+    copy.querySelectorAll('img').forEach(img => { img.loading = 'eager' })
+    ul.appendChild(copy)
+    tiles.set(index, copy)
+  })
+  wrap.appendChild(ul)
+  document.body.appendChild(wrap)
+  return { wrap, tiles }
+}
+
 interface Options {
   /** False for groups of 3 or fewer: no state, no buttons. */
   collapsible: boolean
@@ -118,6 +169,8 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     const before = items.map(layoutBox)
     // Hand shadows (and the stack under the back tile) fade instead of vanishing in one frame.
     const shadowsBefore = items.map(el => getComputedStyle(el).boxShadow)
+    // Expand: copies of the hand tiles, made while they still look like tiles.
+    const ghost = to === 'open' ? buildHandGhost(list, items, slotOf) : null
 
     flushSync(() => setState(to))
 
@@ -129,7 +182,7 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     }
 
     type Final = { transform: string; opacity: string; boxShadow: string }
-    const animated: Array<{ el: HTMLElement; delay: number; final: Final }> = []
+    const animated: Array<{ el: HTMLElement; delay: number; final: Final; fadeMs?: number }> = []
     // Expand order: the hand tiles leave together, front first, wherever they sit in the list
     // (a pinned item can be the last one); the items dealt from behind the hand follow in
     // list order. A list-index stagger would hold a pinned last item in the hand for ~200 ms.
@@ -151,7 +204,25 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
         if (slot === undefined) el.style.opacity = '0'
         el.style.boxShadow = shadowsBefore[index]
         const order = slot ?? SLOT_GEOMETRY.length + dealt++
-        animated.push({ el, delay: order * EXPAND_STAGGER_MS, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
+        const delay = order * EXPAND_STAGGER_MS
+        const copy = ghost?.tiles.get(index)
+        if (copy) {
+          // Cross-fade: the copy keeps the tile's look and follows the card's exact path —
+          // the card's transform wrapped so the copy's box maps onto the card's box — while it
+          // fades out and the card (already in its open layout) fades in.
+          const b = layoutBox(copy)
+          const at = after[index]
+          const wrapIn = (inner: string) => `translate(${at.x - b.x}px, ${at.y - b.y}px) ${inner} scale(${b.w > 0 ? at.w / b.w : 1})`
+          copy.style.transition = 'none'
+          copy.style.transformOrigin = '0 0'
+          copy.style.transform = wrapIn(from)
+          el.style.opacity = '0'
+          const fadeMs = Math.round(DURATION_MS * CROSSFADE_SHARE)
+          animated.push({ el: copy, delay, fadeMs, final: { transform: wrapIn(HAND_IDENTITY), opacity: '0', boxShadow: '' } })
+          animated.push({ el, delay, fadeMs, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
+        } else {
+          animated.push({ el, delay, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
+        }
       } else if (slot !== undefined) {
         // From the list back to the hand; hidden items are already display: none.
         const tile = after[index]
@@ -171,14 +242,19 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     // Commit the inverted positions (forced layout), then let them play. No
     // requestAnimationFrame: background / throttled pages would never start it.
     void list.offsetHeight
-    for (const { el, delay, final } of animated) {
-      el.style.transition = ['transform', 'opacity', 'box-shadow'].map(p => `${p} ${DURATION_MS}ms ${EASING} ${delay}ms`).join(', ')
+    for (const { el, delay, final, fadeMs } of animated) {
+      el.style.transition = [
+        `transform ${DURATION_MS}ms ${EASING} ${delay}ms`,
+        `box-shadow ${DURATION_MS}ms ${EASING} ${delay}ms`,
+        fadeMs ? `opacity ${fadeMs}ms ease-out ${delay}ms` : `opacity ${DURATION_MS}ms ${EASING} ${delay}ms`,
+      ].join(', ')
       el.style.transform = final.transform
       el.style.opacity = final.opacity
       el.style.boxShadow = final.boxShadow
     }
     const longest = animated.reduce((max, a) => Math.max(max, a.delay), 0) + DURATION_MS
     await new Promise(resolve => setTimeout(resolve, longest + 20))
+    ghost?.wrap.remove()
     for (const { el } of animated) {
       el.style.transition = ''
       el.style.transform = ''

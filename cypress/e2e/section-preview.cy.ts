@@ -206,10 +206,16 @@ describe('Section preview — phone hand of cards', () => {
     delay('G').should('equal', 0)
     delay('A').should('be.lessThan', 0.1)
     delay('C').should('be.at.least', 0.09)
+    // Cross-fade: inert copies of the three hand tiles fly with the cards, then go away.
+    cy.get('[data-hand-ghost]').should('have.attr', 'aria-hidden', 'true').and('have.prop', 'inert', true)
+    cy.get('[data-hand-ghost] li[data-slot]').should('have.length', 3)
+    cy.get('[data-hand-ghost] [data-item-id], [data-hand-ghost] [data-hand-expand]').should('not.exist')
     li('G').then($g => li('A').then($a => {
       expect(Number(getComputedStyle($g[0]).zIndex)).to.be.greaterThan(Number(getComputedStyle($a[0]).zIndex))
     }))
     section('evenimente').find('li[style*="transform"]').should('not.exist')
+    cy.get('[data-hand-ghost]').should('not.exist')
+    li('G').should('have.css', 'opacity', '1')
   })
 
   it('a tap on a back tile expands the group instead of following its link', () => {
