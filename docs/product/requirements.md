@@ -162,7 +162,7 @@ Implemented 2026-10-29; ADR-025. Code: `packages/api/src/routes/short-links.ts`,
 - FR-089: The admin Short Links tab shows a share-card preview per language, a preview-mode selector ("Conținutul (imagine și titlu)" / "Pagina destinație") and links to `/s/<code>?preview=1` and Meta's Sharing Debugger, backed by `previewMode` on `POST /api/admin/content/:id/short-links` and the MCP `create_short_link` tool (optional, default `content`; both surfaces), `PATCH /api/admin/content/:id/short-links/:shortLinkId` (audit `short-link.update`), and `GET /api/admin/content/:id/short-links/:shortLinkId/preview?locale=` (JSON `ShortLinkPreview`, never HTML; the default language yields the bare short URL, others `?lang=<code>`). List and create responses carry `previewMode`. **[Implemented — 2026-10-29; ADR-025]**
 
 ### Planned Features (specs pending implementation)
-Specified in [`docs/product/specs/`](specs/README.md); each spec is the detailed source until its feature ships, when the requirement moves to its permanent section above with an implementation date. Amendments to existing requirements (FR-002, FR-023, FR-025, FR-046, FR-048) are listed in each spec's "Doc integration" section and are applied with the code.
+Specified in [`docs/product/specs/`](specs/README.md); each spec is the detailed source until its feature ships, when the requirement moves to its permanent section above with an implementation date. Amendments to existing requirements (FR-001, FR-002, FR-023, FR-026, FR-095, FR-025, FR-046, FR-048) are listed in each spec's "Doc integration" section and are applied with the code.
 
 #### PWA, Install Invite & Push Notifications
 Spec: [01-pwa.md](specs/01-pwa.md); ADR-019, ADR-020.
@@ -176,6 +176,31 @@ Spec: [01-pwa.md](specs/01-pwa.md); ADR-019, ADR-020.
 - FR-057: Dead subscriptions (push-service 404/410) are deleted immediately; other failures increment `fail_count`, and a subscription with `fail_count ≥ 5` whose last failure is older than 7 days, an expired one, or one unseen for 180 days is deleted by the daily sweep (BR-023); `pushsubscriptionchange` re-subscribes and posts `{ subscription, replacesEndpoint }`, the server recovering site/locale/channel/platform from the old row (404 and app-side repair on next launch when the old row is unknown). **[Planned]**
 - FR-058: `/admin/pwa` shows subscription statistics (never endpoints), the notification log with status/cancel reason and sent/failed/opened counts, a cancel action for queued rows and a test send to beta subscriptions (log rows without an item). **[Planned]**
 - FR-059: `POST /api/events` accepts `pwa_invite_shown`, `pwa_install`, `pwa_launch` (standalone launches, 30-min dedupe) and `notification_open`. **[Planned]**
+
+#### Section preview on phones
+Spec: [08-section-preview.md](specs/08-section-preview.md); ADR-026.
+- FR-096: On viewports narrower than 640 px, a group with 4 or more visible items collapses into a "hand" of 3 tiles with a "Vezi toate · N" button; smaller groups, ungrouped items and wider viewports are never collapsed. **[Planned]**
+- FR-097: Hand order: the group's pinned items in group order (max 3), then unpinned items in group order; pins never change any other order. **[Planned]**
+- FR-098: CSS-only hand geometry (tiles 50 % wide, 5:6, fanned −5°/0°/+5°) with per-type tile content (card image or date cover, poster cropped, text clipped). **[Planned]**
+- FR-099: Expanding shows every item in group order with a FLIP animation (instant under reduced motion), moves focus to the first item and announces it. **[Planned]**
+- FR-100: A sticky "Arată mai puțin" button floats at the bottom of the screen while an expanded group is on screen; collapsing returns focus and scrolls the heading into view if needed. **[Planned]**
+- FR-101: Every group heading shows its visible item count ("Evenimente · 9") on all viewports and in the server-rendered snapshot. **[Planned]**
+- FR-102: Hand accessibility: `aria-expanded`/`aria-controls`, `inert` back tiles, in-memory state that survives breakpoint changes. **[Planned]**
+- FR-103: `content_items.pinned_in_group` (migration `0016`), exposed as `pinnedInGroup`, settable via `PATCH /api/admin/content/:id`, cleared whenever the item's group changes. **[Planned]**
+- FR-104: Admin pin toggle on group item rows ("Fixează pe mobil" / "Fixat") with a hint beyond the third pin. **[Planned]**
+
+#### Admin Navigation & Form Dialogs
+Spec: [09-admin-sidebar-and-create-modal.md](specs/09-admin-sidebar-and-create-modal.md). ADR-027 (Proposed).
+- FR-105: Admin sidebar replaces the top navigation bar at ≥ 768 px (menu, user, hub link, theme toggle, logout; active page marked). **[Planned]**
+- FR-106: One menu definition (`admin/navigation.ts`) drives the sidebar, phone drawer and super-admin route guard; regular admins see a flat list of four pages, super-admins four labelled groups. **[Planned]**
+- FR-107: The sidebar collapses to an icon rail with tooltips; the choice is remembered per device. **[Planned]**
+- FR-108: Below 768 px a bottom-right floating action button opens the menu as an accessible drawer. **[Planned]**
+- FR-109: Admin floating layers share one z-index scale; toasts never overlap the FAB. **[Planned]**
+- FR-110: A shared accessible admin dialog primitive (native `<dialog>`, focus trap and return, scroll lock, guarded `Esc`/backdrop, stacking, full-screen sheet on phones). **[Planned]**
+- FR-111: Content items are created in a modal dialog; in every admin form dialog unsaved input is never discarded without confirmation. **[Planned]**
+- FR-112: After saving, the dialog closes and the item is scrolled into view, highlighted and focused. **[Planned]**
+- FR-113: Dialog state is in the URL (`?new=1`, `&group=`, `?edit=`, `?newGroup=1`, `?editGroup=`); while a form is dirty, reload/tab close shows the browser's leave-page warning and in-app navigation (Back/Forward, links, logout) is blocked by the in-app confirmation. **[Planned]**
+- FR-114: Content items are edited, and groups created and edited, in the same dialog component. **[Planned]**
 
 ## Non-Functional Requirements
 - NFR-001: Both the public hub and the admin tool must be optimized for mobile-first access.
