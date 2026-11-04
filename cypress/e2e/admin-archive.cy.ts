@@ -76,9 +76,11 @@ describe('Admin — archive page', () => {
     cy.intercept('POST', '/api/admin/content/item-1/restore', {
       ...deletedItem, state: 'draft',
     }).as('restore')
-    cy.intercept('GET', '/api/admin/content/deleted', { items: [] }).as('deletedAfter')
 
+    // Register the post-restore response only after the initial load was answered:
+    // a newer intercept would otherwise catch the first request (flaky race).
     cy.wait('@deleted')
+    cy.intercept('GET', '/api/admin/content/deleted', { items: [] }).as('deletedAfter')
     cy.get('[data-testid="restore-btn-item-1"]').click()
     cy.wait('@restore')
     cy.get('[data-testid="archive-empty"]').should('be.visible')
