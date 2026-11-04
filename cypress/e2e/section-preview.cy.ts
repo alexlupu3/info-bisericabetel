@@ -194,6 +194,24 @@ describe('Section preview — phone hand of cards', () => {
     }))
   })
 
+  it('a pinned last item leaves the hand at once, on top of the others (regression)', () => {
+    const items = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((id, i) => card(id, EV, {
+      title: `Eveniment ${id}`, startDate: isoDay(i + 3), thumbnail: THUMB,
+    }, { pinnedInGroup: id === 'G' }))
+    visitWith(items)
+    li('G').should('have.attr', 'data-slot', '0')
+    cy.contains('button', 'Vezi toate · 7').click()
+    // The hand tiles start together (front first); the dealt items follow after them.
+    const delay = (id: string) => li(id).then($li => parseFloat(getComputedStyle($li[0]).transitionDelay))
+    delay('G').should('equal', 0)
+    delay('A').should('be.lessThan', 0.1)
+    delay('C').should('be.at.least', 0.09)
+    li('G').then($g => li('A').then($a => {
+      expect(Number(getComputedStyle($g[0]).zIndex)).to.be.greaterThan(Number(getComputedStyle($a[0]).zIndex))
+    }))
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+  })
+
   it('a tap on a back tile expands the group instead of following its link', () => {
     visitWith(feed())
     // Clicking the visible right edge of tile A hits its [data-hand-expand] overlay, not its link.

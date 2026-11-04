@@ -130,6 +130,10 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
 
     type Final = { transform: string; opacity: string; boxShadow: string }
     const animated: Array<{ el: HTMLElement; delay: number; final: Final }> = []
+    // Expand order: the hand tiles leave together, front first, wherever they sit in the list
+    // (a pinned item can be the last one); the items dealt from behind the hand follow in
+    // list order. A list-index stagger would hold a pinned last item in the hand for ~200 ms.
+    let dealt = 0
     items.forEach((el, index) => {
       const slot = slotOf(index)
       // Keep the hand's stacking for the whole flight: the front tile on top, then the
@@ -146,7 +150,8 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
         el.style.zIndex = zIndex
         if (slot === undefined) el.style.opacity = '0'
         el.style.boxShadow = shadowsBefore[index]
-        animated.push({ el, delay: index * EXPAND_STAGGER_MS, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
+        const order = slot ?? SLOT_GEOMETRY.length + dealt++
+        animated.push({ el, delay: order * EXPAND_STAGGER_MS, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
       } else if (slot !== undefined) {
         // From the list back to the hand; hidden items are already display: none.
         const tile = after[index]
