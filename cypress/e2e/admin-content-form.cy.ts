@@ -195,7 +195,7 @@ describe('Content form — edit mode', () => {
   it('opens edit form pre-filled with item data', () => {
     cy.get('[data-testid="item-menu-trigger-item-1"]').click()
     cy.get('[data-testid="item-menu-edit-item-1"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
     cy.get('[data-testid="create-title-input"]').should('have.value', 'Titlu vechi')
     cy.get('[data-testid="create-body-input"]').should('have.value', 'Corp vechi')
     cy.get('[data-testid="site-check-centru"]').should('be.checked')
@@ -216,9 +216,9 @@ describe('Content form — edit mode', () => {
     cy.wait('@patch')
   })
 
-  it('clicking the content item name opens the edit form inline', () => {
+  it('clicking the content item name opens the edit form in the content dialog', () => {
     cy.get('[data-testid="content-name-item-1"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
     cy.get('[data-testid="create-title-input"]').should('have.value', 'Titlu vechi')
   })
 })
@@ -382,7 +382,7 @@ describe('Content form — site-exclusive edit mode', () => {
   it('pre-fills the exclusive radio when editing an exclusive item', () => {
     cy.get('[data-testid="item-menu-trigger-item-ex"]').click()
     cy.get('[data-testid="item-menu-edit-item-ex"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
     cy.get('[data-testid="exclusive-toggle"]').should('be.checked')
     cy.get('[data-testid="exclusive-site-radio-vest"]').should('be.checked')
     cy.get('[data-testid="exclusive-site-radio-centru"]').should('exist').and('not.be.checked')
@@ -427,7 +427,7 @@ describe('Content form — partial update regression (bug: date update clears ot
 
     cy.get('[data-testid="item-menu-trigger-card-full"]').click()
     cy.get('[data-testid="item-menu-edit-card-full"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
 
     // Change only the start date — leave title and description untouched
     cy.get('[data-testid="create-date-input"]').type('2026-06-01')
@@ -448,7 +448,7 @@ describe('Content form — partial update regression (bug: date update clears ot
 
     cy.get('[data-testid="item-menu-trigger-card-full"]').click()
     cy.get('[data-testid="item-menu-edit-card-full"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
 
     // Clear the description so it should be nulled out in the request
     cy.get('[data-testid="create-description-input"]').clear()

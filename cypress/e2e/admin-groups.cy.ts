@@ -34,11 +34,13 @@ describe('Group management on content page', () => {
     cy.intercept('GET', '/api/admin/groups', { groups: [newGroup] }).as('groupsAfter')
 
     cy.get('[data-testid="create-group-btn"]').click()
-    cy.get('[data-testid="create-group-form"]').should('be.visible')
+    // The create form lives in the "Grup nou" dialog (spec 09, FR-114)
+    cy.get('[data-testid="group-dialog"] [data-testid="create-group-form"]').should('be.visible')
     cy.get('[data-testid="create-group-title"]').type('Anunțuri')
     cy.get('[data-testid="create-group-submit"]').click()
     cy.wait('@create').its('request.body.title').should('eq', 'Anunțuri')
     cy.wait('@groupsAfter')
+    cy.get('[data-testid="group-dialog"]').should('not.exist')
     cy.get('[data-testid="group-block-g1"]').should('exist')
   })
 
@@ -73,7 +75,7 @@ describe('Group management on content page', () => {
     cy.wait('@delete')
   })
 
-  it('opens the group context menu and clicking Editează opens the edit panel', () => {
+  it('opens the group context menu and clicking Editează opens the group dialog', () => {
     const group = {
       id: 'g1', title: 'Anunțuri', sites: [], orderPosition: 0, state: 'draft', createdAt: '', updatedAt: '',
     }
@@ -83,7 +85,8 @@ describe('Group management on content page', () => {
     cy.get('[data-testid="group-block-g1"]').should('exist')
     cy.get('[data-testid="group-menu-trigger-g1"]').click()
     cy.get('[data-testid="group-menu-edit-g1"]').should('be.visible').click()
-    cy.get('[data-testid="edit-group-panel-g1"]').should('be.visible')
+    cy.get('[data-testid="group-dialog"] [data-testid="edit-group-panel-g1"]').should('be.visible')
+    cy.get('[data-testid="group-block-g1"] [data-testid="edit-group-panel-g1"]').should('not.exist')
   })
 
   it('group context menu closes when clicking outside', () => {
@@ -99,7 +102,7 @@ describe('Group management on content page', () => {
     cy.get('[data-testid="group-menu-edit-g1"]').should('not.exist')
   })
 
-  it('clicking the group title opens the group edit panel', () => {
+  it('clicking the group title opens the group edit dialog', () => {
     const group = {
       id: 'g1', title: 'Anunțuri', sites: [], orderPosition: 0, state: 'draft', createdAt: '', updatedAt: '',
     }
@@ -107,7 +110,7 @@ describe('Group management on content page', () => {
     setup([group])
 
     cy.get('[data-testid="group-name-g1"]').click()
-    cy.get('[data-testid="edit-group-panel-g1"]').should('be.visible')
+    cy.get('[data-testid="group-dialog"] [data-testid="edit-group-panel-g1"]').should('be.visible')
     cy.get('[data-testid="edit-group-title-g1"]').should('have.value', 'Anunțuri')
   })
 
@@ -123,7 +126,8 @@ describe('Group management on content page', () => {
 
     // Clicking the + button opens the create form
     cy.get('[data-testid="group-add-content-g1"]').click()
-    cy.get('[data-testid="create-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="create-form"]').should('be.visible')
+    cy.location('search').should('eq', '?new=1&group=g1')
 
     // The form should have the group pre-selected — verify by submitting and checking the request body
     cy.intercept('POST', '/api/admin/content', (req) => {

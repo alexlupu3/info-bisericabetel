@@ -7,7 +7,8 @@ import { useToast } from '../../context/ToastContext'
 import ShortLinksTab from './ShortLinksTab'
 import ImagePicker from './ImagePicker'
 import SiteLinkOverrides from './SiteLinkOverrides'
-import { CONTENT_TYPES, formToPayload, itemToForm, type FormData } from './form-model'
+import { CONTENT_TYPES, formToPayload, itemToForm, isSameValue, type FormData } from './form-model'
+import { DialogBody, DialogFooter } from '../ui/Dialog'
 
 // ── Translatable fields per content type ──────────────────────────────────────
 
@@ -48,6 +49,11 @@ function LocationCounter({ value, testId }: { value: string; testId: string }) {
   )
 }
 
+// Translation values that count: empty inputs are not saved (and are not a change).
+function nonEmpty(values: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(values).filter(([, v]) => v))
+}
+
 const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
   card:   [{ key: 'thumbnail', label: 'Miniatură (per limbă)' }],
   poster: [{ key: 'imageUrl', label: 'Imagine (per limbă)' }],
@@ -55,22 +61,40 @@ const LOCALE_IMAGE_FIELDS: Record<string, Array<{ key: string; label: string }>>
 
 // ── Content form ───────────────────────────────────────────────────────────────
 
-export default function ContentForm({ item, groups, availableSites, defaultGroupId, onClose, onSaved }: {
-  item?: ContentItem | null; groups: Group[]; availableSites: Site[]; defaultGroupId?: string; onClose: () => void; onSaved: () => void
+/**
+ * The content item form, hosted by `ContentDialog` (spec 09): it renders its scrolling
+ * body and its footer actions into the dialog, and reports whether it has unsaved changes
+ * (the Romanian form or a translation draft, compared with the values it opened with) and
+ * whether a save is in flight.
+ */
+export default function ContentForm({ item, groups, availableSites, defaultGroupId, onCancel, onSaved, onDirtyChange, onBusyChange }: {
+  item?: ContentItem | null
+  groups: Group[]
+  availableSites: Site[]
+  defaultGroupId?: string
+  /** "Anulează" / "Închide": the dialog decides whether to ask first. */
+  onCancel: () => void
+  /** A Romanian create or edit was saved; `saved` is the API's item. */
+  onSaved: (saved: ContentItem | null) => void
+  onDirtyChange?: (dirty: boolean) => void
+  onBusyChange?: (busy: boolean) => void
 }) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'edit' | 'short-links'>('edit')
-  const [form, setForm] = useState<FormData>(() => {
+  const [initialForm] = useState<FormData>(() => {
     const base = itemToForm(item)
     if (!item && defaultGroupId) return { ...base, groupId: defaultGroupId }
     return base
   })
+  const [form, setForm] = useState<FormData>(initialForm)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   // Translation mode state
   const [transLocale, setTransLocale] = useState('')  // '' = editing original
   const [transForm, setTransForm] = useState<Record<string, string>>({})
+  // The translation values as loaded (or last saved): a draft differs from them.
+  const [transBaseline, setTransBaseline] = useState<Record<string, string>>({})
 
   // Fetch available languages (non-default, enabled)
   const { data: langData } = useQuery({
@@ -95,6 +119,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
   useEffect(() => {
     if (!transLocale || !existingTranslations) {
       setTransForm({})
+      setTransBaseline({})
       return
     }
     const allFields = [
@@ -108,7 +133,15 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
       populated[f.key] = sourceData[f.key] ?? ''
     }
     setTransForm(populated)
+    setTransBaseline(populated)
   }, [transLocale, existingTranslations, form.type])
+
+  // Dirty = differs from the opening values (typing and reverting is not a change; BR-060).
+  const formDirty = !isSameValue(formToPayload(form), formToPayload(initialForm))
+  const transDirty = isTranslating && !isSameValue(nonEmpty(transForm), nonEmpty(transBaseline))
+  const dirty = formDirty || transDirty
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onBusyChange?.(busy) }, [busy])     // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (patch: Partial<FormData>) => setForm(f => ({ ...f, ...patch }))
   const toggleSite = (slug: string) =>
@@ -122,17 +155,24 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
     try {
       if (isTranslating) {
         // Filter out empty values
-        const data = Object.fromEntries(Object.entries(transForm).filter(([, v]) => v))
+        const data = nonEmpty(transForm)
         await api.content.upsertTranslation(item!.id, transLocale, data)
+        // The dialog stays open so more locales can be filled in (D-5); the saved values
+        // become the new baseline, so the form is clean again.
+        setTransBaseline(transForm)
         qc.invalidateQueries({ queryKey: ['content-translations', item!.id] })
         toast('Traducere salvată')
       } else {
         const payload = formToPayload(form)
-        if (item) { await api.content.update(item.id, payload); toast('Salvat') }
-        else       { await api.content.create(payload); toast('Element creat') }
+        let saved: ContentItem | null
+        if (item) { saved = await api.content.update(item.id, payload); toast('Salvat') }
+        else       { saved = await api.content.create(payload); toast('Element creat') }
+        setBusy(false)
+        onSaved(saved ?? null)
+        return
       }
-      onSaved()
-    } catch (e: any) { setError(e.message) } finally { setBusy(false) }
+    } catch (e: any) { setError(e.message) }
+    setBusy(false)
   }
 
   // Get the original Romanian value for a field (used as placeholder in translation mode)
@@ -142,11 +182,11 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
   }
 
   return (
-    <div className="border border-[var(--border)] mb-6"
+    <div className="flex flex-col flex-1 min-h-0"
          data-testid={isEdit ? 'edit-form' : 'create-form'}>
       {/* Tab bar — only shown when editing an existing item */}
       {isEdit && (
-        <div className="flex border-b border-[var(--border)]">
+        <div className="flex border-b border-[var(--border)] px-2 flex-shrink-0">
           <button
             onClick={() => setActiveTab('edit')}
             data-testid="tab-edit"
@@ -173,25 +213,26 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
 
       {/* Short links tab */}
       {isEdit && activeTab === 'short-links' && (
-        <div className="p-4">
-          <ShortLinksTab
-            itemId={item!.id}
-            itemData={item!.data}
-            availableSites={availableSites}
-          />
-          <div className="pt-4 mt-4 border-t border-[var(--border)]">
-            <button onClick={onClose}
-              className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">
+        <>
+          <DialogBody>
+            <ShortLinksTab
+              itemId={item!.id}
+              itemData={item!.data}
+              availableSites={availableSites}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <button type="button" onClick={onCancel} data-testid="content-dialog-cancel"
+              className="ml-auto px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors">
               Închide
             </button>
-          </div>
-        </div>
+          </DialogFooter>
+        </>
       )}
 
       {/* Edit tab (or create form) */}
-      {(!isEdit || activeTab === 'edit') && (
-      <div className="p-4 space-y-4">
-      <span className="text-sm font-bold uppercase tracking-widest">{isEdit ? 'Editează' : 'Conținut nou'}</span>
+      {(!isEdit || activeTab === 'edit') && (<>
+      <DialogBody className="space-y-4">
 
       {/* Language selector — only in edit mode and when non-default languages exist */}
       {isEdit && nonDefaultLanguages.length > 0 && (
@@ -480,14 +521,8 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
         </div>
       </>)}
 
-      <div className="flex gap-3 pt-1">
-        <button onClick={submit}
-          disabled={busy || (form.exclusiveSite !== null && !availableSites.find(s => s.slug === form.exclusiveSite))}
-          data-testid="create-submit-btn"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] transition-colors disabled:opacity-40">
-          {busy ? 'Se salvează…' : isTranslating ? 'Salvează traducerea' : isEdit ? 'Salvează' : 'Creează'}
-        </button>
+      </DialogBody>
+      <DialogFooter>
         {isTranslating && existingTranslations?.translations.some(t => t.locale === transLocale) && (
           <button type="button" onClick={async () => {
             if (!confirm('Sigur vrei să ștergi această traducere?')) return
@@ -496,7 +531,6 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
               await api.content.removeTranslation(item!.id, transLocale)
               qc.invalidateQueries({ queryKey: ['content-translations', item!.id] })
               toast('Traducere ștearsă')
-              onSaved()
             } catch (e: any) { setError(e.message) } finally { setBusy(false) }
           }}
           disabled={busy}
@@ -504,13 +538,21 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             Șterge traducerea
           </button>
         )}
-        <button onClick={onClose}
-          className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">
-          Anulează
-        </button>
-      </div>
-      </div>
-      )}
+        <div className="ml-auto flex items-center gap-3">
+          <button type="button" onClick={onCancel} disabled={busy} data-testid="content-dialog-cancel"
+            className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors disabled:opacity-40">
+            Anulează
+          </button>
+          <button type="button" onClick={submit}
+            disabled={busy || (form.exclusiveSite !== null && !availableSites.find(s => s.slug === form.exclusiveSite))}
+            data-testid="create-submit-btn"
+            className="px-5 py-2 border border-[var(--text)] bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
+                       hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent)] transition-colors disabled:opacity-40 disabled:pointer-events-none">
+            {busy ? 'Se salvează…' : isTranslating ? 'Salvează traducerea' : isEdit ? 'Salvează' : 'Creează'}
+          </button>
+        </div>
+      </DialogFooter>
+      </>)}
     </div>
   )
 }

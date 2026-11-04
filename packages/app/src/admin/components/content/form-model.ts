@@ -79,3 +79,23 @@ export function formToPayload(f: FormData) {
   }
 }
 
+
+/** Structural equality with object keys and string arrays order-insensitive (dirty checks). */
+export function isSameValue(a: unknown, b: unknown): boolean {
+  return stableJson(a) === stableJson(b)
+}
+
+function stableJson(v: unknown): string {
+  return JSON.stringify(normalize(v))
+}
+
+function normalize(v: unknown): unknown {
+  if (Array.isArray(v)) {
+    const items = v.map(normalize)
+    return items.every(i => typeof i === 'string') ? [...(items as string[])].sort() : items
+  }
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.keys(v as object).sort().map(k => [k, normalize((v as Record<string, unknown>)[k])]))
+  }
+  return v
+}

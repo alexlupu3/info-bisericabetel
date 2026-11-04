@@ -49,7 +49,7 @@ function openCreateCard() {
 function openEdit(id: string) {
   cy.get(`[data-testid="item-menu-trigger-${id}"]`).click()
   cy.get(`[data-testid="item-menu-edit-${id}"]`).click()
-  cy.get('[data-testid="edit-form"]').should('be.visible')
+  cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
 }
 
 describe('Admin — event location', () => {

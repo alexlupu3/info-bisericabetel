@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock, ArrowUpDown } from 'lucide-react'
-import ContentForm from '../components/content/ContentForm'
+import ContentDialog from '../components/content/ContentDialog'
+import GroupDialog from '../components/content/GroupDialog'
+import { useDialogSearchParam, dialogKey } from '../hooks/useDialogSearchParam'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -201,24 +203,36 @@ function moveToContainer(
 export default function ContentPage() {
   const qc = useQueryClient()
   const { toast } = useToast()
-  const { data: contentData, isLoading } = useQuery({ queryKey: ['admin-content'], queryFn: api.content.list })
-  const { data: groupsData } = useQuery({ queryKey: ['admin-groups'], queryFn: api.groups.list })
+  const { data: contentData, isLoading, dataUpdatedAt: contentUpdatedAt } = useQuery({ queryKey: ['admin-content'], queryFn: api.content.list })
+  const { data: groupsData, dataUpdatedAt: groupsUpdatedAt } = useQuery({ queryKey: ['admin-groups'], queryFn: api.groups.list })
   const { data: sitesData } = useQuery({ queryKey: ['sites'], queryFn: api.sites.list })
   const availableSites = sitesData?.sites ?? []
 
-  const [creating, setCreating] = useState(false)
-  const [creatingInGroup, setCreatingInGroup] = useState<string | null>(null)
-  const [editing, setEditing] = useState<ContentItem | null>(null)
-  const editingFormRef = useRef<HTMLDivElement | null>(null)
+  // ── Create/edit dialogs (spec 09): the open dialog is in the URL (FR-113) ──
+  const dialogs = useDialogSearchParam()
+  const dialog = dialogs.dialog
+  const dataReady = !!contentData && !!groupsData
+  const dialogItem = dialog?.kind === 'edit' ? contentData?.items.find(i => i.id === dialog.id) : undefined
+  const dialogGroup = dialog?.kind === 'editGroup' ? groupsData?.groups.find(g => g.id === dialog.id) : undefined
+  const missingTarget = dataReady && (
+    (dialog?.kind === 'edit' && !dialogItem) || (dialog?.kind === 'editGroup' && !dialogGroup))
 
-  // Scroll the inline edit form into view whenever a different item is opened for editing
   useEffect(() => {
-    if (editing && editingFormRef.current) {
-      editingFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (!dialog || !dataReady) return
+    if (missingTarget) {
+      toast(dialog.kind === 'edit' ? 'Elementul nu mai există' : 'Grupul nu mai există', 'error')
+      dialogs.strip()
+      return
     }
-  }, [editing?.id])
+    dialogs.normalizeDeepLink()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialog && dialogKey(dialog), dataReady, missingTarget])
 
-  const [creatingGroup, setCreatingGroup] = useState(false)
+  // ── After-save landing (FR-112): expand, scroll into view, highlight, focus ──
+  type Landing = { kind: 'item' | 'group'; id: string; savedAt: number }
+  const [landing, setLanding] = useState<Landing | null>(null)
+  const [highlight, setHighlight] = useState<{ kind: 'item' | 'group'; id: string } | null>(null)
+
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const initialCollapseApplied = useRef(false)
 
@@ -329,7 +343,7 @@ export default function ContentPage() {
   }
   const createGroupMut = useMutation({
     mutationFn: ({ title, sites }: { title: string; sites: string[] }) => api.groups.create(title, sites),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup creat'); setCreatingGroup(false) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup creat') },
   })
   const updateGroupMut = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: { title?: string; sites?: string[] } }) =>
@@ -344,6 +358,38 @@ export default function ContentPage() {
       toast('Grup șters')
     },
   })
+
+  useEffect(() => {
+    if (!landing || dialog) return
+    const fresh = (landing.kind === 'item' ? contentUpdatedAt : groupsUpdatedAt) >= landing.savedAt
+    if (landing.kind === 'item') {
+      const item = contentData?.items.find(i => i.id === landing.id)
+      // Not in the refreshed list (e.g. filtered out): focus stays on the trigger.
+      if (!item) { if (fresh) setLanding(null); return }
+      if (item.groupId && collapsedGroups.has(item.groupId)) {
+        const groupId = item.groupId
+        setCollapsedGroups(prev => { const next = new Set(prev); next.delete(groupId); return next })
+        return
+      }
+    } else if (!groupsData?.groups.some(g => g.id === landing.id)) {
+      if (fresh) setLanding(null)
+      return
+    }
+    const prefix = landing.kind === 'item' ? 'content' : 'group'
+    const block = document.querySelector<HTMLElement>(
+      `[data-testid="${landing.kind === 'item' ? 'content-row' : 'group-block'}-${landing.id}"]`)
+    if (!block) return // the list is rebuilt from the refreshed data in an effect; try again then
+    block.scrollIntoView({ block: 'nearest' })
+    document.querySelector<HTMLElement>(`[data-testid="${prefix}-name-${landing.id}"]`)?.focus({ preventScroll: true })
+    setHighlight({ kind: landing.kind, id: landing.id })
+    setLanding(null)
+  }, [landing, dialog, contentData, groupsData, rootEntries, collapsedGroups, contentUpdatedAt, groupsUpdatedAt])
+
+  useEffect(() => {
+    if (!highlight) return
+    const t = setTimeout(() => setHighlight(null), 2500)
+    return () => clearTimeout(t)
+  }, [highlight])
 
   const sensors = useSensors(useSensor(PointerSensor))
 
@@ -527,14 +573,14 @@ export default function ContentPage() {
             </button>
           )}
           <button
-            onClick={() => setCreatingGroup(v => !v)}
+            onClick={() => dialogs.open({ kind: 'newGroup' })}
             data-testid="create-group-btn"
             className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
                        hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
             + Grup nou
           </button>
           <button
-            onClick={() => { setEditing(null); setCreating(true) }}
+            onClick={() => dialogs.open({ kind: 'create', groupId: null })}
             data-testid="create-content-btn"
             className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
                        hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
@@ -542,31 +588,6 @@ export default function ContentPage() {
           </button>
         </div>
       </div>
-
-      {creatingGroup && (
-        <CreateGroupForm
-          availableSites={availableSites}
-          onClose={() => setCreatingGroup(false)}
-          onCreated={(title, sites) => createGroupMut.mutate({ title, sites })}
-          busy={createGroupMut.isPending}
-        />
-      )}
-
-      {creating && (
-        <ContentForm groups={groups} availableSites={availableSites}
-          onClose={() => setCreating(false)}
-          onSaved={() => { invalidate(); setCreating(false) }} />
-      )}
-
-      {creatingInGroup && (
-        <ContentForm
-          groups={groups}
-          availableSites={availableSites}
-          defaultGroupId={creatingInGroup}
-          onClose={() => setCreatingInGroup(null)}
-          onSaved={() => { invalidate(); setCreatingInGroup(null) }}
-        />
-      )}
 
       {isLoading && <p className="text-[var(--muted)] font-content text-sm">Se încarcă…</p>}
 
@@ -582,20 +603,14 @@ export default function ContentPage() {
                       item={entry.item}
                       dragData={{ type: 'item' }}
                       availableSites={availableSites}
-                      onEdit={() => { setCreating(false); setEditing(entry.item) }}
+                      highlighted={highlight?.kind === 'item' && highlight.id === entry.item.id}
+                      onEdit={() => dialogs.open({ kind: 'edit', id: entry.item.id })}
                       onPublish={() => publishMut.mutate(entry.item.id)}
                       onArchive={() => archiveMut.mutate(entry.item.id)}
                       onDelete={() => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(entry.item.id) }}
                       onDuplicate={() => duplicateMut.mutate(entry.item.id)}
                       onTogglePublish={() => togglePublishMut.mutate({ id: entry.item.id, currentState: entry.item.state })}
                     />
-                    {editing?.id === entry.item.id && (
-                      <div ref={editingFormRef}>
-                        <ContentForm item={editing} groups={groups} availableSites={availableSites}
-                          onClose={() => setEditing(null)}
-                          onSaved={() => { invalidate(); setEditing(null) }} />
-                      </div>
-                    )}
                   </>
                 ) : (
                   <SortableGroupBlock
@@ -603,12 +618,9 @@ export default function ContentPage() {
                     availableSites={availableSites}
                     isCollapsed={collapsedGroups.has(entry.id)}
                     onToggleCollapse={() => toggleGroupCollapse(entry.id)}
-                    editingItem={editing}
-                    editingFormRef={editing && entry.items.some(i => i.id === editing.id) ? editingFormRef : null}
-                    onEdit={item => { setCreating(false); setEditing(item) }}
-                    onEditClose={() => setEditing(null)}
-                    onEditSaved={() => { invalidate(); setEditing(null) }}
-                    onEditGroup={(id, patch) => updateGroupMut.mutate({ id, patch })}
+                    highlightedId={highlight?.id ?? null}
+                    onEdit={item => dialogs.open({ kind: 'edit', id: item.id })}
+                    onEditGroup={() => dialogs.open({ kind: 'editGroup', id: entry.id })}
                     onPublish={id => publishMut.mutate(id)}
                     onArchive={id => archiveMut.mutate(id)}
                     onDelete={id => { if (confirm('Muți acest element în arhivă?')) deleteMut.mutate(id) }}
@@ -618,9 +630,8 @@ export default function ContentPage() {
                       if (confirm(`Ștergi grupul "${entry.title}"? Elementele din grup vor fi mutate în arhivă.`))
                         deleteGroupMut.mutate(entry.id)
                     }}
-                    onAddContent={() => { setEditing(null); setCreating(false); setCreatingInGroup(entry.id) }}
+                    onAddContent={() => dialogs.open({ kind: 'create', groupId: entry.id })}
                     onSortChronological={() => sortGroupChronologically(entry.id)}
-                    groups={groups}
                   />
                 )}
               </Fragment>
@@ -632,23 +643,76 @@ export default function ContentPage() {
           {activeItem  && <ContentRowOverlay item={activeItem} />}
         </DragOverlay>
       </DndContext>
+
+      {dataReady && dialog?.kind === 'create' && (
+        <ContentDialog
+          key={dialogKey(dialog)}
+          groups={groups}
+          availableSites={availableSites}
+          defaultGroupId={dialog.groupId && groups.some(g => g.id === dialog.groupId) ? dialog.groupId : undefined}
+          onClose={dialogs.close}
+          onSaved={saved => {
+            invalidate()
+            if (saved?.id) setLanding({ kind: 'item', id: saved.id, savedAt: Date.now() })
+            dialogs.close()
+          }}
+        />
+      )}
+      {dialog?.kind === 'edit' && dialogItem && (
+        <ContentDialog
+          key={dialogKey(dialog)}
+          item={dialogItem}
+          groups={groups}
+          availableSites={availableSites}
+          onClose={dialogs.close}
+          onSaved={() => {
+            invalidate()
+            setLanding({ kind: 'item', id: dialogItem.id, savedAt: Date.now() })
+            dialogs.close()
+          }}
+        />
+      )}
+      {dataReady && dialog?.kind === 'newGroup' && (
+        <GroupDialog
+          key={dialogKey(dialog)}
+          availableSites={availableSites}
+          onSubmit={(title, sites) => createGroupMut.mutateAsync({ title, sites })}
+          onClose={dialogs.close}
+          onSaved={saved => {
+            if (saved?.id) setLanding({ kind: 'group', id: saved.id, savedAt: Date.now() })
+            dialogs.close()
+          }}
+        />
+      )}
+      {dialog?.kind === 'editGroup' && dialogGroup && (
+        <GroupDialog
+          key={dialogKey(dialog)}
+          group={dialogGroup}
+          availableSites={availableSites}
+          onSubmit={(title, sites) => updateGroupMut.mutateAsync({ id: dialogGroup.id, patch: { title, sites } })}
+          onClose={dialogs.close}
+          onSaved={() => {
+            setLanding({ kind: 'group', id: dialogGroup.id, savedAt: Date.now() })
+            dialogs.close()
+          }}
+        />
+      )}
     </div>
   )
 }
 
 // ── Sortable group block ───────────────────────────────────────────────────────
 
-function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, editingItem, editingFormRef, onEdit, onEditClose, onEditSaved, onEditGroup, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish, onDeleteGroup, onAddContent, onSortChronological, groups }: {
+function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollapse, highlightedId, onEdit, onEditGroup, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish, onDeleteGroup, onAddContent, onSortChronological }: {
   entry: GroupEntry
   availableSites: Site[]
   isCollapsed: boolean
   onToggleCollapse: () => void
-  editingItem: ContentItem | null
-  editingFormRef: React.MutableRefObject<HTMLDivElement | null> | null
+  /** Item or group id carrying the after-save highlight (FR-112). */
+  highlightedId: string | null
   onEdit: (item: ContentItem) => void
-  onEditClose: () => void
-  onEditSaved: () => void
-  onEditGroup: (id: string, patch: { title?: string; sites?: string[] }) => void
+  /** Opens the "Editează grupul" dialog (FR-114). */
+  onEditGroup: () => void
   onPublish: (id: string) => void
   onArchive: (id: string) => void
   onDelete: (id: string) => void
@@ -657,7 +721,6 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
   onDeleteGroup: () => void
   onAddContent: () => void
   onSortChronological: () => void
-  groups: Group[]
 }) {
   const {
     attributes, listeners, setNodeRef: setSortableRef,
@@ -670,28 +733,13 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
     disabled: isCollapsed,
   })
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState(entry.title)
-  const [editSites, setEditSites] = useState<string[]>(entry.sites)
-
-  const openEdit = () => {
-    setEditTitle(entry.title)
-    setEditSites(entry.sites)
-    setIsEditing(true)
-  }
-  const saveEdit = () => {
-    onEditGroup(entry.id, { title: editTitle, sites: editSites })
-    setIsEditing(false)
-  }
-  const toggleEditSite = (slug: string) =>
-    setEditSites(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])
-
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
 
   return (
     <div ref={setSortableRef} style={style}
          className={`border transition-colors ${isOver ? 'border-[var(--accent)]' : 'border-[var(--border)]'}`}
-         data-testid={`group-block-${entry.id}`}>
+         data-testid={`group-block-${entry.id}`}
+         data-highlight={highlightedId === entry.id ? 'true' : undefined}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
         <button ref={setActivatorNodeRef} {...listeners} {...attributes}
           className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
@@ -706,7 +754,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
         <button
-          onClick={openEdit}
+          onClick={onEditGroup}
           data-testid={`group-name-${entry.id}`}
           className="flex-1 text-xs tracking-widest uppercase font-content font-bold text-left hover:text-[var(--accent)] transition-colors cursor-pointer"
         >{entry.title}</button>
@@ -729,52 +777,8 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
         >
           <Plus size={14} />
         </button>
-        <GroupContextMenu groupId={entry.id} onEdit={openEdit} onDelete={onDeleteGroup} />
+        <GroupContextMenu groupId={entry.id} onEdit={onEditGroup} onDelete={onDeleteGroup} />
       </div>
-
-      {isEditing && (
-        <div className="px-4 py-3 border-b border-[var(--border)] space-y-3 bg-[var(--surface)]"
-             data-testid={`edit-group-panel-${entry.id}`}>
-          <div>
-            <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu grup *</label>
-            <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-              data-testid={`edit-group-title-${entry.id}`}
-              autoFocus
-              onKeyDown={e => { if (e.key === 'Enter' && editTitle) saveEdit() }}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content" />
-          </div>
-          {availableSites.length > 0 && (
-            <div>
-              <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
-                Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
-              </label>
-              <div className="flex gap-4">
-                {availableSites.map(s => (
-                  <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={editSites.includes(s.slug)}
-                      onChange={() => toggleEditSite(s.slug)}
-                      data-testid={`edit-group-site-${s.slug}`}
-                      className="accent-[var(--accent)]" />
-                    <span className="text-xs font-content">{s.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-3">
-            <button onClick={saveEdit} disabled={!editTitle}
-              data-testid={`edit-group-save-${entry.id}`}
-              className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] transition-colors disabled:opacity-40">
-              Salvează
-            </button>
-            <button onClick={() => setIsEditing(false)}
-              className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">
-              Anulează
-            </button>
-          </div>
-        </div>
-      )}
 
       {!isCollapsed && (
         <SortableContext items={entry.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -784,6 +788,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
                 key={item.id} item={item}
                 dragData={{ type: 'group-item', groupId: entry.id }}
                 availableSites={availableSites}
+                highlighted={highlightedId === item.id}
                 onEdit={() => onEdit(item)}
                 onPublish={() => onPublish(item.id)}
                 onArchive={() => onArchive(item.id)}
@@ -798,13 +803,6 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
               </li>
             )}
           </ul>
-          {editingItem && editingFormRef && entry.items.some(i => i.id === editingItem.id) && (
-            <div ref={editingFormRef} className="border-t border-[var(--border)]">
-              <ContentForm item={editingItem} groups={groups} availableSites={availableSites}
-                onClose={onEditClose}
-                onSaved={onEditSaved} />
-            </div>
-          )}
         </SortableContext>
       )}
     </div>
@@ -948,10 +946,11 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
 
 // ── Sortable content row ───────────────────────────────────────────────────────
 
-function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
+function SortableContentRow({ item, dragData, availableSites = [], highlighted = false, onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
   item: ContentItem
   dragData: Record<string, unknown>
   availableSites?: Site[]
+  highlighted?: boolean
   onEdit: () => void
   onPublish: () => void
   onArchive: () => void
@@ -971,7 +970,8 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
   return (
     <li ref={setNodeRef} style={style}
         className="flex items-center gap-4 border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-        data-testid={`content-row-${item.id}`}>
+        data-testid={`content-row-${item.id}`}
+        data-highlight={highlighted ? 'true' : undefined}>
       <button ref={setActivatorNodeRef} {...listeners} {...attributes}
         data-testid={`drag-handle-${item.id}`}
         className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
@@ -1064,60 +1064,4 @@ function ContentTypeIcon({ type }: { type: string }) {
     case 'poster':   return <Image size={16} />
     default:         return <SquareAsterisk size={16} />
   }
-}
-
-// ── Create group form ──────────────────────────────────────────────────────────
-
-function CreateGroupForm({ availableSites, onClose, onCreated, busy }: {
-  availableSites: Site[]
-  onClose: () => void
-  onCreated: (title: string, sites: string[]) => void
-  busy: boolean
-}) {
-  const [title, setTitle] = useState('')
-  const [sites, setSites] = useState<string[]>([])
-  const toggleSite = (slug: string) =>
-    setSites(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])
-
-  return (
-    <div className="border border-[var(--border)] p-4 mb-4 space-y-3" data-testid="create-group-form">
-      <div>
-        <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu grup *</label>
-        <input value={title} onChange={e => setTitle(e.target.value)}
-          placeholder="ex. Anunțuri duminică"
-          data-testid="create-group-title"
-          autoFocus
-          onKeyDown={e => { if (e.key === 'Enter' && title) onCreated(title, sites) }}
-          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
-      </div>
-      {availableSites.length > 0 && (
-        <div>
-          <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-2">
-            Locații <span className="normal-case text-[var(--muted)]">(gol = toate)</span>
-          </label>
-          <div className="flex gap-4">
-            {availableSites.map(s => (
-              <label key={s.slug} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={sites.includes(s.slug)}
-                  onChange={() => toggleSite(s.slug)}
-                  data-testid={`create-group-site-${s.slug}`}
-                  className="accent-[var(--accent)]" />
-                <span className="text-xs font-content">{s.name}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="flex gap-3">
-        <button onClick={() => onCreated(title, sites)} disabled={busy || !title}
-          data-testid="create-group-submit"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] transition-colors disabled:opacity-40">
-          {busy ? 'Se creează…' : 'Creează'}
-        </button>
-        <button onClick={onClose}
-          className="px-4 py-2 text-xs tracking-widest uppercase font-content text-[var(--muted)]">Anulează</button>
-      </div>
-    </div>
-  )
 }

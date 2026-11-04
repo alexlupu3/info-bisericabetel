@@ -32,6 +32,8 @@ describe('Toast notifications', () => {
     cy.get('[data-testid="create-body-input"]').type('hello')
     cy.get('[data-testid="create-submit-btn"]').click()
     cy.wait('@create')
+    // The toast is shown once the dialog has closed (spec 09, FR-112)
+    cy.get('[data-testid="content-dialog"]').should('not.exist')
     cy.get('[data-testid="toast"]').should('be.visible').and('contain', 'Element creat')
   })
 

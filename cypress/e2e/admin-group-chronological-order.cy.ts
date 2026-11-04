@@ -123,6 +123,7 @@ describe('Chronological ordering within groups', () => {
       cy.intercept(contentOrderRoute, cy.spy().as('reorderSpy'))
 
       cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="content-dialog"]').should('be.visible')
       cy.get('[data-testid="create-type-select"]').select('card')
       cy.get('[data-testid="create-title-input"]').type('Ziua Mamei')
       cy.get('[data-testid="create-date-input"]').type('2026-03-08')
@@ -155,6 +156,7 @@ describe('Chronological ordering within groups', () => {
       }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="content-dialog"]').should('be.visible')
       cy.get('[data-testid="create-type-select"]').select('card')
       cy.get('[data-testid="create-title-input"]').type('Ziua Mamei')
       cy.get('[data-testid="create-date-input"]').type('2026-03-08')
@@ -192,6 +194,7 @@ describe('Chronological ordering within groups', () => {
       }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="content-dialog"]').should('be.visible')
       cy.get('[data-testid="create-type-select"]').select('card')
       cy.get('[data-testid="create-title-input"]').type('Fara data')
       cy.get('[data-testid="create-submit-btn"]').click()
@@ -228,6 +231,7 @@ describe('Chronological ordering within groups', () => {
       }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="content-dialog"]').should('be.visible')
       cy.get('[data-testid="create-type-select"]').select('card')
       cy.get('[data-testid="create-title-input"]').type('Dimineata')
       cy.get('[data-testid="create-date-input"]').type('2026-03-01')
@@ -268,6 +272,7 @@ describe('Chronological ordering within groups', () => {
       }).as('contentRefetch')
 
       cy.get('[data-testid="group-add-content-g1"]').click()
+      cy.get('[data-testid="content-dialog"]').should('be.visible')
       cy.get('[data-testid="create-type-select"]').select('card')
       cy.get('[data-testid="create-title-input"]').type('Same3')
       cy.get('[data-testid="create-date-input"]').type('2026-03-01')

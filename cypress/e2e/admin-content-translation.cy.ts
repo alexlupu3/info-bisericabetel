@@ -39,7 +39,7 @@ describe('Admin — Content form translation mode', () => {
 
   it('does not show language selector in create mode', () => {
     cy.get('[data-testid="create-content-btn"]').click()
-    cy.get('[data-testid="create-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="create-form"]').should('be.visible')
     cy.get('[data-testid="translation-locale-select"]').should('not.exist')
   })
 
@@ -48,14 +48,14 @@ describe('Admin — Content form translation mode', () => {
     cy.get('[data-testid="content-row-item-1"]').should('exist')
     cy.get('[data-testid="item-menu-trigger-item-1"]').click()
     cy.get('[data-testid="item-menu-edit-item-1"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
     cy.get('[data-testid="translation-locale-select"]').should('be.visible')
   })
 
   it('switches to translation mode and shows only text fields', () => {
     cy.get('[data-testid="item-menu-trigger-item-1"]').click()
     cy.get('[data-testid="item-menu-edit-item-1"]').click()
-    cy.get('[data-testid="edit-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
 
     // Select English
     cy.get('[data-testid="translation-locale-select"]').select('en')
@@ -84,6 +84,22 @@ describe('Admin — Content form translation mode', () => {
     cy.get('[data-testid="trans-title-input"]').type('Original Title')
     cy.get('[data-testid="create-submit-btn"]').click()
     cy.wait('@saveTranslation')
+    // Saving a translation keeps the dialog open for further locales (spec 09, D-5)
+    cy.get('[data-testid="toast"]').should('contain', 'Traducere salvată')
+    cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
+    // ... and the saved values are the new baseline: closing does not ask
+    cy.get('[data-testid="content-dialog-close"]').click()
+    cy.get('[data-testid="discard-confirm"]').should('not.exist')
+    cy.get('[data-testid="content-dialog"]').should('not.exist')
+  })
+
+  it('an unsaved translation draft asks before closing', () => {
+    cy.get('[data-testid="item-menu-trigger-item-1"]').click()
+    cy.get('[data-testid="item-menu-edit-item-1"]').click()
+    cy.get('[data-testid="translation-locale-select"]').select('en')
+    cy.get('[data-testid="trans-title-input"]').type('Draft')
+    cy.get('[data-testid="content-dialog-close"]').click()
+    cy.get('[data-testid="discard-confirm"]').should('be.visible')
   })
 
   it('shows translation badges when translations exist', () => {

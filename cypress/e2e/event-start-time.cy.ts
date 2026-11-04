@@ -48,7 +48,7 @@ function openCreateCard() {
 function openEdit(id: string) {
   cy.get(`[data-testid="item-menu-trigger-${id}"]`).click()
   cy.get(`[data-testid="item-menu-edit-${id}"]`).click()
-  cy.get('[data-testid="edit-form"]').should('be.visible')
+  cy.get('[data-testid="content-dialog"] [data-testid="edit-form"]').should('be.visible')
 }
 
 describe('Admin — event start time', () => {
@@ -138,7 +138,7 @@ describe('Admin — event start time', () => {
       cy.intercept('PATCH', '/api/admin/content/multi', multiDay).as('patch')
       openEdit('multi')
       cy.get('[data-testid="create-start-time-input"]').should('not.exist')
-      cy.get('[data-testid="start-time-multiday-hint"]').should('be.visible')
+      cy.get('[data-testid="start-time-multiday-hint"]').scrollIntoView().should('be.visible')
       cy.get('[data-testid="create-submit-btn"]').click()
       cy.wait('@patch').its('request.body.data').should(data => {
         expect(data).to.have.property('startTime', null)
@@ -147,7 +147,7 @@ describe('Admin — event start time', () => {
 
     it('hides the dates row, including the time, in translation mode', () => {
       openEdit('timed')
-      cy.get('[data-testid="create-start-time-input"]').should('be.visible')
+      cy.get('[data-testid="create-start-time-input"]').scrollIntoView().should('be.visible')
       cy.get('[data-testid="translation-locale-select"]').select('en')
       cy.get('[data-testid="create-date-input"]').should('not.exist')
       cy.get('[data-testid="create-start-time-input"]').should('not.exist')
