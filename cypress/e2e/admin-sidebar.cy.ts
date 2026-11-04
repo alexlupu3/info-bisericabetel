@@ -157,6 +157,17 @@ describe('Admin sidebar — phone FAB and drawer', () => {
       })
     })
 
+    // Both faces are a single icon centred in the circle, with no accent bar.
+    ;['nav-fab', 'nav-drawer-close'].forEach(id => {
+      cy.get(`[data-testid="${id}"]`).then($btn => {
+        expect($btn.children()).to.have.length(1)
+        const b = $btn[0].getBoundingClientRect()
+        const i = $btn.children()[0].getBoundingClientRect()
+        expect(Math.abs((i.left + i.width / 2) - (b.left + b.width / 2))).to.be.lessThan(1)
+        expect(Math.abs((i.top + i.height / 2) - (b.top + b.height / 2))).to.be.lessThan(1)
+      })
+    })
+
     cy.get('[data-testid="nav-drawer"] [data-testid="nav-media"]').click()
     cy.location('pathname').should('eq', '/admin/media')
     cy.get('[data-testid="nav-drawer"]').should('not.exist')

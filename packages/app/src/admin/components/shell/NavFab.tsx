@@ -6,15 +6,12 @@ export const DRAWER_ID = 'admin-nav-drawer'
 
 /** Round FAB geometry shared by the FAB and the drawer's × (drawn at the same spot). */
 export const FAB_CLASS = `fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))]
-  w-14 h-14 rounded-full flex-col items-center justify-center gap-1
+  w-14 h-14 rounded-full items-center justify-center
   bg-[var(--text)] text-[var(--bg)] shadow-lg
-  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`
+  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)]`
 
 export function FabFace({ open }: { open: boolean }): ReactNode {
-  return (<>
-    {open ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
-    <span aria-hidden="true" className="block w-3 h-0.5 bg-[var(--accent)]" />
-  </>)
+  return open ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />
 }
 
 /** Phone menu button, bottom-right (FR-108). Hidden while a form dialog is open. */
