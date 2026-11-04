@@ -501,20 +501,35 @@ body {
   }
   [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1rem; }
 
-  /* Card without image: typographic date cover in place of the 16:9 thumbnail. */
+  /* Card without image: typographic date cover in place of the 16:9 thumbnail — the day over
+     the full month, centred, on a light washed gradient. --tile-tint is the item's own site
+     accent (set inline when it belongs to exactly one site); without it a warm stone tint gives
+     the neutral wash. Mixing into --surface keeps the wash light in light mode and deep in dark
+     mode; the last stop turns the hue a little for a softer, two-tone wash. */
   [data-preview="hand"] li[data-slot] [data-tile="cover"] {
+    --tint: var(--tile-tint, #a8987f);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 0.2rem;
     aspect-ratio: 16 / 9;
-    padding-top: 0.75rem;
     border-bottom: 1px solid var(--border);
-    background: var(--bg);
+    /* No relative colour syntax: inside a var() an unsupported value would drop the whole
+       background. Mixing in oklch with a lavender turns the tint's hue for the last stop. */
+    background: linear-gradient(150deg,
+      color-mix(in oklab, var(--tint) 30%, var(--surface)) 0%,
+      color-mix(in oklab, var(--tint) 12%, var(--surface)) 55%,
+      color-mix(in oklab, color-mix(in oklch, var(--tint) 65%, #b8a8ff) 20%, var(--surface)) 100%);
     line-height: 1;
+    text-align: center;
   }
-  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :first-child { font-size: 2.75rem; }
-  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :last-child { font-size: 1.35rem; text-transform: lowercase; }
+  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :first-child { font-size: 2.5rem; }
+  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :last-child {
+    font-size: 1.2rem;
+    text-transform: lowercase;
+    color: color-mix(in oklab, var(--tint) 55%, var(--text));
+  }
 
   /* Card with image and date: a small date index in the image corner. */
   [data-preview="hand"] li[data-slot] [data-tile="index"] {

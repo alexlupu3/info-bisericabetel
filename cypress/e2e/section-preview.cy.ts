@@ -137,6 +137,27 @@ describe('Section preview — phone hand of cards', () => {
     li('N1').find('[data-tile="desc"]').should('have.css', 'font-size', '14px')
   })
 
+  it('a date cover shows the day over the full month, tinted by the card\'s own site', () => {
+    const items = feed().map(i => (i.id === 'B' ? { ...i, sites: ['vest'] } : i))
+    visitWith(items)
+    li('B').find('[data-tile="cover"]').should('have.attr', 'style').and('contain', '--tile-tint: #a0384b')
+    li('B').find('[data-tile="cover"] > span').then($s => {
+      expect($s).to.have.length(2)
+      expect($s.eq(1).text()).to.match(/^[a-zăâîșț]{4,}$/) // full month, no abbreviation dot
+      // Layout offsets ignore the tile's rotation.
+      const [day, month] = [$s[0], $s[1]]
+      expect(month.offsetTop).to.be.at.least(day.offsetTop + day.offsetHeight - 2) // under the day
+      expect(Math.abs((day.offsetLeft + day.offsetWidth / 2) - (month.offsetLeft + month.offsetWidth / 2))).to.be.lessThan(2) // centred
+    })
+    li('B').find('[data-tile="cover"]').should('have.css', 'background-image').and('match', /^linear-gradient/)
+  })
+
+  it('a date cover without a single site uses the neutral wash', () => {
+    visitWith(feed())
+    li('B').find('[data-tile="cover"]').should('not.have.attr', 'style')
+    li('B').find('[data-tile="cover"]').should('have.css', 'background-image').and('match', /^linear-gradient/)
+  })
+
   it('a tap on the third tile scrolls to its card once the group opens', () => {
     visitWith(feed())
     // Inside the visible right part of the rotated tile (its box corners fall outside it).

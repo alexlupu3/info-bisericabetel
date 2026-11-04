@@ -1,5 +1,6 @@
+import type { CSSProperties } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { itemWhen, readLocation, tileDate } from '@betel/shared'
+import { itemWhen, readLocation, tileDate, tileTint } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import FeedImage from './FeedImage'
@@ -7,6 +8,7 @@ import EventLocation from './EventLocation'
 import { CalendarIcon, META_ROW_CLASS } from './meta-icons'
 import { track } from '../../api/track'
 import { useLanguage } from '../../context/LanguageContext'
+import { useSites } from '../../context/SitesContext'
 
 type CardData = {
   title: string
@@ -55,12 +57,14 @@ export default function CardItem({
   const d = item.data as CardData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
   const { dateLocale } = useLanguage()
+  const allSites = useSites()
   // Same date line as the server-rendered snapshot (spec 03): text + ISO for <time> (spec 04).
   const when = itemWhen(item.data, dateLocale)
   const location = readLocation(item.data)
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const horizontal = variant === 'horizontal'
   const tile = previewTile ? tileDate(item.data, dateLocale) : null
+  const tint = tile && !d.thumbnail ? tileTint(item.sites, allSites) : null
   // Mixed-type date (bold day, condensed accent month), decorative: the date row says it in words.
   const tileDateMark = tile && (
     <>
@@ -97,8 +101,17 @@ export default function CardItem({
           {tileDateMark && <span data-tile="index" aria-hidden="true" hidden>{tileDateMark}</span>}
         </div>
       )}
-      {!d.thumbnail && tileDateMark && (
-        <div data-tile="cover" aria-hidden="true" hidden>{tileDateMark}</div>
+      {!d.thumbnail && tile && (
+        // Day over the full month, on a washed gradient tinted by the item's own site (or neutral).
+        <div
+          data-tile="cover"
+          aria-hidden="true"
+          hidden
+          style={tint ? { '--tile-tint': tint } as CSSProperties : undefined}
+        >
+          <span className="betel-title-bold">{tile.day}</span>
+          <span className="betel-title-condensed">{tile.monthLong}</span>
+        </div>
       )}
       <div className={horizontal ? 'p-5 flex flex-col justify-between flex-1 gap-3' : 'p-4'}>
         <div>

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SECTION_PREVIEW_SIZE, groupSlug, isCollapsibleGroup, previewSlots, tileDate } from './section-preview.js'
+import { SECTION_PREVIEW_SIZE, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
 
 const group = (pins: boolean[]) => pins.map(pinnedInGroup => ({ pinnedInGroup }))
 
@@ -48,8 +48,22 @@ test('groupSlug strips diacritics and punctuation', () => {
 })
 
 test('tileDate reads startDate, falls back to legacy date', () => {
-  assert.deepEqual(tileDate({ startDate: '2026-11-04' }), { day: '4', month: new Intl.DateTimeFormat('ro-RO', { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 10, 4))) })
+  const nov4 = new Date(Date.UTC(2026, 10, 4))
+  assert.deepEqual(tileDate({ startDate: '2026-11-04' }), {
+    day: '4',
+    month: new Intl.DateTimeFormat('ro-RO', { month: 'short', timeZone: 'UTC' }).format(nov4),
+    monthLong: new Intl.DateTimeFormat('ro-RO', { month: 'long', timeZone: 'UTC' }).format(nov4),
+  })
   assert.equal(tileDate({ date: '2026-12-24' })?.day, '24')
   assert.equal(tileDate({}), null)
   assert.equal(tileDate({ startDate: 'soon' }), null)
+})
+
+test('tileTint uses the accent of a single-site item, otherwise neutral', () => {
+  const sites = [{ slug: 'a', accent: '#ff6200' }, { slug: 'b', accent: 'red;background:url(x)' }]
+  assert.equal(tileTint(['a'], sites), '#ff6200')
+  assert.equal(tileTint([], sites), null)
+  assert.equal(tileTint(['a', 'b'], sites), null)
+  assert.equal(tileTint(['b'], sites), null)
+  assert.equal(tileTint(['missing'], sites), null)
 })

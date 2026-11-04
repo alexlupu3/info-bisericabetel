@@ -48,7 +48,7 @@ export function groupDomIds(groupId: string): { heading: string; list: string } 
  * Day and short month of an item's start date for a hand tile's date cover / corner index
  * (FR-098), e.g. `{ day: '14', month: 'nov.' }`; null when undated or unparseable.
  */
-export function tileDate(data: Record<string, unknown>, dateLocale = 'ro-RO'): { day: string; month: string } | null {
+export function tileDate(data: Record<string, unknown>, dateLocale = 'ro-RO'): { day: string; month: string; monthLong: string } | null {
   const raw = typeof data.startDate === 'string' && data.startDate ? data.startDate : data.date
   if (typeof raw !== 'string') return null
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
@@ -56,5 +56,17 @@ export function tileDate(data: Record<string, unknown>, dateLocale = 'ro-RO'): {
   const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
   if (Number.isNaN(date.getTime())) return null
   const month = new Intl.DateTimeFormat(dateLocale, { month: 'short', timeZone: 'UTC' }).format(date)
-  return { day: String(Number(m[3])), month }
+  const monthLong = new Intl.DateTimeFormat(dateLocale, { month: 'long', timeZone: 'UTC' }).format(date)
+  return { day: String(Number(m[3])), month, monthLong }
+}
+
+/**
+ * Tint of a hand tile's date cover (FR-098): the accent of the item's own site when it
+ * belongs to exactly one site, otherwise null (the neutral wash). Only hex colours pass,
+ * because the value lands in a style attribute.
+ */
+export function tileTint(itemSites: readonly string[], sites: ReadonlyArray<{ slug: string; accent: string }>): string | null {
+  if (itemSites.length !== 1) return null
+  const accent = sites.find(s => s.slug === itemSites[0])?.accent
+  return accent && /^#[0-9a-fA-F]{3,8}$/.test(accent) ? accent : null
 }

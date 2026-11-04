@@ -11,7 +11,7 @@
 
 import {
   UI_DEFAULTS, groupDomIds, groupSlug, itemDisplayTitle, itemPlainText, itemWhen, previewSlots, readLocation,
-  siteAddressLine, tileDate,
+  siteAddressLine, tileDate, tileTint,
 } from '@betel/shared'
 import { escapeHtml, safeUrl } from './escape.js'
 import { itemImagePath } from './item-image.js'
@@ -121,6 +121,16 @@ function tileDateMark(item: FeedItem, ctx: RenderContext): string {
     + `<span class="betel-title-condensed" style="color:${escapeHtml(ctx.accent)}">${escapeHtml(date.month)}</span>`
 }
 
+/** Date cover of an imageless hand tile: day over the full month, tinted by the item's site. */
+function tileDateCover(item: FeedItem, ctx: RenderContext): string {
+  const date = tileDate(item.data, DATE_LOCALE)
+  if (!date) return ''
+  const tint = tileTint(item.sites, ctx.model.sites)
+  return `<div data-tile="cover" aria-hidden="true" hidden${tint ? ` style="--tile-tint:${tint}"` : ''}>`
+    + `<span class="betel-title-bold">${escapeHtml(date.day)}</span>`
+    + `<span class="betel-title-condensed">${escapeHtml(date.monthLong)}</span></div>`
+}
+
 function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: TileOptions = NO_TILE): string {
   const title = itemDisplayTitle(item)
   const h = `h${level}`
@@ -138,7 +148,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
           ? `<div class="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover">`
             + (mark ? `<span data-tile="index" aria-hidden="true" hidden>${mark}</span>` : '')
             + `</div>`
-          : (mark ? `<div data-tile="cover" aria-hidden="true" hidden>${mark}</div>` : ''))
+          : (opts.tile ? tileDateCover(item, ctx) : ''))
         + `<div class="p-4">${whenLine(item)}${locationLine(item)}`
         + `<${h} data-tile="title" class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)

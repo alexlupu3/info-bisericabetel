@@ -241,7 +241,7 @@ test('snapshot: a group of 4+ prints the collapsed hand (spec 08, FR-096 – FR-
   assert.match(html, /<li data-slot="0"><a href="https:\/\/d\.example" target="_blank" rel="noopener noreferrer" class=/)
   assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 2)
   // B has no thumbnail: date cover; A has one: corner index.
-  assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden><span class="betel-title-bold">2<\/span>/)
+  assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden(?: style="--tile-tint:#[0-9a-fA-F]+")?><span class="betel-title-bold">2<\/span><span class="betel-title-condensed">[^<.]+<\/span><\/div>/)
   assert.match(html, /<span data-tile="index" aria-hidden="true" hidden><span class="betel-title-bold">1<\/span>/)
   assert.match(html, /<button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="group-g-items">Vezi toate · 4<\/button>/)
 })
