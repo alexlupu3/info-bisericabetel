@@ -473,6 +473,8 @@ body {
   [data-preview="hand"] li[data-slot] [data-tile="title"] {
     font-size: 0.95rem;
     line-height: 1.2;
+    /* Last resort: a word wider than the tile breaks instead of being cut off. */
+    overflow-wrap: break-word;
     margin-bottom: 0;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -480,28 +482,24 @@ body {
     overflow: hidden;
   }
 
-  /* Card with neither image nor date: title at the top under an accent hairline, then the
-     start of the description, faded out where the tile ends. */
+  /* Card with neither image nor date: title at the top, then the description, clamped with an
+     ellipsis. 5 lines always fit under a 3-line title within the 58cqw tile cap; 4 on narrow
+     lists. Markdown paragraphs run inline so the clamp counts all of them. */
   [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] {
-    display: block;
-    margin: 0.5rem 0 0;
-    max-height: calc(1.45em * 5);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
     overflow: hidden;
+    margin: 0.5rem 0 0;
     font-size: 0.75rem;
     line-height: 1.45;
-    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
-    mask-image: linear-gradient(to bottom, #000 60%, transparent);
   }
-  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > * { margin: 0; }
-  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) > .p-4::before {
-    content: '';
-    display: block;
-    width: 1rem;
-    height: 1px;
-    margin-bottom: 0.625rem;
-    background: var(--accent);
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > * { display: inline; margin: 0; }
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > :not(:last-child)::after { content: ' '; }
+  @container (max-width: 300px) {
+    [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] { -webkit-line-clamp: 4; }
   }
-  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1.1rem; }
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1rem; }
 
   /* Card without image: typographic date cover in place of the 16:9 thumbnail. */
   [data-preview="hand"] li[data-slot] [data-tile="cover"] {

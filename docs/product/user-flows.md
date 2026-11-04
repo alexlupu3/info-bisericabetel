@@ -241,7 +241,7 @@ Member-facing flows come first, followed by admin flows.
 ### Flow 20 — Browsing a long group on a phone
 - Trigger: a visitor on a phone (screen narrower than 640 px) opens a site page whose group holds four or more visible items
 - Steps:
-  - The group shows three tiles fanned like cards in a hand, the first on top, the next two peeking out to its right; each tile shows the image (or a large date when the card has none) and the title, and a small stack under the third tile hints at more. A card with neither image nor date shows its title at the top with the start of its description. The heading reads "Evenimente · 9" and "Vezi toate · 9" sits below the hand
+  - The group shows three tiles fanned like cards in a hand, the first on top, the next two peeking out to its right; each tile shows the image (or a large date when the card has none) and the title, and a small stack under the third tile hints at more. A card with neither image nor date shows its title at the top, then its description, cut off with an ellipsis when it does not fit. The heading reads "Evenimente · 9" and "Vezi toate · 9" sits below the hand
   - Tapping the front tile opens its link, exactly as in the full list
   - Tapping "Vezi toate · 9" deals the tiles into the normal one-column list and moves focus to the group's first item; tapping a back tile does the same but scrolls to and focuses that tile's item. Either way the page shows "Arată mai puțin" floating at the bottom of the screen while the group is on screen
   - After scrolling past the group, tapping "Arată mai puțin" gathers the cards back; if the heading had scrolled off the top the page scrolls back to it, and focus returns to "Vezi toate · 9"

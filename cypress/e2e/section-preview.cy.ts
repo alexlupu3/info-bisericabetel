@@ -126,7 +126,13 @@ describe('Section preview — phone hand of cards', () => {
       const title = $t[0].getBoundingClientRect()
       expect(title.top - article.top).to.be.lessThan(40)
     })
+    // No accent dash above the title; the description is clamped with an ellipsis.
+    li('N1').find('article > div').then($d => {
+      expect(getComputedStyle($d[0], '::before').content).to.be.oneOf(['none', 'normal'])
+    })
     li('N1').find('[data-tile="desc"]').should('be.visible')
+      .and('have.css', '-webkit-line-clamp', '5')
+      .and('not.have.css', 'mask-image', 'linear-gradient(rgb(0, 0, 0) 60%, rgba(0, 0, 0, 0))')
     cy.contains('button', 'Vezi toate · 4').click()
     li('N1').find('[data-tile="desc"]').should('have.css', 'font-size', '14px')
   })
