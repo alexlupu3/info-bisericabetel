@@ -73,7 +73,7 @@ On a phone, every item of a group is stacked in one column, so a group of nine e
 - **FR-099** — Expanding (button or tap on a back tile) shows every item in group order in the normal one-column grid, animates each tile from its hand position to its place (FLIP, ~560 ms, staggered, transform and opacity only), moves focus to the group's first item and announces `section.expanded` in a polite live region. Under `prefers-reduced-motion: reduce` the switch is instant.
 - **FR-100** — While a group is expanded on a phone, "Arată mai puțin" (`section.showLess`) is a pill button `position: sticky` at `bottom: calc(1rem + env(safe-area-inset-bottom))` inside the group's `<section>`, so it floats at the bottom of the screen while the group is on screen and rests below the last item otherwise. Collapsing animates back (same rules as FR-099), scrolls the group heading into view only if it is above the viewport, returns focus to "Vezi toate · N" and announces `section.collapsed`.
 - **FR-101** — Every group heading, on every viewport and in the server-rendered snapshot, shows the number of visible items after the title as `· N` (muted, light weight, inside the heading element). The snapshot counts the server's visible items; after hydration the SPA's count (after `filterCurrent()`) wins, the same caveat ADR-022 accepts for items that expire between render and load.
-- **FR-102** — Accessibility of the hand: buttons carry `aria-expanded` and `aria-controls` (the group's list); back tiles are `inert` while collapsed (one tab stop for the front tile, then the button); hidden items are out of the accessibility tree; tapping a back tile is a pointer shortcut only. The expanded/collapsed state lives in memory per group and resets on navigation, site switch or reload; crossing 640 px keeps it.
+- **FR-102** — Accessibility of the hand: buttons carry `aria-expanded` and `aria-controls` (the group's list); back tiles are **not** `inert` (an inert subtree cannot receive the tap FR-099 needs); instead, while collapsed, each back tile's `<li>` carries `aria-hidden="true"` and every focusable element inside it `tabindex="-1"` (one tab stop for the front tile, then the button), and the tile contains a pointer-only expansion target — a transparent `<span data-hand-expand aria-hidden="true">` absolutely positioned over the whole tile, above its link, with no role, no tab stop and a click handler that expands the group and prevents the link from being followed. Keyboard and screen-reader users expand with "Vezi toate · N" only. Expanding removes the `aria-hidden`, the `tabindex="-1"` and the overlay's hit area (`pointer-events: none` outside `data-preview="hand"`). Both renderers print the attributes and the overlay, so the server-rendered hand is already correct before hydration (a tap on a back tile before hydration does nothing). Hidden items are out of the accessibility tree. The expanded/collapsed state lives in memory per group and resets on navigation, site switch or reload; crossing 640 px keeps it.
 - **FR-103** — Content items have `pinned_in_group` (boolean, default `false`; migration `0016_content_pinned_in_group.sql`), returned as `pinnedInGroup` by `GET /api/content`, `GET /api/content/:id` and the admin content endpoints. `PATCH /api/admin/content/:id` accepts `pinnedInGroup: boolean` (rejects `pinnedInGroup must be a boolean`; rejects `true` on an item without a group, after the patch's own `groupId`, with `pinnedInGroup requires a group`; HTTP 400) and logs it in the `content.update` audit detail. Any write whose resulting `group_id` differs from the stored one resets the flag (BR-057); a save that resends the same `groupId` keeps it.
 - **FR-104** — The admin Content page shows a pin toggle on each item row inside a group ("Fixează pe mobil" / pressed "Fixat", `aria-pressed`, title "Apare primul în previzualizarea grupului pe telefon"); toggling sends FR-103's PATCH and updates the row optimistically. When more than 3 items of a group are pinned, the rows of the pinned items after the third show "Doar primele 3 elemente fixate apar în față".
 
@@ -116,7 +116,7 @@ export function previewSlots(items: ReadonlyArray<{ pinnedInGroup?: boolean }>):
 ### 6.4 Public UI
 
 **Component structure**
-- `GroupBlock.tsx` gains the count, the hand markup and the buttons; the expand/collapse logic and the FLIP animation live in a new hook `packages/app/src/public/hooks/useSectionPreview.ts` (state, `matchMedia('(max-width: 639px)')`, `inert` on back tiles, focus, live-region text, reduced motion).
+- `GroupBlock.tsx` gains the count, the hand markup and the buttons; the expand/collapse logic and the FLIP animation live in a new hook `packages/app/src/public/hooks/useSectionPreview.ts` (state, `matchMedia('(max-width: 639px)')`, `aria-hidden` / `tabindex="-1"` on back tiles and the `[data-hand-expand]` overlay's click handler (FR-102), focus, live-region text, reduced motion).
 - Markup per collapsible group (also printed by the snapshot, §6.5):
   - `<section aria-labelledby=… id=slug data-preview="hand|open">`
   - `<h2>{title} <span class="…muted">· {N}</span></h2>`
@@ -148,7 +148,7 @@ The heading count is a bare number and needs no key.
 
 ### 6.5 Server-rendered snapshot (spec 03's renderer, delta owned here)
 
-Both renderers change their group markup to §6.4: the snapshot moves from `<section aria-label>` + `<div>` grid to `<section aria-labelledby id=slug>` + `<ul>`/`<li>`, and adds the heading count, `data-preview="hand"`, `data-slot` from `previewSlots()` and the "Vezi toate · N" button with `UI_DEFAULTS['section.showAll']`; the SPA moves from `aria-label` to `aria-labelledby` (so the landmark name includes "· N") and from `<div>` to `<ul>`. The snapshot also prints `inert` on the slot 1 and 2 items and puts the hidden items' content out of the tab order, so it never offers more tab stops than the hydrated page; its button does nothing until the SPA hydrates and replaces the snapshot. Because the collapse is CSS, phones paint the hand from the first byte with no layout shift, and the HTML still contains every item in group order for crawlers. `snapshot-parity.cy.ts` keeps comparing items by DOM order (unchanged) and also compares the `data-slot` attributes.
+Both renderers change their group markup to §6.4: the snapshot moves from `<section aria-label>` + `<div>` grid to `<section aria-labelledby id=slug>` + `<ul>`/`<li>`, and adds the heading count, `data-preview="hand"`, `data-slot` from `previewSlots()` and the "Vezi toate · N" button with `UI_DEFAULTS['section.showAll']`; the SPA moves from `aria-label` to `aria-labelledby` (so the landmark name includes "· N") and from `<div>` to `<ul>`. The snapshot also prints `aria-hidden="true"`, `tabindex="-1"` on their links and the `[data-hand-expand]` overlay on the slot 1 and 2 items and puts the hidden items' content out of the tab order, so it never offers more tab stops than the hydrated page; its button does nothing until the SPA hydrates and replaces the snapshot. Because the collapse is CSS, phones paint the hand from the first byte with no layout shift, and the HTML still contains every item in group order for crawlers. `snapshot-parity.cy.ts` keeps comparing items by DOM order (unchanged) and also compares the `data-slot` attributes.
 
 ### 6.6 Admin UI
 
@@ -216,10 +216,10 @@ Delivery order: `8 is independent; its migration renumbers to the next free file
 **Cypress — new `cypress/e2e/section-preview.cy.ts`** (stubs `GET /api/content` with `cy.intercept`; `cy.viewport(375, 812)` unless noted). Fixture: group "Evenimente" with 5 cards in group order (A–E; E pinned; B without thumbnail), group "Comunitate" with 3 cards, one ungrouped richtext.
 
 *Happy flow*
-1. Heading reads "Evenimente · 5"; the list has `data-preview="hand"`; exactly 3 items are visible, with `data-slot` 0, 1, 2 on E, A, B; C and D are not visible; the front tile (E) is focusable, A and B are `inert`; B shows the date cover.
+1. Heading reads "Evenimente · 5"; the list has `data-preview="hand"`; exactly 3 items are visible, with `data-slot` 0, 1, 2 on E, A, B; C and D are not visible; the front tile (E) is focusable, A and B are `aria-hidden="true"` with no tab stop inside them (Tab goes E → "Vezi toate · 5"); B shows the date cover.
 2. "Vezi toate · 5" has `aria-expanded="false"`; clicking it shows all 5 in group order A–E, focuses A's link, shows "Arată mai puțin", sets `aria-expanded="true"` and the live region text.
 3. Scroll so the end of the group is below the fold: "Arată mai puțin" is visible within the viewport (sticky). Click it: 3 tiles again, focus on "Vezi toate · 5".
-4. Clicking a back tile (A) expands instead of following the link (the link stub is not hit).
+4. Clicking a back tile (A) hits its `[data-hand-expand]` overlay and expands instead of following the link (the link stub is not hit); after expanding, A's link is focusable and clickable again and the overlay no longer intercepts clicks.
 
 *Regression scenarios*
 5. "Comunitate · 3": no button, all 3 visible, no `data-preview`.
@@ -287,7 +287,7 @@ Spec: [08-section-preview.md](specs/08-section-preview.md); ADR-026.
 - FR-099: Expanding shows every item in group order with a FLIP animation (instant under reduced motion), moves focus to the first item and announces it. **[Planned]**
 - FR-100: A sticky "Arată mai puțin" button floats at the bottom of the screen while an expanded group is on screen; collapsing returns focus and scrolls the heading into view if needed. **[Planned]**
 - FR-101: Every group heading shows its visible item count ("Evenimente · 9") on all viewports and in the server-rendered snapshot. **[Planned]**
-- FR-102: Hand accessibility: `aria-expanded`/`aria-controls`, `inert` back tiles, in-memory state that survives breakpoint changes. **[Planned]**
+- FR-102: Hand accessibility: `aria-expanded`/`aria-controls`, back tiles hidden from keyboard and screen readers with a pointer-only expand overlay, in-memory state that survives breakpoint changes. **[Planned]**
 - FR-103: `content_items.pinned_in_group` (migration `0016`), exposed as `pinnedInGroup`, settable via `PATCH /api/admin/content/:id`, cleared whenever the item's group changes. **[Planned]**
 - FR-104: Admin pin toggle on group item rows ("Fixează pe mobil" / "Fixat") with a hint beyond the third pin. **[Planned]**
 ```
@@ -360,7 +360,7 @@ Long groups make the phone feed long: nine events stack into several screens bef
 ## Decision
 1. Collapse only below 640 px, only groups with 4+ visible items, to a hand of 3.
 2. Keep every item in the DOM, in group order, in both renderers; the hand is pure CSS (`data-preview="hand"`, `data-slot` on 3 items, percentage transforms), so the first paint on phones is already collapsed and the HTML for crawlers is unchanged in content and order.
-3. JavaScript adds only state, `inert`, focus and a FLIP animation (transform/opacity, disabled under reduced motion).
+3. JavaScript adds only state, the back tiles' `aria-hidden` / `tabindex` toggling, the pointer-only expand overlay's click handler, focus and a FLIP animation (transform/opacity, disabled under reduced motion).
 4. Store pins as `content_items.pinned_in_group` (boolean), cleared whenever the stored `group_id` changes; pins reorder only the hand.
 
 ## Implementation

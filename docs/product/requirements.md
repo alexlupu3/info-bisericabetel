@@ -185,7 +185,7 @@ Spec: [08-section-preview.md](specs/08-section-preview.md); ADR-026.
 - FR-099: Expanding shows every item in group order with a FLIP animation (instant under reduced motion), moves focus to the first item and announces it. **[Planned]**
 - FR-100: A sticky "Arată mai puțin" button floats at the bottom of the screen while an expanded group is on screen; collapsing returns focus and scrolls the heading into view if needed. **[Planned]**
 - FR-101: Every group heading shows its visible item count ("Evenimente · 9") on all viewports and in the server-rendered snapshot. **[Planned]**
-- FR-102: Hand accessibility: `aria-expanded`/`aria-controls`, `inert` back tiles, in-memory state that survives breakpoint changes. **[Planned]**
+- FR-102: Hand accessibility: `aria-expanded`/`aria-controls`, back tiles hidden from keyboard and screen readers with a pointer-only expand overlay, in-memory state that survives breakpoint changes. **[Planned]**
 - FR-103: `content_items.pinned_in_group` (migration `0016`), exposed as `pinnedInGroup`, settable via `PATCH /api/admin/content/:id`, cleared whenever the item's group changes. **[Planned]**
 - FR-104: Admin pin toggle on group item rows ("Fixează pe mobil" / "Fixat") with a hint beyond the third pin. **[Planned]**
 

@@ -19,7 +19,7 @@ Long groups make the phone feed long: nine events stack into several screens bef
 ## Decision
 1. Collapse only below 640 px, only groups with 4+ visible items, to a hand of 3.
 2. Keep every item in the DOM, in group order, in both renderers; the hand is pure CSS (`data-preview="hand"`, `data-slot` on 3 items, percentage transforms), so the first paint on phones is already collapsed and the HTML for crawlers is unchanged in content and order.
-3. JavaScript adds only state, `inert`, focus and a FLIP animation (transform/opacity, disabled under reduced motion).
+3. JavaScript adds only state, the back tiles' `aria-hidden` / `tabindex` toggling, the pointer-only expand overlay's click handler, focus and a FLIP animation (transform/opacity, disabled under reduced motion).
 4. Store pins as `content_items.pinned_in_group` (boolean), cleared whenever the stored `group_id` changes; pins reorder only the hand.
 
 ## Implementation
