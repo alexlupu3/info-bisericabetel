@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAsterisk, AlignLeft, Video, Image, Plus, Lock, Link2, ArrowUpDown } from 'lucide-react'
 import ShortLinksTab from '../components/content/ShortLinksTab'
+import GroupPinToggle from '../components/content/GroupPinToggle'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -785,6 +786,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
               <SortableContentRow
                 key={item.id} item={item}
                 dragData={{ type: 'group-item', groupId: entry.id }}
+                groupItems={entry.items}
                 availableSites={availableSites}
                 onEdit={() => onEdit(item)}
                 onPublish={() => onPublish(item.id)}
@@ -950,9 +952,11 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
 
 // ── Sortable content row ───────────────────────────────────────────────────────
 
-function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
+function SortableContentRow({ item, dragData, groupItems, availableSites = [], onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
   item: ContentItem
   dragData: Record<string, unknown>
+  /** Set on rows inside a group: shows the phone-preview pin toggle (spec 08, FR-104). */
+  groupItems?: ContentItem[]
   availableSites?: Site[]
   onEdit: () => void
   onPublish: () => void
@@ -1016,6 +1020,7 @@ function SortableContentRow({ item, dragData, availableSites = [], onEdit, onPub
           />
         </button>
       </div>
+      {groupItems && <GroupPinToggle item={item} groupItems={groupItems} />}
       <div className="flex items-center gap-2 flex-shrink-0">
         <ItemContextMenu
           itemId={item.id}
