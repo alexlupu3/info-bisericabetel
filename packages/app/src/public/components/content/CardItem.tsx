@@ -63,15 +63,9 @@ export default function CardItem({
   const location = readLocation(item.data)
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const horizontal = variant === 'horizontal'
-  const tile = previewTile ? tileDate(item.data, dateLocale) : null
-  const tint = tile && !d.thumbnail ? tileTint(item.sites, allSites) : null
-  // Mixed-type date (bold day, condensed accent month), decorative: the date row says it in words.
-  const tileDateMark = tile && (
-    <>
-      <span className="betel-title-bold">{tile.day}</span>
-      <span className="betel-title-condensed" style={{ color: accent }}>{tile.month}</span>
-    </>
-  )
+  // Hand tile without an image: a decorative date cover (the date row says it in words).
+  const tile = previewTile && !d.thumbnail ? tileDate(item.data, dateLocale) : null
+  const tint = tile ? tileTint(item.sites, allSites) : null
 
   const dateLine = when && (
     <p data-tile="meta" className={`${META_ROW_CLASS} mb-2`}>
@@ -98,7 +92,6 @@ export default function CardItem({
       {d.thumbnail && (
         <div className={`relative aspect-[16/9] overflow-hidden bg-[var(--surface)]${horizontal ? ' sm:w-1/2 flex-shrink-0' : ''}`}>
           <FeedImage src={d.thumbnail} alt="" width={1600} height={900} eager={eager} className="w-full h-full object-cover" />
-          {tileDateMark && <span data-tile="index" aria-hidden="true" hidden>{tileDateMark}</span>}
         </div>
       )}
       {!d.thumbnail && tile && (
@@ -110,7 +103,7 @@ export default function CardItem({
           style={tint ? { '--tile-tint': tint } as CSSProperties : undefined}
         >
           <span className="betel-title-bold">{tile.day}</span>
-          <span className="betel-title-condensed">{tile.monthLong}</span>
+          <span className="betel-title-condensed">{tile.month}</span>
         </div>
       )}
       <div className={horizontal ? 'p-5 flex flex-col justify-between flex-1 gap-3' : 'p-4'}>

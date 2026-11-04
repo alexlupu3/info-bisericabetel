@@ -113,14 +113,6 @@ function wrapLink(html: string, href: string | null, opts: TileOptions = NO_TILE
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${opts.back ? ' tabindex="-1"' : ''} class="group block">${html}</a>`
 }
 
-/** Mirror of CardItem's tile date mark: bold day + condensed month in the accent. */
-function tileDateMark(item: FeedItem, ctx: RenderContext): string {
-  const date = tileDate(item.data, DATE_LOCALE)
-  if (!date) return ''
-  return `<span class="betel-title-bold">${escapeHtml(date.day)}</span>`
-    + `<span class="betel-title-condensed" style="color:${escapeHtml(ctx.accent)}">${escapeHtml(date.month)}</span>`
-}
-
 /** Date cover of an imageless hand tile: day over the full month, tinted by the item's site. */
 function tileDateCover(item: FeedItem, ctx: RenderContext): string {
   const date = tileDate(item.data, DATE_LOCALE)
@@ -128,7 +120,7 @@ function tileDateCover(item: FeedItem, ctx: RenderContext): string {
   const tint = tileTint(item.sites, ctx.model.sites)
   return `<div data-tile="cover" aria-hidden="true" hidden${tint ? ` style="--tile-tint:${tint}"` : ''}>`
     + `<span class="betel-title-bold">${escapeHtml(date.day)}</span>`
-    + `<span class="betel-title-condensed">${escapeHtml(date.monthLong)}</span></div>`
+    + `<span class="betel-title-condensed">${escapeHtml(date.month)}</span></div>`
 }
 
 function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: TileOptions = NO_TILE): string {
@@ -142,11 +134,9 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
       const text = itemPlainText(item)
       const link = resolvedLink(item, ctx.activeSite)
       const cta = typeof item.data.cta === 'string' && item.data.cta.trim() && link ? item.data.cta : null
-      const mark = opts.tile ? tileDateMark(item, ctx) : ''
       const html = `<article data-item-id="${id}" class="relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden">`
         + (thumb
           ? `<div class="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover">`
-            + (mark ? `<span data-tile="index" aria-hidden="true" hidden>${mark}</span>` : '')
             + `</div>`
           : (opts.tile ? tileDateCover(item, ctx) : ''))
         + `<div class="p-4">${whenLine(item)}${locationLine(item)}`

@@ -23,7 +23,7 @@ Long groups make the phone feed long: nine events stack into several screens bef
 4. Store pins as `content_items.pinned_in_group` (boolean), cleared whenever the stored `group_id` changes; pins reorder only the hand.
 
 ## Implementation
-`packages/shared/src/section-preview.ts` (`SECTION_PREVIEW_SIZE`, `isCollapsibleGroup`, `previewSlots`, plus `groupSlug` (the anchor id, moved out of `GroupBlock` so the snapshot prints the same id), `groupDomIds` (`group-<groupId>-title` / `-items`) and `tileDate` (day and short month for the date cover)), `GroupBlock.tsx` + `hooks/useSectionPreview.ts`, `index.css`, `render-snapshot.ts`, migration `0015_content_pinned_in_group.sql`, `PATCH /api/admin/content/:id` (`pinnedInGroup`), admin toggle `GroupPinToggle.tsx` rendered from the group rows of `ContentPage.tsx`.
+`packages/shared/src/section-preview.ts` (`SECTION_PREVIEW_SIZE`, `isCollapsibleGroup`, `previewSlots`, plus `groupSlug` (the anchor id, moved out of `GroupBlock` so the snapshot prints the same id), `groupDomIds` (`group-<groupId>-title` / `-items`) `tileDate` (day and full month name for the date cover) and `tileTint` (the cover's site tint)), `GroupBlock.tsx` + `hooks/useSectionPreview.ts`, `index.css`, `render-snapshot.ts`, migration `0015_content_pinned_in_group.sql`, `PATCH /api/admin/content/:id` (`pinnedInGroup`), admin toggle `GroupPinToggle.tsx` rendered from the group rows of `ContentPage.tsx`.
 
 ## Consequences
 - No layout shift on phones and no SEO change; snapshot parity keeps comparing DOM order.

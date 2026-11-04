@@ -51,8 +51,7 @@ test('tileDate reads startDate, falls back to legacy date', () => {
   const nov4 = new Date(Date.UTC(2026, 10, 4))
   assert.deepEqual(tileDate({ startDate: '2026-11-04' }), {
     day: '4',
-    month: new Intl.DateTimeFormat('ro-RO', { month: 'short', timeZone: 'UTC' }).format(nov4),
-    monthLong: new Intl.DateTimeFormat('ro-RO', { month: 'long', timeZone: 'UTC' }).format(nov4),
+    month: new Intl.DateTimeFormat('ro-RO', { month: 'long', timeZone: 'UTC' }).format(nov4),
   })
   assert.equal(tileDate({ date: '2026-12-24' })?.day, '24')
   assert.equal(tileDate({}), null)

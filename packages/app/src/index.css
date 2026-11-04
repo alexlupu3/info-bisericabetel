@@ -531,21 +531,6 @@ body {
     color: color-mix(in oklab, var(--tint) 55%, var(--text));
   }
 
-  /* Card with image and date: a small date index in the image corner. */
-  [data-preview="hand"] li[data-slot] [data-tile="index"] {
-    position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.2rem;
-    padding: 0.2rem 0.45rem;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.85rem;
-    line-height: 1;
-  }
-
   /* Poster: the image fills the tile, anchored at the top. */
   [data-preview="hand"] li[data-slot] [data-tile="poster"] img {
     height: 100%;

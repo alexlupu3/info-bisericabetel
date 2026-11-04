@@ -57,9 +57,9 @@ describe('Section preview — phone hand of cards', () => {
       const stops = $s.find('a[href], button').filter((_, el) => el.getAttribute('tabindex') !== '-1' && el.offsetParent !== null)
       expect(stops.map((_, el) => el.getAttribute('href') ?? el.textContent?.trim()).get()).to.deep.equal(['https://example.com/E', 'Vezi toate · 5'])
     })
-    // B has no thumbnail: typographic date cover; E has one: corner date index.
+    // B has no thumbnail: typographic date cover; E has one: just its image, no date stamp.
     li('B').find('[data-tile="cover"]').should('be.visible').and('have.attr', 'aria-hidden', 'true')
-    li('E').find('[data-tile="index"]').should('be.visible')
+    li('E').find('[data-tile="cover"], [data-tile="index"]').should('not.exist')
     // Description / CTA hidden in a tile.
     li('E').find('[data-tile="title"]').should('have.css', '-webkit-line-clamp', '3')
   })

@@ -45,19 +45,18 @@ export function groupDomIds(groupId: string): { heading: string; list: string } 
 }
 
 /**
- * Day and short month of an item's start date for a hand tile's date cover / corner index
- * (FR-098), e.g. `{ day: '14', month: 'nov.' }`; null when undated or unparseable.
+ * Day and full month name of an item's start date for an imageless hand tile's date cover
+ * (FR-098), e.g. `{ day: '14', month: 'noiembrie' }`; null when undated or unparseable.
  */
-export function tileDate(data: Record<string, unknown>, dateLocale = 'ro-RO'): { day: string; month: string; monthLong: string } | null {
+export function tileDate(data: Record<string, unknown>, dateLocale = 'ro-RO'): { day: string; month: string } | null {
   const raw = typeof data.startDate === 'string' && data.startDate ? data.startDate : data.date
   if (typeof raw !== 'string') return null
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw)
   if (!m) return null
   const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
   if (Number.isNaN(date.getTime())) return null
-  const month = new Intl.DateTimeFormat(dateLocale, { month: 'short', timeZone: 'UTC' }).format(date)
-  const monthLong = new Intl.DateTimeFormat(dateLocale, { month: 'long', timeZone: 'UTC' }).format(date)
-  return { day: String(Number(m[3])), month, monthLong }
+  const month = new Intl.DateTimeFormat(dateLocale, { month: 'long', timeZone: 'UTC' }).format(date)
+  return { day: String(Number(m[3])), month }
 }
 
 /**
