@@ -169,20 +169,34 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     }
   }, [slotOf])
 
-  const focusFirstItem = useCallback(() => {
-    const first = listRef.current?.firstElementChild as HTMLElement | null
-    if (!first) return
-    const target = first.querySelector<HTMLElement>('a[href], button, iframe')
+  const focusItem = useCallback((index: number) => {
+    const li = listRef.current?.children[index] as HTMLElement | undefined
+    if (!li) return
+    const target = li.querySelector<HTMLElement>('a[href], button, iframe')
     if (target) {
       target.focus({ preventScroll: true })
     } else {
-      first.setAttribute('tabindex', '-1')
-      first.focus({ preventScroll: true })
-      first.addEventListener('blur', () => first.removeAttribute('tabindex'), { once: true })
+      li.setAttribute('tabindex', '-1')
+      li.focus({ preventScroll: true })
+      li.addEventListener('blur', () => li.removeAttribute('tabindex'), { once: true })
     }
   }, [])
 
-  const expand = useCallback(async () => {
+  /**
+   * Scrolls the open list so item `index` is centred (or its top in view when taller than the
+   * screen). Uses layout offsets, which ignore the FLIP transforms still playing.
+   */
+  const scrollToItem = useCallback((index: number) => {
+    const list = listRef.current
+    const li = list?.children[index] as HTMLElement | undefined
+    if (!list || !li) return
+    const top = list.getBoundingClientRect().top + window.scrollY + li.offsetTop
+    const y = Math.max(0, top - Math.max(16, (window.innerHeight - li.offsetHeight) / 2))
+    window.scrollTo({ top: y, behavior: matches(REDUCED_MOTION_QUERY) ? 'auto' : 'smooth' })
+  }, [])
+
+  /** `index`: the tapped back tile's item, scrolled to and focused; otherwise the first item. */
+  const expand = useCallback(async (index?: number) => {
     if (!collapsible || busy.current || state === 'open') return
     busy.current = true
     try {
@@ -190,13 +204,14 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
       const animation = !isPhone || matches(REDUCED_MOTION_QUERY)
         ? (flushSync(() => setState('open')), Promise.resolve())
         : animate('open')
-      focusFirstItem()
+      focusItem(index ?? 0)
+      if (index !== undefined) scrollToItem(index)
       onAnnounce?.(expandedText)
       await animation
     } finally {
       busy.current = false
     }
-  }, [collapsible, state, isPhone, animate, focusFirstItem, onAnnounce, expandedText])
+  }, [collapsible, state, isPhone, animate, focusItem, scrollToItem, onAnnounce, expandedText])
 
   const collapse = useCallback(async () => {
     if (!collapsible || busy.current || state === 'hand') return
@@ -216,11 +231,16 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     }
   }, [collapsible, state, isPhone, animate, onAnnounce, collapsedText])
 
-  /** Click on a back tile's `[data-hand-expand]` overlay: expand instead of following its link. */
+  /**
+   * Click on a back tile's `[data-hand-expand]` overlay: expand instead of following its link,
+   * then bring that tile's item into view.
+   */
   const onExpandTarget = useCallback((event: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    void expand()
+    const li = (event.currentTarget as HTMLElement).closest('li')
+    const index = li?.parentElement ? Array.prototype.indexOf.call(li.parentElement.children, li) : -1
+    void expand(index >= 0 ? index : undefined)
   }, [expand])
 
   return { state, isPhone, handVisible, expand, collapse, onExpandTarget, listRef, headingRef, showAllRef }

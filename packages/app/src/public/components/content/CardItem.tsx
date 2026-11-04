@@ -70,7 +70,7 @@ export default function CardItem({
   )
 
   const dateLine = when && (
-    <p className={`${META_ROW_CLASS} mb-2`}>
+    <p data-tile="meta" className={`${META_ROW_CLASS} mb-2`}>
       <CalendarIcon />
       {when.dateTime ? <time dateTime={when.dateTime}>{when.text}</time> : <span>{when.text}</span>}
     </p>
@@ -108,7 +108,7 @@ export default function CardItem({
           <Heading data-tile="title" className="betel-title-bold text-xl leading-tight mb-2">{d.title}</Heading>
           <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
           {d.description && (
-            <div data-tile="hide" className={`font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none${horizontal ? '' : ' mb-4'}`}>
+            <div data-tile="desc" className={`font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none${horizontal ? '' : ' mb-4'}`}>
               <ReactMarkdown>{d.description}</ReactMarkdown>
             </div>
           )}

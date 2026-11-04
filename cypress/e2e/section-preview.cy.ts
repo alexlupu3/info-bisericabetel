@@ -98,6 +98,56 @@ describe('Section preview — phone hand of cards', () => {
     cy.get('[data-testid="section-live"]').should('have.text', 'Evenimente: se afișează 3 din 5')
   })
 
+  it('the fanned hand never makes the page scroll sideways (regression)', () => {
+    visitWith(feed())
+    section('evenimente').find('li[data-slot]').each($li => {
+      const rect = $li[0].getBoundingClientRect()
+      expect(rect.left).to.be.at.least(0)
+      expect(rect.right).to.be.at.most(375)
+    })
+    cy.document().should(doc => {
+      expect(doc.documentElement.scrollWidth).to.be.at.most(375)
+    })
+    // The back tile carries the "more cards" stack; the button has no dash.
+    li('B').should('have.css', 'box-shadow').and('match', /10px 8px/)
+    cy.contains('button', 'Vezi toate · 5').then($b => {
+      expect(getComputedStyle($b[0], '::before').content).to.be.oneOf(['none', 'normal'])
+    })
+  })
+
+  it('a tile with neither image nor date shows its title at the top, then its description', () => {
+    const NI = { groupId: 'g-ni', groupTitle: 'Implicare' }
+    visitWith(['1', '2', '3', '4'].map(n => card(`N${n}`, NI, {
+      title: `Implicare ${n}`,
+      description: 'Completează acest formular, iar cineva te va contacta.',
+    })))
+    li('N1').find('[data-tile="title"]').then($t => {
+      const article = $t[0].closest('article')!.getBoundingClientRect()
+      const title = $t[0].getBoundingClientRect()
+      expect(title.top - article.top).to.be.lessThan(40)
+    })
+    li('N1').find('[data-tile="desc"]').should('be.visible')
+    cy.contains('button', 'Vezi toate · 4').click()
+    li('N1').find('[data-tile="desc"]').should('have.css', 'font-size', '14px')
+  })
+
+  it('a tap on the third tile scrolls to its card once the group opens', () => {
+    visitWith(feed())
+    // Inside the visible right part of the rotated tile (its box corners fall outside it).
+    li('B').find('[data-hand-expand]').then($o => {
+      const { width, height } = $o[0].getBoundingClientRect()
+      cy.wrap($o).click(width - 30, height / 2)
+    })
+    section('evenimente').should('have.attr', 'data-preview', 'open')
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+    li('B').should($li => {
+      const rect = $li[0].getBoundingClientRect()
+      expect(rect.top).to.be.at.least(0)
+      expect(rect.bottom).to.be.at.most(812)
+    })
+    cy.focused().should('have.attr', 'href', 'https://example.com/B')
+  })
+
   it('a tap on a back tile expands the group instead of following its link', () => {
     visitWith(feed())
     // Clicking the visible right edge of tile A hits its [data-hand-expand] overlay, not its link.
@@ -174,8 +224,9 @@ describe('Section preview — phone hand of cards', () => {
     li('P1').find('img').should('have.css', 'object-fit', 'cover').and($img => {
       const img = $img[0] as HTMLImageElement
       expect(img.naturalWidth).to.be.greaterThan(0)
-      // 5:6 tile (offset sizes ignore the slot rotation): taller than the square image.
-      expect(img.offsetHeight / img.offsetWidth).to.be.closeTo(1.2, 0.05)
+      // The image fills its tile (offset sizes ignore the slot rotation).
+      const tile = img.closest('li')!
+      expect(img.offsetHeight).to.be.closeTo(tile.offsetHeight, 1)
     })
     cy.contains('button', 'Vezi toate · 4').click()
     li('P1').find('img').should($img => {

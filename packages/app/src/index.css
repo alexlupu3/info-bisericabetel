@@ -177,6 +177,8 @@ html, body, #root {
 }
 
 body {
+  /* The page never scrolls sideways; a stray wide or rotated element is clipped instead. */
+  overflow-x: clip;
   font-family: 'Franie-SLight', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -395,14 +397,6 @@ body {
   cursor: pointer;
   transition: border-color 200ms ease, color 200ms ease;
 }
-.betel-hand-button::before {
-  content: '';
-  display: block;
-  width: 0.75rem;
-  height: 1px;
-  background: var(--accent);
-  opacity: 0.9;
-}
 .betel-hand-button:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 3px;
@@ -425,16 +419,23 @@ body {
 .betel-hand-less > button { pointer-events: auto; }
 
 @media (max-width: 639px) {
+  /* The three tiles share one grid cell and stretch to the tallest tile's content (no fixed
+     aspect, so no empty chin), between 32 and 58 % of the list width (cqw). Each tile is 41 %
+     wide and the fan is centred with room for the ±5° rotation and the stack under the back
+     tile, so nothing reaches past the page gutter. */
   [data-preview="hand"] > [data-preview-list] {
     grid-template-columns: minmax(0, 1fr);
-    /* Inline padding keeps the rotated outer tiles inside the page gutter. */
-    padding: 0 0.75rem 1.75rem;
+    align-items: stretch;
+    container-type: inline-size;
+    padding: 0 0 1.75rem;
   }
   [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) { display: none; }
   [data-preview="hand"] > [data-preview-list] > li[data-slot] {
     grid-area: 1 / 1;
-    width: 50%;
-    aspect-ratio: 5 / 6;
+    width: 41%;
+    margin-left: calc(9% - 4px);
+    min-height: 32cqw;
+    max-height: 58cqw;
     overflow: hidden;
     transform-origin: 50% 140%;
     background: var(--surface);
@@ -442,21 +443,33 @@ body {
   }
   [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0, 20px) rotate(-5deg); z-index: 3; }
   [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] { transform: translate(50%, 10px) rotate(0deg); z-index: 2; }
-  [data-preview="hand"] > [data-preview-list] > li[data-slot="2"] { transform: translate(100%, 20px) rotate(5deg); z-index: 1; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="2"] {
+    transform: translate(100%, 20px) rotate(5deg);
+    z-index: 1;
+    /* Two sheets peeking out under the back tile: there is more in this group. */
+    box-shadow:
+      5px 4px 0 -1px var(--surface), 5px 4px 0 0 var(--border),
+      10px 8px 0 -1px var(--surface), 10px 8px 0 0 var(--border),
+      0 6px 18px -10px var(--hand-shadow);
+  }
   [data-preview="hand"] > [data-preview-list] > li[data-slot] > [data-hand-expand] {
     pointer-events: auto;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Tile content (FR-098): fill the tile, clip, drop description / CTA / glyphs. */
+  /* Tile content (FR-098): image (or date cover) and title only. The date already shows as
+     the corner index or the cover, so the date / place rows and description, CTA and glyphs
+     are dropped; every tile is about as tall as its image plus title, so no empty chin. */
   [data-preview="hand"] li[data-slot] > a,
   [data-preview="hand"] li[data-slot] > a > article,
   [data-preview="hand"] li[data-slot] > article { height: 100%; }
   [data-preview="hand"] li[data-slot] > a:hover { transform: none; }
   [data-preview="hand"] li[data-slot] [data-tile="hide"],
+  [data-preview="hand"] li[data-slot] [data-tile="desc"],
+  [data-preview="hand"] li[data-slot] [data-tile="meta"],
   [data-preview="hand"] li[data-slot] [data-testid="site-label"] { display: none; }
-  [data-preview="hand"] li[data-slot] article > .p-4 { padding: 0.75rem; }
+  [data-preview="hand"] li[data-slot] article > .p-4 { padding: 0.625rem 0.75rem 0.75rem; }
   [data-preview="hand"] li[data-slot] [data-tile="title"] {
     font-size: 0.95rem;
     line-height: 1.2;
@@ -467,12 +480,19 @@ body {
     overflow: hidden;
   }
 
-  /* Card with neither image nor date: the title sits at the foot of the tile, under an accent hairline. */
-  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"], [data-tile="text"])) {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+  /* Card with neither image nor date: title at the top under an accent hairline, then the
+     start of the description, faded out where the tile ends. */
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] {
+    display: block;
+    margin: 0.5rem 0 0;
+    max-height: calc(1.45em * 5);
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
+    mask-image: linear-gradient(to bottom, #000 60%, transparent);
   }
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > * { margin: 0; }
   [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) > .p-4::before {
     content: '';
     display: block;

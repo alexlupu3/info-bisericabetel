@@ -95,7 +95,7 @@ function whenLine(item: FeedItem): string {
   const inner = when.dateTime
     ? `<time datetime="${escapeHtml(when.dateTime)}">${escapeHtml(when.text)}</time>`
     : `<span>${escapeHtml(when.text)}</span>`
-  return `<p class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
+  return `<p data-tile="meta" class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
 }
 
 /** Mirror of EventLocation.tsx (spec 07): map pin + visually-hidden label + the location text. */
@@ -103,7 +103,7 @@ function locationLine(item: FeedItem): string {
   const location = readLocation(item.data)
   if (!location) return ''
   const spacing = itemWhen(item.data, DATE_LOCALE) ? '-mt-1 mb-2' : 'mb-2'
-  return `<p class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
+  return `<p data-tile="meta" class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
     + `<span class="sr-only">${escapeHtml(UI_DEFAULTS['location.label'])}: </span>`
     + `<span class="min-w-0 break-words">${escapeHtml(location)}</span></p>`
 }
@@ -142,7 +142,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
         + `<div class="p-4">${whenLine(item)}${locationLine(item)}`
         + `<${h} data-tile="title" class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)
-        + (text ? `<p data-tile="hide" class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
+        + (text ? `<p data-tile="desc" class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
         + (cta ? `<span data-tile="hide" class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
         + `</div></article>`
       return wrapLink(html, link, opts)
