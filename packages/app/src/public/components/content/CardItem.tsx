@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown'
-import { itemWhen, readLocation } from '@betel/shared'
+import { itemWhen, readLocation, tileDate } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import SiteLabel from './SiteLabel'
 import FeedImage from './FeedImage'
@@ -32,12 +32,13 @@ function ExternalLinkIcon() {
 
 export default function CardItem({
   item,
-  accent: _accent,
+  accent,
   variant = 'stacked',
   activeSite = null,
   showSiteLabel = false,
   headingLevel = 2,
   eager = false,
+  previewTile = false,
 }: {
   item: ContentItem
   accent: string
@@ -48,6 +49,8 @@ export default function CardItem({
   headingLevel?: 2 | 3
   /** First image of the page: loaded eagerly with high priority (LCP). */
   eager?: boolean
+  /** A hand tile on phones (FR-098): renders the date cover / corner index, shown only in the hand. */
+  previewTile?: boolean
 }) {
   const d = item.data as CardData
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
@@ -57,6 +60,14 @@ export default function CardItem({
   const location = readLocation(item.data)
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
   const horizontal = variant === 'horizontal'
+  const tile = previewTile ? tileDate(item.data, dateLocale) : null
+  // Mixed-type date (bold day, condensed accent month), decorative: the date row says it in words.
+  const tileDateMark = tile && (
+    <>
+      <span className="betel-title-bold">{tile.day}</span>
+      <span className="betel-title-condensed" style={{ color: accent }}>{tile.month}</span>
+    </>
+  )
 
   const dateLine = when && (
     <p className={`${META_ROW_CLASS} mb-2`}>
@@ -66,7 +77,7 @@ export default function CardItem({
   )
 
   const cta = resolvedLink && d.cta && (
-    <span className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
+    <span data-tile="hide" className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
       {d.cta}
     </span>
   )
@@ -81,19 +92,23 @@ export default function CardItem({
       ].filter(Boolean).join(' ')}
     >
       {d.thumbnail && (
-        <div className={`aspect-[16/9] overflow-hidden bg-[var(--surface)]${horizontal ? ' sm:w-1/2 flex-shrink-0' : ''}`}>
+        <div className={`relative aspect-[16/9] overflow-hidden bg-[var(--surface)]${horizontal ? ' sm:w-1/2 flex-shrink-0' : ''}`}>
           <FeedImage src={d.thumbnail} alt="" width={1600} height={900} eager={eager} className="w-full h-full object-cover" />
+          {tileDateMark && <span data-tile="index" aria-hidden="true" hidden>{tileDateMark}</span>}
         </div>
+      )}
+      {!d.thumbnail && tileDateMark && (
+        <div data-tile="cover" aria-hidden="true" hidden>{tileDateMark}</div>
       )}
       <div className={horizontal ? 'p-5 flex flex-col justify-between flex-1 gap-3' : 'p-4'}>
         <div>
           {dateLine}
           {/* Pulled up to a 4px gap under the date row so both read as one metadata block. */}
           <EventLocation location={location} className={when ? '-mt-1 mb-2' : 'mb-2'} />
-          <Heading className="betel-title-bold text-xl leading-tight mb-2">{d.title}</Heading>
+          <Heading data-tile="title" className="betel-title-bold text-xl leading-tight mb-2">{d.title}</Heading>
           <SiteLabel sites={item.sites} showInAllSites={showSiteLabel} />
           {d.description && (
-            <div className={`font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none${horizontal ? '' : ' mb-4'}`}>
+            <div data-tile="hide" className={`font-content text-sm text-[var(--muted)] leading-relaxed prose prose-sm max-w-none${horizontal ? '' : ' mb-4'}`}>
               <ReactMarkdown>{d.description}</ReactMarkdown>
             </div>
           )}
@@ -101,7 +116,7 @@ export default function CardItem({
         {cta}
       </div>
       {resolvedLink && !d.cta && (
-        <span className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
+        <span data-tile="hide" className="absolute bottom-3 right-3 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors duration-200">
           <ExternalLinkIcon />
         </span>
       )}

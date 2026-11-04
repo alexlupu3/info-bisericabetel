@@ -18,7 +18,7 @@ export default function PosterItem({ item, activeSite = null, showSiteLabel = fa
   const resolvedLink = (activeSite && d.siteLinks?.[activeSite]) || d.link
 
   const article = (
-    <article data-item-id={item.id} className="relative overflow-hidden">
+    <article data-item-id={item.id} data-tile="poster" className="relative overflow-hidden">
       <div className="relative">
         {/* Poster dimensions are not stored: 4:5 (the common portrait poster) is a size hint
             only — h-auto lets the real aspect ratio win once the image has loaded. */}
@@ -47,7 +47,7 @@ export default function PosterItem({ item, activeSite = null, showSiteLabel = fa
                 height: '80px',
               }}
             />
-            <span className="absolute bottom-3 right-3 text-white">
+            <span data-tile="hide" className="absolute bottom-3 right-3 text-white">
               <ExternalLinkIcon />
             </span>
           </>
