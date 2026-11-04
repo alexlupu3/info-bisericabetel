@@ -25,8 +25,12 @@ function visitAdmin(theme: 'light' | 'dark' | null, systemDark = false) {
       win.localStorage.setItem('betel-admin-token', mockToken)
       if (theme) win.localStorage.setItem('theme', theme)
       else win.localStorage.removeItem('theme')
+      const realMatchMedia = win.matchMedia.bind(win)
       cy.stub(win, 'matchMedia').callsFake((query: string) => ({
-        matches: systemDark && query.includes('prefers-color-scheme: dark'),
+        // Only the colour scheme is faked; width queries (admin layout) stay real.
+        matches: query.includes('prefers-color-scheme')
+          ? systemDark && query.includes('prefers-color-scheme: dark')
+          : realMatchMedia(query).matches,
         media: query,
         onchange: null,
         addEventListener: () => {},
@@ -85,7 +89,7 @@ describe('Admin — light / dark theme', () => {
       const root = doc.documentElement
       expect(root.scrollHeight).to.be.greaterThan(root.clientHeight)
       // The shell wraps all content instead of stopping at 100vh
-      const shell = doc.querySelector('nav')!.parentElement!
+      const shell = doc.querySelector('[data-testid="admin-shell"]')!
       expect(shell.getBoundingClientRect().height).to.be.at.least(root.scrollHeight - 1)
     })
     bodyBackground().should('eq', 'rgb(244, 244, 244)')
