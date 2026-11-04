@@ -175,6 +175,25 @@ describe('Section preview — phone hand of cards', () => {
     cy.focused().should('have.attr', 'href', 'https://example.com/B')
   })
 
+  it('keeps the hand stacking while the cards fly out, then clears it (regression: flicker)', () => {
+    visitWith(feed())
+    cy.contains('button', 'Vezi toate · 5').click()
+    // Mid-flight: front tile on top, then the other slots, the dealt items underneath.
+    const z = ($li: JQuery<HTMLElement>) => Number(getComputedStyle($li[0]).zIndex)
+    li('E').then($e => li('A').then($a => li('B').then($b => li('C').then($c => {
+      expect(z($e)).to.be.greaterThan(z($a))
+      expect(z($a)).to.be.greaterThan(z($b))
+      expect(z($b)).to.be.greaterThan(z($c))
+    }))))
+    li('B').should('have.attr', 'style').and('contain', 'box-shadow')
+    // Landed: no inline stacking or shadow left behind.
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+    ;['A', 'B', 'C', 'E'].forEach(id => li(id).should($li => {
+      expect($li[0].style.zIndex).to.equal('')
+      expect($li[0].style.boxShadow).to.equal('')
+    }))
+  })
+
   it('a tap on a back tile expands the group instead of following its link', () => {
     visitWith(feed())
     // Clicking the visible right edge of tile A hits its [data-hand-expand] overlay, not its link.

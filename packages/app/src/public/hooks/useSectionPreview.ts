@@ -116,6 +116,8 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     }
     const items = Array.from(list.children) as HTMLElement[]
     const before = items.map(layoutBox)
+    // Hand shadows (and the stack under the back tile) fade instead of vanishing in one frame.
+    const shadowsBefore = items.map(el => getComputedStyle(el).boxShadow)
 
     flushSync(() => setState(to))
 
@@ -126,9 +128,14 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
       return boxes[index >= 0 ? index : 0]
     }
 
-    const animated: Array<{ el: HTMLElement; delay: number; final: { transform: string; opacity: string } }> = []
+    type Final = { transform: string; opacity: string; boxShadow: string }
+    const animated: Array<{ el: HTMLElement; delay: number; final: Final }> = []
     items.forEach((el, index) => {
       const slot = slotOf(index)
+      // Keep the hand's stacking for the whole flight: the front tile on top, then the
+      // other slots, and the items dealt from behind the hand under all of them. Without
+      // it the tiles stack in DOM order the moment the state flips (a visible flicker).
+      const zIndex = String(slot === undefined ? 1 : 10 - slot)
       if (to === 'open') {
         // From the hand (or, for hidden items, from behind the last tile) to the list.
         const tile = tileFor(before)
@@ -136,8 +143,10 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
         el.style.transition = 'none'
         el.style.transformOrigin = '0 0'
         el.style.transform = from
+        el.style.zIndex = zIndex
         if (slot === undefined) el.style.opacity = '0'
-        animated.push({ el, delay: index * EXPAND_STAGGER_MS, final: { transform: 'none', opacity: '1' } })
+        el.style.boxShadow = shadowsBefore[index]
+        animated.push({ el, delay: index * EXPAND_STAGGER_MS, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
       } else if (slot !== undefined) {
         // From the list back to the hand; hidden items are already display: none.
         const tile = after[index]
@@ -146,8 +155,11 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
         const scale = at.w > 0 ? from.w / at.w : 1
         el.style.transition = 'none'
         el.style.transformOrigin = '0 0'
+        const handShadow = getComputedStyle(el).boxShadow
         el.style.transform = `translate(${from.x - at.x}px, ${from.y - at.y}px) scale(${scale})`
-        animated.push({ el, delay: (SLOT_GEOMETRY.length - 1 - slot) * COLLAPSE_STAGGER_MS, final: { transform: handTransform(slot, tile, at), opacity: '1' } })
+        el.style.zIndex = zIndex
+        el.style.boxShadow = 'none'
+        animated.push({ el, delay: (SLOT_GEOMETRY.length - 1 - slot) * COLLAPSE_STAGGER_MS, final: { transform: handTransform(slot, tile, at), opacity: '1', boxShadow: handShadow } })
       }
     })
 
@@ -155,9 +167,10 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     // requestAnimationFrame: background / throttled pages would never start it.
     void list.offsetHeight
     for (const { el, delay, final } of animated) {
-      el.style.transition = `transform ${DURATION_MS}ms ${EASING} ${delay}ms, opacity ${DURATION_MS}ms ${EASING} ${delay}ms`
+      el.style.transition = ['transform', 'opacity', 'box-shadow'].map(p => `${p} ${DURATION_MS}ms ${EASING} ${delay}ms`).join(', ')
       el.style.transform = final.transform
       el.style.opacity = final.opacity
+      el.style.boxShadow = final.boxShadow
     }
     const longest = animated.reduce((max, a) => Math.max(max, a.delay), 0) + DURATION_MS
     await new Promise(resolve => setTimeout(resolve, longest + 20))
@@ -166,6 +179,8 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
       el.style.transform = ''
       el.style.transformOrigin = ''
       el.style.opacity = ''
+      el.style.boxShadow = ''
+      el.style.zIndex = ''
     }
   }, [slotOf])
 
