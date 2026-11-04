@@ -9,6 +9,8 @@ export interface ContentItem {
   orderPosition: number
   groupId: string | null
   groupTitle: string | null
+  /** Leads the group's phone preview (FR-097). Absent in responses cached before migration 0015. */
+  pinnedInGroup?: boolean
   expiresAt: string | null
   data: Record<string, unknown>
   createdAt: string

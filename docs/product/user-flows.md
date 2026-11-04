@@ -46,6 +46,7 @@ Member-facing flows come first, followed by admin flows.
 - Failure or edge states:
   - A group is deleted while it still has items (handled: items are soft-deleted and moved to `/admin/archive`; recoverable via restore)
   - A drag operation is cancelled mid-way (handled: item returns to its original position)
+  - Moving a pinned item to another group or out of its group clears the pin (BR-057)
 
 ### Flow 4 (Super-Admin) — Resetting an admin user's password
 
@@ -236,3 +237,22 @@ Member-facing flows come first, followed by admin flows.
   - The admin presses Esc, clicks outside, "Anulează", Back or Forward after typing: "Renunți la modificări?" asks before anything is discarded; "Continuă editarea" returns to the form unchanged, "Renunță" discards and completes the navigation
   - The admin closes or reloads the tab with unsaved input: the browser's own leave-page dialog appears (generic browser wording); staying keeps the form as it was
   - The same rules apply to the "Grup nou" and "Editează grupul" dialogs
+
+### Flow 20 — Browsing a long group on a phone
+- Trigger: a visitor on a phone (screen narrower than 640 px) opens a site page whose group holds four or more visible items
+- Steps:
+  - The group shows three tiles fanned like cards in a hand, the first on top, the next two peeking out to its right; each tile shows the image (or a large date when the card has none), the date and the title. The heading reads "Evenimente · 9" and "Vezi toate · 9" sits below the hand
+  - Tapping the front tile opens its link, exactly as in the full list
+  - Tapping a back tile or "Vezi toate · 9" deals the tiles into the normal one-column list, moves focus to the group's first item and shows "Arată mai puțin" floating at the bottom of the screen while the group is on screen
+  - After scrolling past the group, tapping "Arată mai puțin" gathers the cards back; if the heading had scrolled off the top the page scrolls back to it, and focus returns to "Vezi toate · 9"
+- Success state: a long group takes about one tile of height until the visitor asks for more
+- Failure or edge states: a group with three items or fewer shows them directly, with no button; tablets and desktops keep the full grid (the heading still shows "· N"); crossing 640 px keeps an expanded group expanded; a site switch, navigation or reload returns groups to the hand; reduced-motion visitors get the switch without animation; keyboard and screen-reader users expand with the button only
+
+### Flow 21 (Admin) — Pinning an item to the front of a group's phone preview
+- Trigger: an admin wants a specific item to lead a long group on phones without changing the group's order
+- Steps:
+  - On the Content page, each item row inside a group has a pin toggle ("Fixează pe mobil"; pressed: "Fixat")
+  - The admin pins "Tabăra de iarnă" (ninth in the chronological group order): on phones it leads the hand; in the expanded list it stays ninth
+  - Pinning four items: the first three pinned, in group order, lead the hand; the fourth row shows "Doar primele 3 elemente fixate apar în față"
+- Success state: the pin is saved on the item (`pinnedInGroup`, audit-logged in `content.update`) and the row updates immediately
+- Failure or edge states: moving a pinned item to another group, taking it out of the group or deleting the group clears the pin (BR-057); duplicating a pinned item does not copy the pin (BR-058)

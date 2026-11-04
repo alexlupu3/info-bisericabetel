@@ -3,6 +3,7 @@ import { GripVertical, ChevronRight, ChevronDown, ChevronUp, Settings, SquareAst
 import ContentDialog from '../components/content/ContentDialog'
 import GroupDialog from '../components/content/GroupDialog'
 import { useDialogSearchParam, dialogKey } from '../hooks/useDialogSearchParam'
+import GroupPinToggle from '../components/content/GroupPinToggle'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -787,6 +788,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
               <SortableContentRow
                 key={item.id} item={item}
                 dragData={{ type: 'group-item', groupId: entry.id }}
+                groupItems={entry.items}
                 availableSites={availableSites}
                 highlighted={highlightedId === item.id}
                 onEdit={() => onEdit(item)}
@@ -946,9 +948,11 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
 
 // ── Sortable content row ───────────────────────────────────────────────────────
 
-function SortableContentRow({ item, dragData, availableSites = [], highlighted = false, onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
+function SortableContentRow({ item, dragData, groupItems, availableSites = [], highlighted = false, onEdit, onPublish, onArchive, onDelete, onDuplicate, onTogglePublish }: {
   item: ContentItem
   dragData: Record<string, unknown>
+  /** Set on rows inside a group: shows the phone-preview pin toggle (spec 08, FR-104). */
+  groupItems?: ContentItem[]
   availableSites?: Site[]
   highlighted?: boolean
   onEdit: () => void
@@ -1014,6 +1018,7 @@ function SortableContentRow({ item, dragData, availableSites = [], highlighted =
           />
         </button>
       </div>
+      {groupItems && <GroupPinToggle item={item} groupItems={groupItems} />}
       <div className="flex items-center gap-2 flex-shrink-0">
         <ItemContextMenu
           itemId={item.id}

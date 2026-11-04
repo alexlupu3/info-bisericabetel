@@ -344,3 +344,194 @@ body {
   background: var(--border);
   border-radius: 2px;
 }
+
+/* ── Section preview: "hand of cards" on phones (spec 08, ADR-026) ──
+   GroupBlock and the server-rendered snapshot print the same markup:
+   section[data-preview="hand|open"] > ul[data-preview-list] > li[data-slot="0|1|2"].
+   Below 640 px a collapsed group shows its 3 slot items fanned on an arc (pure CSS,
+   so the first paint is already collapsed) and hides the rest. The slot geometry is
+   mirrored in public/hooks/useSectionPreview.ts (FLIP animation). */
+:root {
+  --hand-shadow: rgba(0, 0, 0, 0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --hand-shadow: rgba(0, 0, 0, 0.85); }
+}
+[data-theme="dark"] { --hand-shadow: rgba(0, 0, 0, 0.85); }
+[data-theme="light"] { --hand-shadow: rgba(0, 0, 0, 0.28); }
+
+/* Heading count "· N" (FR-101), every viewport. */
+.betel-group-count {
+  font-family: 'Franie-SLight', Arial, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* Pointer-only expand target over a back tile (FR-102): inert outside the hand. */
+[data-hand-expand] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+[data-preview-list] > li { position: relative; }
+
+/* "Vezi toate · N" / "Arată mai puțin" pills. */
+.betel-hand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.375rem;
+  border: 1px solid var(--text);
+  border-radius: 9999px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Lato, sans-serif;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease;
+}
+.betel-hand-button::before {
+  content: '';
+  display: block;
+  width: 0.75rem;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.9;
+}
+.betel-hand-button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.betel-hand-button--solid {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 8px 24px -10px var(--hand-shadow);
+}
+/* Floats at the bottom of the screen while the open group is on screen (FR-100). */
+.betel-hand-less {
+  position: sticky;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+  pointer-events: none;
+}
+.betel-hand-less > button { pointer-events: auto; }
+
+@media (max-width: 639px) {
+  [data-preview="hand"] > [data-preview-list] {
+    grid-template-columns: minmax(0, 1fr);
+    /* Inline padding keeps the rotated outer tiles inside the page gutter. */
+    padding: 0 0.75rem 1.75rem;
+  }
+  [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) { display: none; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot] {
+    grid-area: 1 / 1;
+    width: 50%;
+    aspect-ratio: 5 / 6;
+    overflow: hidden;
+    transform-origin: 50% 140%;
+    background: var(--surface);
+    box-shadow: 0 6px 18px -10px var(--hand-shadow);
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0, 20px) rotate(-5deg); z-index: 3; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] { transform: translate(50%, 10px) rotate(0deg); z-index: 2; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="2"] { transform: translate(100%, 20px) rotate(5deg); z-index: 1; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot] > [data-hand-expand] {
+    pointer-events: auto;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Tile content (FR-098): fill the tile, clip, drop description / CTA / glyphs. */
+  [data-preview="hand"] li[data-slot] > a,
+  [data-preview="hand"] li[data-slot] > a > article,
+  [data-preview="hand"] li[data-slot] > article { height: 100%; }
+  [data-preview="hand"] li[data-slot] > a:hover { transform: none; }
+  [data-preview="hand"] li[data-slot] [data-tile="hide"],
+  [data-preview="hand"] li[data-slot] [data-testid="site-label"] { display: none; }
+  [data-preview="hand"] li[data-slot] article > .p-4 { padding: 0.75rem; }
+  [data-preview="hand"] li[data-slot] [data-tile="title"] {
+    font-size: 0.95rem;
+    line-height: 1.2;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
+  /* Card with neither image nor date: the title sits at the foot of the tile, under an accent hairline. */
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"], [data-tile="text"])) {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) > .p-4::before {
+    content: '';
+    display: block;
+    width: 1rem;
+    height: 1px;
+    margin-bottom: 0.625rem;
+    background: var(--accent);
+  }
+  [data-preview="hand"] li[data-slot] article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1.1rem; }
+
+  /* Card without image: typographic date cover in place of the 16:9 thumbnail. */
+  [data-preview="hand"] li[data-slot] [data-tile="cover"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    aspect-ratio: 16 / 9;
+    padding-top: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    line-height: 1;
+  }
+  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :first-child { font-size: 2.75rem; }
+  [data-preview="hand"] li[data-slot] [data-tile="cover"] > :last-child { font-size: 1.35rem; text-transform: lowercase; }
+
+  /* Card with image and date: a small date index in the image corner. */
+  [data-preview="hand"] li[data-slot] [data-tile="index"] {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    padding: 0.2rem 0.45rem;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  /* Poster: the image fills the tile, anchored at the top. */
+  [data-preview="hand"] li[data-slot] [data-tile="poster"] img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  [data-preview="hand"] li[data-slot] [data-tile="poster"] > div { height: 100%; }
+
+  /* Richtext / video (only reachable through the API): clipped with a bottom fade. */
+  [data-preview="hand"] li[data-slot] [data-tile="text"] {
+    height: 100%;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .betel-hand-button { transition: none; }
+  [data-preview] li[data-slot] > a { transition: none; }
+  [data-preview] li[data-slot] > a:hover { transform: none; }
+}

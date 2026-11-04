@@ -124,13 +124,28 @@ export async function adminContentRoutes(app: FastifyInstance) {
   })
 
   // Update
-  app.patch<{ Params: { id: string }; Body: Partial<ItemBody> & { state?: string } }>(
+  app.patch<{ Params: { id: string }; Body: Partial<ItemBody> & { state?: string; pinnedInGroup?: unknown } }>(
     '/admin/content/:id', { preHandler: auth }, async (req, reply) => {
       const { id } = req.params
       const [existing] = await db.select().from(contentItems).where(eq(contentItems.id, id))
       if (!existing) return reply.code(404).send({ error: 'Not found' })
 
-      const { type, sites, exclusiveSite, groupId, expiresAt, data, state } = req.body
+      const { type, sites, exclusiveSite, groupId, expiresAt, data, state, pinnedInGroup } = req.body
+
+      // Group pin (FR-103, BR-057): a boolean, only allowed on an item that ends up in a group.
+      // Any change of the stored group_id clears it unless this patch pins it in the new group;
+      // resending the same groupId (the edit form does on every save) keeps it.
+      if (pinnedInGroup !== undefined && typeof pinnedInGroup !== 'boolean') {
+        return reply.code(400).send({ error: 'pinnedInGroup must be a boolean' })
+      }
+      const resultingGroupId = groupId !== undefined ? (groupId || null) : existing.groupId
+      if (pinnedInGroup === true && resultingGroupId === null) {
+        return reply.code(400).send({ error: 'pinnedInGroup requires a group' })
+      }
+      const groupChanged = resultingGroupId !== existing.groupId
+      const pinPatch: { pinnedInGroup: boolean } | undefined = pinnedInGroup !== undefined
+        ? { pinnedInGroup }
+        : (groupChanged ? { pinnedInGroup: false } : undefined)
 
       const parsedExpiresAt = expiresAt ? parseExpiresAt(expiresAt) : null
       if (parsedExpiresAt === undefined) return reply.code(400).send({ error: 'invalid expiresAt' })
@@ -191,7 +206,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
         ...(type    !== undefined && { type }),
         ...(sitesPatch ?? {}),
         ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
-        ...(groupId !== undefined && { groupId }),
+        ...(groupId !== undefined && { groupId: resultingGroupId }),
+        ...(pinPatch ?? {}),
         ...(expiresAt !== undefined && { expiresAt: parsedExpiresAt }),
         ...(mergedData !== undefined && { data: mergedData }),
         ...(state   !== undefined && { state }),
@@ -204,7 +220,10 @@ export async function adminContentRoutes(app: FastifyInstance) {
         userEmail: actor.email ?? '',
         action: 'content.update',
         entityId: id,
-        detail: exclusiveProvided ? { exclusiveSite: normalizedExclusive } : {},
+        detail: {
+          ...(exclusiveProvided && { exclusiveSite: normalizedExclusive }),
+          ...(pinnedInGroup !== undefined && { pinnedInGroup }),
+        },
       })
       if (data !== undefined && Object.keys(data).length > 0) {
         const oldData = (existing.data ?? {}) as Record<string, unknown>
@@ -254,6 +273,8 @@ export async function adminContentRoutes(app: FastifyInstance) {
         sites: original.sites,
         exclusiveSite: original.exclusiveSite,
         groupId: original.groupId,
+        // The group pin is never copied (BR-058).
+        pinnedInGroup: false,
         expiresAt: original.expiresAt,
         data: clonedData,
         orderPosition: max + 1,
@@ -279,7 +300,7 @@ export async function adminContentRoutes(app: FastifyInstance) {
     const [item] = await db.select().from(contentItems).where(eq(contentItems.id, req.params.id))
     if (!item) return reply.code(404).send({ error: 'Not found' })
     const [updated] = await db.update(contentItems)
-      .set({ state: 'draft', groupId: null, updatedAt: new Date() })
+      .set({ state: 'draft', groupId: null, pinnedInGroup: false, updatedAt: new Date() })
       .where(eq(contentItems.id, req.params.id))
       .returning()
     const actor = req.user as any

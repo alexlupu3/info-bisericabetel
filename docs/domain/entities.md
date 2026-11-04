@@ -13,16 +13,16 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 
 ### Content Item
 - Purpose: represent a unit of information shown in the hub
-- Key attributes: type, site scope, sort order, exclusive site, type-specific fields (see content-model.md)
+- Key attributes: type, site scope, sort order, exclusive site, `pinned_in_group` (boolean, default `false`; migration `0015_content_pinned_in_group.sql`; leads the group's collapsed preview on phones; cleared when `group_id` changes, BR-057), type-specific fields (see content-model.md)
 - Relationships: may belong to one or more sites, or be church-wide; may belong to a Group; may be exclusively scoped to a single site via `exclusive_site`
 - Lifecycle: four publishing states — `draft`, `published`, `archived`, `deleted`. The full state machine is defined in `content-model.md` → Shared Metadata → "Publishing state" / "State transitions". Key points:
   - only `published` items appear on the public hub
   - expiry hides an item from the public hub but does not change its state (BR-014); `archived` is set only by the manual "Ascunde" action
-  - `deleted` items appear only on the Archive page (`/admin/archive`); restoring returns them to `draft` with `groupId` cleared
+  - `deleted` items appear only on the Archive page (`/admin/archive`); restoring returns them to `draft` with `groupId` (and the pin) cleared
 - Validation rules: must have a valid content type; mandatory fields per type must be present; `exclusive_site` and a non-empty `sites[]` are mutually exclusive — when `exclusive_site` is set, `sites[]` is forced to `[]` server-side
 - Date handling: optional `data.startDate` / `data.endDate` (all types) plus the independent `expiresAt` column. See content-model.md — Expiration Behavior.
 - Site exclusivity: nullable `exclusive_site TEXT REFERENCES sites(slug)` (migration `0008_exclusive_site.sql`). See content-model.md — Exclusive Site Scope, BR-006–BR-008, and ADR-009.
-- Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` cleared) before the group itself is hard-deleted from the database.
+- Soft delete cascade: when a Group is deleted, all its child content items are soft-deleted (state set to `deleted`, `groupId` and pin cleared) before the group itself is hard-deleted from the database.
 - Notes: an item with `data.startDate` is also an event for the public RSS feeds (FR-060, BR-025); its canonical URL `/i/<id>` (FR-069) is the feed item link (BR-026).
 
 ### Group

@@ -30,6 +30,11 @@ export const UI_KEYS = {
   FEED_UNTITLED: 'feed.untitled',
   // Spec 07 (event location)
   LOCATION_LABEL: 'location.label',
+  // Spec 08 (section preview on phones)
+  SECTION_SHOW_ALL: 'section.showAll',
+  SECTION_SHOW_LESS: 'section.showLess',
+  SECTION_EXPANDED: 'section.expanded',
+  SECTION_COLLAPSED: 'section.collapsed',
 } as const
 
 export { UI_DEFAULTS } from '@betel/shared'

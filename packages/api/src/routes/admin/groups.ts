@@ -66,7 +66,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
     '/admin/groups/:id', { preHandler: auth }, async (req, reply) => {
       // Soft-delete all child content items before removing the group
       await db.update(contentItems)
-        .set({ state: 'deleted', groupId: null, updatedAt: new Date() })
+        .set({ state: 'deleted', groupId: null, pinnedInGroup: false, updatedAt: new Date() })
         .where(eq(contentItems.groupId, req.params.id))
       await db.delete(groups).where(eq(groups.id, req.params.id))
       const actor = req.user as any

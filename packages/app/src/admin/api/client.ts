@@ -79,6 +79,8 @@ export interface ContentItem {
   id: string; type: string; state: string; sites: string[]
   exclusiveSite: string | null
   orderPosition: number; groupId: string | null
+  /** Leads the group's phone preview (FR-103, BR-057). */
+  pinnedInGroup?: boolean
   expiresAt: string | null; data: Record<string, unknown>
   createdAt: string; updatedAt: string
 }

@@ -21,6 +21,8 @@ export interface FeedItem {
   orderPosition: number
   groupId: string | null
   groupTitle: string | null
+  /** Leads the group's phone preview (FR-097); absent reads as false. */
+  pinnedInGroup?: boolean
   expiresAt: string | Date | null
   data: Record<string, unknown>
   createdAt: string | Date
