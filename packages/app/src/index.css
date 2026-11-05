@@ -351,8 +351,8 @@ body {
    GroupBlock and the server-rendered snapshot print the same markup:
    section[data-preview="hand|open"] > ul[data-preview-list] > li[data-slot="0|1"].
    Below 640 px a collapsed group shows two full cards as a deck (pure CSS, so the first paint
-   is already collapsed): the top card in flow, the next one tucked behind it, tilted and
-   cut off at the top card's height. Swiping deals the next cards (useSectionPreview.ts, which
+   is already collapsed): the top card and the next one tucked behind it, tilted, both as
+   tall as the group's tallest card. Swiping deals the next cards (useSectionPreview.ts, which
    mirrors the back card's resting place in BACK). */
 :root {
   --hand-shadow: rgba(0, 0, 0, 0.28);
@@ -430,32 +430,39 @@ body {
 .betel-hand-less > button { pointer-events: auto; }
 
 @media (max-width: 639px) {
-  /* The deck: block layout so the list is exactly as tall as the top card. Cards are 24px
-     narrower than the list, which leaves room for the back card's offset, tilt and the two
-     sheets under it, so nothing reaches past the page gutter. Vertical drags scroll the page;
-     horizontal ones swipe. */
+  /* The deck: every item of the group shares one grid cell, so the cell is as tall as the
+     group's tallest card and every card stretches to that height (the deck keeps one size
+     while swiping and no card is cut off). Items outside the deck stay laid out but
+     invisible (visibility: hidden also takes them out of the tab order and the
+     accessibility tree). Cards are 24px narrower than the list, which leaves room for the
+     back card's offset, tilt and the two sheets under it, so nothing reaches past the page
+     gutter. Vertical drags scroll the page; horizontal ones swipe. */
   [data-preview="hand"] > [data-preview-list] {
-    display: block;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
     margin-bottom: 1.25rem;
     touch-action: pan-y;
   }
-  [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) { display: none; }
-  [data-preview="hand"] > [data-preview-list] > li[data-slot] {
+  [data-preview="hand"] > [data-preview-list] > li {
+    grid-area: 1 / 1;
     width: calc(100% - 24px);
+  }
+  [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot] {
     background: var(--surface);
     box-shadow: 0 6px 18px -10px var(--hand-shadow);
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  [data-preview="hand"] li[data-slot] > a,
+  [data-preview="hand"] li[data-slot] > a > article,
+  [data-preview="hand"] li[data-slot] > article { height: 100%; }
   [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { z-index: 2; cursor: pointer; }
   [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    /* Its own height, cut off at the top card's (a short card is not stretched). */
-    max-height: 100%;
-    overflow: hidden;
     z-index: 1;
     transform: translate(8px, 10px) rotate(2deg);
     /* Two sheets peeking out under the back card: there is more in this group. */

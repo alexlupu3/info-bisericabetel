@@ -3,8 +3,8 @@ import { flushSync } from 'react-dom'
 
 // Section preview (swipeable card deck) on phones — spec 08, FR-096 – FR-102, ADR-026.
 //
-// The deck itself is CSS (index.css, `[data-preview="hand"]`): the top card in flow, the next
-// card tucked behind it. This hook keeps the per-group state (collapsed / open and how far the
+// The deck itself is CSS (index.css, `[data-preview="hand"]`): the top card and the next card
+// tucked behind it, both as tall as the group's tallest card. This hook keeps the per-group state (collapsed / open and how far the
 // deck has been swiped), hides the back card from keyboard and screen readers, handles the
 // swipe and the taps that open the group, moves focus, announces the change and runs the
 // FLIP animations (transform / opacity only).
@@ -178,7 +178,6 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         return
       }
       const w = top.offsetWidth
-      const h0 = list.offsetHeight
       top.style.transition = `transform ${SWIPE_OUT_MS}ms ease-in, opacity ${SWIPE_OUT_MS}ms ease-in`
       top.style.transform = `translate(${dir * w * 1.15}px, ${w * 0.06}px) rotate(${dir * 16}deg)`
       top.style.opacity = '0'
@@ -194,25 +193,18 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
       clearInline(top)
       if (back) clearInline(back)
       const next = slotEl(1)
-      const h1 = list.offsetHeight
       if (next) {
         next.style.transition = 'none'
         next.style.opacity = '0'
         next.style.transform = 'translate(0px, 0px) rotate(0deg) scale(0.96)'
       }
-      list.style.transition = 'none'
-      list.style.height = `${h0}px`
       void list.offsetHeight
-      list.style.transition = `height ${SWIPE_SETTLE_MS}ms ${EASING}`
-      list.style.height = `${h1}px`
       if (next) {
         next.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}, opacity ${SWIPE_SETTLE_MS}ms ease-out`
         next.style.opacity = ''
         next.style.transform = ''
       }
       await wait(SWIPE_SETTLE_MS + 20)
-      list.style.transition = ''
-      list.style.height = ''
       if (next) next.style.transition = ''
     } finally {
       busy.current = false

@@ -74,11 +74,32 @@ describe('Section preview — phone card deck', () => {
     // One tab stop for the top card, then the button: the back card's link is out of the tab order.
     li('A').find('a').should('have.attr', 'tabindex', '-1')
     section('evenimente').then($s => {
-      const stops = $s.find('a[href], button').filter((_, el) => el.getAttribute('tabindex') !== '-1' && el.offsetParent !== null)
+      const stops = $s.find('a[href], button').filter((_, el) =>
+        el.getAttribute('tabindex') !== '-1' && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden')
       expect(stops.map((_, el) => el.getAttribute('href') ?? el.textContent?.trim()).get()).to.deep.equal(['https://example.com/E', 'Vezi toate · 5'])
     })
     // No tile-only markup is left.
     section('evenimente').find('[data-tile]').should('not.exist')
+  })
+
+  it('every deck card is as tall as the group\'s tallest card, so none is cut off (regression)', () => {
+    const items = feed().map(i => (i.id === 'C'
+      ? { ...i, data: { ...i.data, description: 'Un text lung care face cardul cel mai înalt din grup. '.repeat(12) } }
+      : i))
+    visitWith(items)
+    // C (not in the deck yet) sets the height; its card is laid out but invisible.
+    li('C').should('have.css', 'visibility', 'hidden')
+    li('C').then($c => {
+      const tallest = $c[0].offsetHeight
+      expect(tallest).to.be.greaterThan(500)
+      li('E').should($e => expect($e[0].offsetHeight).to.equal(tallest))
+      li('A').should($a => expect($a[0].offsetHeight).to.equal(tallest))
+      li('C').find('article').should($art => expect($art[0].scrollHeight).to.be.at.most($art[0].clientHeight + 1))
+      drag('evenimente', -200)
+      drag('evenimente', -200)
+      li('B').should('have.attr', 'data-slot', '0').and($b => expect($b[0].offsetHeight).to.equal(tallest))
+      li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
+    })
   })
 
   it('a swipe either way deals the next card; the deck wraps around', () => {
