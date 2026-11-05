@@ -100,6 +100,28 @@ describe('Group dialog — edit', () => {
     cy.get('[data-testid="edit-group-site-vest"]').should('be.checked')
   })
 
+  it('regression: Back during a save is dropped; only the dialog close moves the URL', () => {
+    cy.intercept('GET', '/api/admin/media*', { media: [] })
+    cy.intercept('PATCH', '/api/admin/groups/g1', { body: { ...g1, title: 'Anunțuri noi' }, delay: 600 }).as('patch')
+    visitAdmin('/admin/media')
+    cy.get('[data-testid="nav-content"]').click()
+    cy.get('[data-testid="group-name-g1"]').click()
+    cy.get('[data-testid="edit-group-title-g1"]').clear().type('Anunțuri noi')
+    cy.get('[data-testid="edit-group-save-g1"]').click()
+    cy.go('back')
+    cy.location('search').should('eq', '?editGroup=g1')
+    cy.wait('@patch')
+
+    cy.get('[data-testid="group-dialog"]').should('not.exist')
+    cy.get('[data-testid="discard-confirm"]').should('not.exist')
+    cy.location('pathname').should('eq', '/admin/content')
+    cy.location('search').should('eq', '')
+    cy.wait(300)
+    cy.location('pathname').should('eq', '/admin/content')
+    cy.go('back')
+    cy.location('pathname').should('eq', '/admin/media')
+  })
+
   it('?editGroup=<missing> shows "Grupul nu mai există" and cleans the URL', () => {
     visitAdmin('/admin/content?editGroup=missing')
     cy.get('[data-testid="toast"]').should('contain', 'Grupul nu mai există')

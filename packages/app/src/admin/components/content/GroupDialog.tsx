@@ -40,7 +40,9 @@ export default function GroupDialog({ group, availableSites, onSubmit, onClose, 
     try {
       const saved = await onSubmit(title, sites)
       setBusy(false)
-      unsaved.release()
+      // A navigation blocked during the save is dropped, not replayed on top of the close.
+      setConfirming(false)
+      unsaved.releaseSaved()
       onSaved(saved ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

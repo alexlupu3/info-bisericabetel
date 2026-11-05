@@ -336,6 +336,31 @@ describe('Content dialog — leave-page protection (FR-113, BR-060)', () => {
     cy.get('[data-testid="create-title-input"]').should('have.value', 'Ciornă')
   })
 
+  it('regression: Back during a save is dropped; only the dialog close moves the URL', () => {
+    cy.intercept('GET', '/api/admin/media*', { media: [] })
+    cy.intercept('POST', '/api/admin/content', { statusCode: 201, body: created, delay: 600 }).as('create')
+    cy.intercept('GET', '/api/admin/content', { items: [existing, created] })
+    visitAdmin('/admin/media')
+    cy.get('[data-testid="nav-content"]').click()
+    openCreate()
+    cy.get('[data-testid="create-title-input"]').type('Seară de rugăciune')
+    cy.get('[data-testid="create-submit-btn"]').click()
+    cy.go('back')
+    cy.location('search').should('eq', '?new=1')
+    cy.wait('@create')
+
+    cy.get('[data-testid="content-dialog"]').should('not.exist')
+    cy.get('[data-testid="discard-confirm"]').should('not.exist')
+    cy.get('[data-testid="content-row-new-1"]').should('have.attr', 'data-highlight', 'true')
+    cy.location('pathname').should('eq', '/admin/content')
+    cy.location('search').should('eq', '')
+    // The replayed Back would have stacked on the close and left the page.
+    cy.wait(300)
+    cy.location('pathname').should('eq', '/admin/content')
+    cy.go('back')
+    cy.location('pathname').should('eq', '/admin/media')
+  })
+
   it('regression: a clean dialog never blocks', () => {
     visitAdmin()
     openCreate()

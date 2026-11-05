@@ -85,7 +85,7 @@ describe('Section preview — phone hand of cards', () => {
     // Taps are ignored while the cards fly (busy flag); wait until the FLIP styles are gone.
     section('evenimente').find('li[style*="transform"]').should('not.exist')
     // The end of the group is below the fold: the button floats inside the viewport (sticky).
-    li('A').then($li => window.scrollTo(0, $li.offset()!.top - 100))
+    li('A').then($li => cy.window().then(win => win.scrollTo(0, $li.offset()!.top - 100)))
     cy.contains('button', 'Arată mai puțin').should($b => {
       const rect = $b[0].getBoundingClientRect()
       expect(rect.bottom).to.be.lessThan(812)

@@ -43,8 +43,12 @@ interface UnsavedChangesApi {
   register: (onBlocked: () => void) => number
   unregister: (id: number) => void
   setDirty: (id: number, dirty: boolean) => void
-  /** Stop guarding this form (after a save or a discard); runs a blocked navigation if any. */
-  release: (id: number) => boolean
+  /**
+   * Stop guarding this form. After a discard (`replay`), runs the navigation the form
+   * blocked, if any; after a save (`replay: false`), drops it so only the form's own close
+   * moves the URL.
+   */
+  release: (id: number, replay?: boolean) => boolean
   /** "Continuă editarea": forget the blocked navigation. */
   keep: () => void
   /** Run `action` now, or after the editor confirms discarding unsaved input. */
@@ -108,13 +112,13 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
         }
         sync()
       },
-      release(id) {
+      release(id, replay = true) {
         const reg = regs.current.find(r => r.id === id)
         if (reg) reg.released = true
         const p = pending.current
         pending.current = null
         sync()
-        if (p) { run(p); return true }
+        if (p && replay) { run(p); return true }
         return false
       },
       keep() {
@@ -194,8 +198,9 @@ export function useUnsavedChangesGuard() {
  * Registers a form's dirty flag. `onBlocked` is called when the editor tries to leave the
  * dirty form through navigation; the form then shows `DiscardConfirm`, calling `release()`
  * on "Renunță" (it returns true when it completed a blocked navigation, false when the form
- * should close itself) and `keepEditing()` on "Continuă editarea". Call `release()` after
- * a successful save too, before closing.
+ * should close itself) and `keepEditing()` on "Continuă editarea". After a successful save
+ * call `releaseSaved()` before closing: it drops a navigation blocked while the save was in
+ * flight, so it cannot replay on top of the dialog's own close.
  */
 export function useUnsavedChanges(dirty: boolean, { onBlocked }: { onBlocked: () => void }) {
   const api = useContext(ApiCtx)
@@ -216,6 +221,7 @@ export function useUnsavedChanges(dirty: boolean, { onBlocked }: { onBlocked: ()
 
   return {
     release: () => (api && idRef.current !== null ? api.release(idRef.current) : false),
+    releaseSaved: () => { if (api && idRef.current !== null) api.release(idRef.current, false) },
     keepEditing: () => api?.keep(),
   }
 }

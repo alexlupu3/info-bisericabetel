@@ -65,7 +65,12 @@ export default function ContentDialog({ item, groups, availableSites, defaultGro
         onCancel={requestClose}
         onDirtyChange={setDirty}
         onBusyChange={setBusy}
-        onSaved={saved => { unsaved.release(); onSaved(saved) }}
+        onSaved={saved => {
+          // A navigation blocked during the save is dropped, not replayed on top of the close.
+          setConfirming(false)
+          unsaved.releaseSaved()
+          onSaved(saved)
+        }}
       />
     </Dialog>
   )
