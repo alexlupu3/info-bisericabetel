@@ -72,6 +72,8 @@ export interface SiteUpdate {
 export interface Group {
   id: string; title: string; sites: string[]
   orderPosition: number; state: string
+  /** Phone section preview (card deck) for long groups; absent before migration 0016 = on. */
+  sectionPreview?: boolean
   createdAt: string; updatedAt: string
 }
 
@@ -232,9 +234,9 @@ export const api = {
   },
   groups: {
     list:    () => get<{ groups: Group[] }>('/api/admin/groups'),
-    create:  (title: string, sites?: string[]) =>
-      post<Group>('/api/admin/groups', { title, sites }),
-    update:  (id: string, body: { title?: string; sites?: string[] }) =>
+    create:  (title: string, sites?: string[], sectionPreview?: boolean) =>
+      post<Group>('/api/admin/groups', { title, sites, sectionPreview }),
+    update:  (id: string, body: { title?: string; sites?: string[]; sectionPreview?: boolean }) =>
       patch<Group>(`/api/admin/groups/${id}`, body),
     reorder: (order: string[]) => put<{ ok: boolean }>('/api/admin/groups/order', { order }),
     remove:  (id: string) => del<void>(`/api/admin/groups/${id}`),

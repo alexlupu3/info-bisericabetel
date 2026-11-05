@@ -13,7 +13,7 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 
 ### Content Item
 - Purpose: represent a unit of information shown in the hub
-- Key attributes: type, site scope, sort order, exclusive site, `pinned_in_group` (boolean, default `false`; migration `0015_content_pinned_in_group.sql`; leads the group's collapsed preview on phones; cleared when `group_id` changes, BR-057), type-specific fields (see content-model.md)
+- Key attributes: type, site scope, sort order, exclusive site, `pinned_in_group` (boolean, default `false`; migration `0015_content_pinned_in_group.sql`; leads the group's collapsed deck on phones; cleared when `group_id` changes, BR-057), type-specific fields (see content-model.md)
 - Relationships: may belong to one or more sites, or be church-wide; may belong to a Group; may be exclusively scoped to a single site via `exclusive_site`
 - Lifecycle: four publishing states — `draft`, `published`, `archived`, `deleted`. The full state machine is defined in `content-model.md` → Shared Metadata → "Publishing state" / "State transitions". Key points:
   - only `published` items appear on the public hub
@@ -27,12 +27,12 @@ One section per domain entity: purpose, key attributes, relationships, lifecycle
 
 ### Group
 - Purpose: visually collect Cards and/or Posters into a single display unit
-- Key attributes: name/label, site scope, sort order
+- Key attributes: name/label, site scope, sort order, `section_preview` (boolean, default `true`; migration `0016_group_section_preview.sql`; false = no phone card deck, BR-059)
 - Relationships: contains one or more Cards or Posters; belongs to root level
 - Lifecycle: created, maintained, deleted by admins. Deletion is a hard delete of the group row; however, all child content items are soft-deleted first (state → `deleted`, groupId cleared) before the group is removed. Groups do not have a soft-delete state of their own.
 - Validation rules: may only contain Cards and Posters (enforced by the admin drag-and-drop UI, not by the API); no nested groups allowed
 - Site scope: `sites[]` is stored and editable, but not yet applied by the public content API (see content-model.md — Compound Site Scope, BR-005)
-- Editing: title and site scope are editable after creation via the inline edit panel on the group header (`PATCH /api/admin/groups/:id`); see FR-026.
+- Editing: title, site scope and the phone-deck switch are editable after creation via the "Editează grupul" dialog (`PATCH /api/admin/groups/:id`); see FR-026, FR-115.
 
 ### AnalyticsEvent
 - Purpose: record a single trackable user interaction (site visit or link click) for aggregation in the admin analytics dashboard

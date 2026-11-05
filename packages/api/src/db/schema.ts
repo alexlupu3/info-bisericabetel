@@ -24,6 +24,8 @@ export const groups = pgTable('groups', {
   sites:         text('sites').array().notNull().default([]),
   orderPosition: integer('order_position').notNull().default(0),
   state:         text('state').notNull().default('draft'),
+  /** Phone section preview (card deck) for long groups; off = always the plain list. */
+  sectionPreview: boolean('section_preview').notNull().default(true),
   createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

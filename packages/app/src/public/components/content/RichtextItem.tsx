@@ -13,7 +13,7 @@ export default function RichtextItem({ item, showSiteLabel = false, headingLevel
   const body = d.body.replace(/\n+/g, match => match.length === 1 ? '\n\n' : match)
 
   return (
-    <article data-item-id={item.id} data-tile="text" className="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">
+    <article data-item-id={item.id} className="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">
       {d.title && (
         <Heading className="betel-title-bold text-lg leading-tight mb-2">{d.title}</Heading>
       )}

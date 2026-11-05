@@ -4,31 +4,34 @@ import { DialogBody, DialogFooter } from '../ui/Dialog'
 import { isSameValue } from './form-model'
 
 /**
- * Group title + site scope (empty = all sites), shared by "Grup nou" and "Editează grupul"
- * (FR-114). Test ids are those of the former inline forms.
+ * Group title, site scope (empty = all sites) and the phone card-deck switch, shared by
+ * "Grup nou" and "Editează grupul" (FR-114). Test ids are those of the former inline forms.
  */
-export default function GroupForm({ groupId, initialTitle = '', initialSites = [], availableSites, busy, error, onSubmit, onCancel, onDirtyChange }: {
+export default function GroupForm({ groupId, initialTitle = '', initialSites = [], initialSectionPreview = true, availableSites, busy, error, onSubmit, onCancel, onDirtyChange }: {
   /** Present when editing. */
   groupId?: string
   initialTitle?: string
   initialSites?: string[]
+  /** Phone section preview (card deck) for this group, on by default. */
+  initialSectionPreview?: boolean
   availableSites: Site[]
   busy: boolean
   error: string
-  onSubmit: (title: string, sites: string[]) => void
+  onSubmit: (title: string, sites: string[], sectionPreview: boolean) => void
   onCancel: () => void
   onDirtyChange: (dirty: boolean) => void
 }) {
   const isEdit = !!groupId
   const [title, setTitle] = useState(initialTitle)
   const [sites, setSites] = useState<string[]>(initialSites)
-  const dirty = title !== initialTitle || !isSameValue(sites, initialSites)
+  const [sectionPreview, setSectionPreview] = useState(initialSectionPreview)
+  const dirty = title !== initialTitle || !isSameValue(sites, initialSites) || sectionPreview !== initialSectionPreview
   useEffect(() => { onDirtyChange(dirty) }, [dirty])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSite = (slug: string) =>
     setSites(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])
   const canSubmit = !busy && title.trim() !== ''
-  const submit = () => { if (canSubmit) onSubmit(title, sites) }
+  const submit = () => { if (canSubmit) onSubmit(title, sites, sectionPreview) }
 
   return (
     <div
@@ -71,6 +74,22 @@ export default function GroupForm({ groupId, initialTitle = '', initialSites = [
             </div>
           </fieldset>
         )}
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sectionPreview}
+            onChange={e => setSectionPreview(e.target.checked)}
+            data-testid={isEdit ? 'edit-group-section-preview' : 'create-group-section-preview'}
+            aria-describedby="group-form-section-preview-hint"
+            className="mt-0.5 accent-[var(--accent)]"
+          />
+          <span className="font-content">
+            <span className="block text-sm">Pachet de carduri pe telefon</span>
+            <span id="group-form-section-preview-hint" className="block text-xs text-[var(--muted)]">
+              Pe telefon, un grup cu mai mult de 3 elemente apare ca un pachet prin care se glisează. Debifat, grupul se afișează mereu ca listă.
+            </span>
+          </span>
+        </label>
         {error && <p role="alert" className="text-[var(--danger)] text-sm font-content">{error}</p>}
       </DialogBody>
       <DialogFooter>

@@ -32,7 +32,7 @@ Member-facing flows come first, followed by admin flows.
 - Steps:
   - The admin opens the Content page in the admin tool
   - Groups are displayed as labeled container sections; ungrouped items appear in a "Fără grup" (ungrouped) section at the bottom
-  - To create a group: admin clicks "+ Grup nou"; the "Grup nou" dialog opens, the admin enters a title and optionally ticks site-scope checkboxes (none = all sites); after "Creează" the dialog closes and the new, empty group is highlighted
+  - To create a group: admin clicks "+ Grup nou"; the "Grup nou" dialog opens, the admin enters a title and optionally ticks site-scope checkboxes (none = all sites) and may untick "Pachet de carduri pe telefon" so the group stays a plain list on phones (FR-115); after "Creează" the dialog closes and the new, empty group is highlighted
   - To assign an item to a group while editing: admin opens the item in the content dialog and selects the target group from the group dropdown
   - To move an item between groups via drag and drop: admin drags the item from its current container and drops it onto the target container; the order and group assignment are persisted in a single interaction
   - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the "Editează grupul" dialog
@@ -241,18 +241,19 @@ Member-facing flows come first, followed by admin flows.
 ### Flow 20 — Browsing a long group on a phone
 - Trigger: a visitor on a phone (screen narrower than 640 px) opens a site page whose group holds four or more visible items
 - Steps:
-  - The group shows three tiles fanned like cards in a hand, the first on top, the next two peeking out to its right; each tile shows the image (or, when the card has none, a large date on a soft gradient in its location's colours) and the title, and a small stack under the third tile hints at more. A card with neither image nor date shows its title at the top, then its description, cut off with an ellipsis when it does not fit. The heading reads "Evenimente · 9" and "Vezi toate · 9" sits below the hand
-  - Tapping the front tile opens its link, exactly as in the full list
-  - Tapping "Vezi toate · 9" deals the tiles into the normal one-column list and moves focus to the group's first item; tapping a back tile does the same but scrolls to and focuses that tile's item. Either way the page shows "Arată mai puțin" floating at the bottom of the screen while the group is on screen
-  - After scrolling past the group, tapping "Arată mai puțin" gathers the cards back; if the heading had scrolled off the top the page scrolls back to it, and focus returns to "Vezi toate · 9"
-- Success state: a long group takes about one tile of height until the visitor asks for more
-- Failure or edge states: a group with three items or fewer shows them directly, with no button; tablets and desktops keep the full grid (the heading still shows "· N"); crossing 640 px keeps an expanded group expanded; a site switch, navigation or reload returns groups to the hand; reduced-motion visitors get the switch without animation; keyboard and screen-reader users expand with the button only
+  - The group shows a deck of two cards: the top card in full (date and location, image, title, description, button) and the next card tucked behind it, tilted and peeking out, with two more sheets under it. The heading reads "Evenimente · 9" with a small "1 / 9" at its end, and "Vezi toate · 9" sits below the deck
+  - Swiping the deck sideways, either way, sends the top card off that side; the next card comes to the front and a new one slides in behind it. The counter follows; after the last card the deck wraps to the first. A short drag, or a vertical one (which scrolls the page), leaves the deck as it was
+  - Tapping the button or link on the top card does what it does in the full list; tapping the top card elsewhere (for example a card without a link), or the card behind it, opens the whole group, scrolling to and focusing that card
+  - Tapping "Vezi toate · 9" deals the cards into the normal one-column list and moves focus to the group's first item. Either way the page shows "Arată mai puțin" floating at the bottom of the screen while the group is on screen
+  - After scrolling past the group, tapping "Arată mai puțin" gathers the cards back into the deck; if the heading had scrolled off the top the page scrolls back to it, and focus returns to "Vezi toate · 9"
+- Success state: a long group takes about one card of height until the visitor asks for more
+- Failure or edge states: a group with three items or fewer, or one whose admin unticked "Pachet de carduri pe telefon" (FR-115), shows its items directly as a list, with no deck, counter or button; tablets and desktops keep the full grid (the heading still shows "· N"); crossing 640 px keeps an expanded group expanded; a site switch, navigation or reload returns groups to the deck, first card on top; reduced-motion visitors get swipes and the expand switch without animation; keyboard and screen-reader users expand with the button only (they do not swipe)
 
 ### Flow 21 (Admin) — Pinning an item to the front of a group's phone preview
-- Trigger: an admin wants a specific item to lead a long group on phones without changing the group's order
+- Trigger: an admin wants a specific item to lead a long group's deck on phones without changing the group's order
 - Steps:
   - On the Content page, each item row inside a group has a pin toggle ("Fixează pe mobil"; pressed: "Fixat")
-  - The admin pins "Tabăra de iarnă" (ninth in the chronological group order): on phones it leads the hand; in the expanded list it stays ninth
-  - Pinning four items: the first three pinned, in group order, lead the hand; the fourth row shows "Doar primele 3 elemente fixate apar în față"
+  - The admin pins "Tabăra de iarnă" (ninth in the chronological group order): on phones it leads the deck; in the expanded list it stays ninth
+  - Pinning four items: all four lead the deck in group order, then the unpinned items follow
 - Success state: the pin is saved on the item (`pinnedInGroup`, audit-logged in `content.update`) and the row updates immediately
 - Failure or edge states: moving a pinned item to another group, taking it out of the group or deleting the group clears the pin (BR-057); duplicating a pinned item does not copy the pin (BR-058)

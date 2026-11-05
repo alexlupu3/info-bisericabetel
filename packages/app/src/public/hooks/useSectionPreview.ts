@@ -1,33 +1,38 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 
-// Section preview ("hand of cards") on phones — spec 08, FR-096 – FR-102, ADR-026.
+// Section preview (swipeable card deck) on phones — spec 08, FR-096 – FR-102, ADR-026.
 //
-// The hand itself is CSS (index.css, `[data-preview="hand"]`), so this hook only keeps the
-// per-group state, hides the back tiles from keyboard and screen readers while collapsed,
-// moves focus, announces the change and runs the FLIP animation (transform / opacity only).
+// The deck itself is CSS (index.css, `[data-preview="hand"]`): the top card in flow, the next
+// card tucked behind it. This hook keeps the per-group state (collapsed / open and how far the
+// deck has been swiped), hides the back card from keyboard and screen readers, handles the
+// swipe and the taps that open the group, moves focus, announces the change and runs the
+// FLIP animations (transform / opacity only).
 
 export type PreviewState = 'hand' | 'open'
 
 const PHONE_QUERY = '(max-width: 639px)'
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
-const DURATION_MS = 560
+const DURATION_MS = 520
 const EASING = 'cubic-bezier(0.2, 0.7, 0.2, 1)'
 const EXPAND_STAGGER_MS = 30
 const COLLAPSE_STAGGER_MS = 20
+/** Swipe: movement before a gesture counts as horizontal, commit distance and speed. */
+const SWIPE_SLOP_PX = 8
+const SWIPE_COMMIT_SHARE = 0.28
+const SWIPE_COMMIT_SPEED = 0.45 // px / ms
+const SWIPE_OUT_MS = 280
+const SWIPE_SETTLE_MS = 240
+/**
+ * Resting place of the back card, mirroring index.css (`li[data-slot="1"]`): it rises to the
+ * top card's place while the top card is dragged away.
+ */
+const BACK = { x: 8, y: 10, rotate: 2 } as const
 /** Marks a tabindex this hook added, so it only removes its own. */
 const TABINDEX_MARK = 'data-hand-tabindex'
 const FOCUSABLE = 'a[href], button, iframe, input, select, textarea, [tabindex]'
-
-/**
- * Hand slot geometry, mirroring index.css: translate (fractions of the tile width, px),
- * rotation, around a transform origin at 50 % / 140 % of the tile.
- */
-const SLOT_GEOMETRY = [
-  { tx: 0, ty: 20, rotate: -5 },
-  { tx: 0.5, ty: 10, rotate: 0 },
-  { tx: 1, ty: 20, rotate: 5 },
-] as const
+/** On the top card these keep their own click; a tap anywhere else opens the group. */
+const INTERACTIVE = 'a[href], button, iframe, input, select, textarea, summary, label'
 
 function matches(query: string): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches
@@ -46,106 +51,81 @@ function useMediaQuery(query: string): boolean {
   return value
 }
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 interface Box { x: number; y: number; w: number; h: number }
 
-/** Layout box relative to the list (offset* ignore transforms, so the hand rotation does not skew it). */
+/** Layout box relative to the list (offset* ignore transforms, so a tilt does not skew it). */
 function layoutBox(el: HTMLElement): Box {
   return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }
 }
 
-/**
- * The transform (with `transform-origin: 0 0`) that draws an element laid out at `at` the
- * way hand slot `slot` draws a tile laid out at `tile`.
- */
-function handTransform(slot: number, tile: Box, at: Box): string {
-  const g = SLOT_GEOMETRY[Math.min(slot, SLOT_GEOMETRY.length - 1)]
-  const ox = tile.w * 0.5
-  const oy = tile.h * 1.4
-  const scale = at.w > 0 ? tile.w / at.w : 1
-  return `translate(${tile.x - at.x}px, ${tile.y - at.y}px) `
-    + `translate(${ox}px, ${oy}px) translate(${g.tx * tile.w}px, ${g.ty}px) rotate(${g.rotate}deg) translate(${-ox}px, ${-oy}px) `
-    + `scale(${scale})`
+/** An element's CSS transform and its origin, read from the computed style. */
+interface Pose { matrix: string; ox: number; oy: number }
+
+function poseOf(el: HTMLElement): Pose {
+  const cs = getComputedStyle(el)
+  const [ox, oy] = cs.transformOrigin.split(' ').map(v => parseFloat(v) || 0)
+  return { matrix: cs.transform && cs.transform !== 'none' ? cs.transform : 'matrix(1, 0, 0, 1, 0, 0)', ox, oy }
 }
 
-/** Identity with the same function list as handTransform(), so both interpolate alike. */
-const HAND_IDENTITY = 'translate(0px, 0px) translate(0px, 0px) translate(0px, 0px) rotate(0deg) translate(0px, 0px) scale(1)'
-/** Share of the flight over which a hand tile cross-fades into its open card. */
-const CROSSFADE_SHARE = 0.35
-
 /**
- * Copies of the hand tiles (cross-fade on expand). The copies sit in a detached hand —
- * `div[data-preview="hand"] > ul[data-preview-list]` laid exactly over the list, in document
- * coordinates — so the hand CSS draws them exactly like the tiles. They carry no ids, test
- * ids, links' tab stops or expand overlays, and are inert and hidden from assistive tech.
+ * The transform (with `transform-origin: 0 0`) that draws an element laid out at `at` the way
+ * it was drawn laid out at `was` with pose `pose`, scaled to the old width. Always the same
+ * function list, so it interpolates with IDENTITY function by function.
  */
-function buildHandGhost(list: HTMLElement, items: HTMLElement[], slotOf: (index: number) => number | undefined) {
-  const rect = list.getBoundingClientRect()
-  const wrap = document.createElement('div')
-  wrap.setAttribute('data-preview', 'hand')
-  wrap.setAttribute('data-hand-ghost', '')
-  wrap.setAttribute('aria-hidden', 'true')
-  wrap.inert = true
-  Object.assign(wrap.style, {
-    position: 'absolute',
-    left: `${rect.left + window.scrollX}px`,
-    top: `${rect.top + window.scrollY}px`,
-    width: `${rect.width}px`,
-    margin: '0',
-    zIndex: '20',
-    pointerEvents: 'none',
-  })
-  const ul = document.createElement('ul')
-  ul.className = list.className
-  ul.setAttribute('data-preview-list', '')
-  ul.style.margin = '0'
-  const tiles = new Map<number, HTMLElement>()
-  items.forEach((li, index) => {
-    if (slotOf(index) === undefined) return
-    const copy = li.cloneNode(true) as HTMLElement
-    copy.removeAttribute('aria-hidden')
-    copy.querySelectorAll('[data-hand-expand]').forEach(el => el.remove())
-    copy.querySelectorAll('[id], [data-item-id], [data-testid]').forEach(el => {
-      el.removeAttribute('id')
-      el.removeAttribute('data-item-id')
-      el.removeAttribute('data-testid')
-    })
-    copy.querySelectorAll('img').forEach(img => { img.loading = 'eager' })
-    ul.appendChild(copy)
-    tiles.set(index, copy)
-  })
-  wrap.appendChild(ul)
-  document.body.appendChild(wrap)
-  return { wrap, tiles }
+function fromPose(was: Box, pose: Pose, at: Box): string {
+  const scale = at.w > 0 ? was.w / at.w : 1
+  return `translate(${was.x - at.x}px, ${was.y - at.y}px) translate(${pose.ox}px, ${pose.oy}px) ${pose.matrix} `
+    + `translate(${-pose.ox}px, ${-pose.oy}px) scale(${scale})`
+}
+
+const IDENTITY = 'translate(0px, 0px) translate(0px, 0px) matrix(1, 0, 0, 1, 0, 0) translate(0px, 0px) scale(1)'
+
+function clearInline(el: HTMLElement) {
+  el.style.transition = ''
+  el.style.transform = ''
+  el.style.transformOrigin = ''
+  el.style.opacity = ''
+  el.style.boxShadow = ''
+  el.style.zIndex = ''
 }
 
 interface Options {
-  /** False for groups of 3 or fewer: no state, no buttons. */
+  /** False for groups of 3 or fewer and for groups that opted out: no state, no buttons. */
   collapsible: boolean
-  /** Hand slot (0 = front) per item index, from previewSlots(). */
-  slotOf: (index: number) => number | undefined
+  /** Visible items in the group (the deck wraps around after the last one). */
+  count: number
   /** Called with the live-region text after a change. */
   onAnnounce?: (text: string) => void
   expandedText: string
   collapsedText: string
 }
 
-export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedText, collapsedText }: Options) {
+export function useSectionPreview({ collapsible, count, onAnnounce, expandedText, collapsedText }: Options) {
   const [state, setState] = useState<PreviewState>('hand')
+  /** Swipes so far; the deck shows previewSlots(items, swiped). */
+  const [swiped, setSwiped] = useState(0)
   const isPhone = useMediaQuery(PHONE_QUERY)
   const listRef = useRef<HTMLUListElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const showAllRef = useRef<HTMLButtonElement>(null)
   const busy = useRef(false)
+  /** Set by a drag; swallows the click the browser fires after it. */
+  const suppressClick = useRef(false)
 
-  /** The hand is on screen: collapsible, collapsed and below 640 px. */
+  /** The deck is on screen: collapsible, collapsed and below 640 px. */
   const handVisible = collapsible && state === 'hand' && isPhone
 
-  // Back tiles (slots 1 and 2) stay tappable (no `inert`) but get no tab stop (FR-102).
+  const slotEl = (slot: number) =>
+    listRef.current?.querySelector<HTMLElement>(`:scope > li[data-slot="${slot}"]`) ?? null
+
+  // The back card stays tappable (no `inert`) but gets no tab stop (FR-102).
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) return
-    Array.from(list.children).forEach((li, index) => {
-      const back = handVisible && (slotOf(index) ?? 0) > 0
+    Array.from(list.children).forEach(li => {
+      const back = handVisible && Number((li as HTMLElement).dataset.slot ?? 0) > 0
       li.querySelectorAll<HTMLElement>(FOCUSABLE).forEach(el => {
         if (el.hasAttribute('data-hand-expand')) return
         if (back && !el.hasAttribute('tabindex')) {
@@ -159,6 +139,148 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     })
   })
 
+  // ── Swipe ────────────────────────────────────────────────────────────
+  // Either direction sends the top card off that side; the back card rises to the top and the
+  // next card of the deck order slides in behind it. Vertical drags stay native page scrolls
+  // (`touch-action: pan-y` on the deck).
+
+  /** Draws the drag: the top card follows the finger, the back card rises in proportion. */
+  const paintDrag = (top: HTMLElement, back: HTMLElement | null, dx: number) => {
+    const w = top.offsetWidth || 1
+    top.style.transform = `translate(${dx}px, ${Math.abs(dx) * 0.04}px) rotate(${(dx / w) * 10}deg)`
+    if (back) {
+      const rest = 1 - Math.min(1, Math.abs(dx) / w)
+      back.style.transform = `translate(${BACK.x * rest}px, ${BACK.y * rest}px) rotate(${BACK.rotate * rest}deg)`
+    }
+  }
+
+  /** Snaps a cancelled drag back to the resting deck. */
+  const settle = useCallback(async (top: HTMLElement, back: HTMLElement | null) => {
+    for (const el of [top, back]) {
+      if (!el) continue
+      el.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}`
+      el.style.transform = ''
+    }
+    await wait(SWIPE_SETTLE_MS + 20)
+    for (const el of [top, back]) if (el) el.style.transition = ''
+  }, [])
+
+  /** Sends the top card off to side `dir` (-1 left, 1 right) and deals the next card. */
+  const advance = useCallback(async (top: HTMLElement, back: HTMLElement | null, dir: number) => {
+    const list = listRef.current
+    if (!list) return
+    busy.current = true
+    try {
+      if (matches(REDUCED_MOTION_QUERY)) {
+        flushSync(() => setSwiped(s => s + 1))
+        clearInline(top)
+        if (back) clearInline(back)
+        return
+      }
+      const w = top.offsetWidth
+      const h0 = list.offsetHeight
+      top.style.transition = `transform ${SWIPE_OUT_MS}ms ease-in, opacity ${SWIPE_OUT_MS}ms ease-in`
+      top.style.transform = `translate(${dir * w * 1.15}px, ${w * 0.06}px) rotate(${dir * 16}deg)`
+      top.style.opacity = '0'
+      if (back) {
+        back.style.transition = `transform ${SWIPE_OUT_MS}ms ${EASING}`
+        back.style.transform = 'translate(0px, 0px) rotate(0deg)'
+      }
+      await wait(SWIPE_OUT_MS + 10)
+
+      flushSync(() => setSwiped(s => s + 1))
+      // The old top card is now hidden and the old back card is the top card (no transform in
+      // CSS, so dropping the inline styles moves nothing). The new back card fades in.
+      clearInline(top)
+      if (back) clearInline(back)
+      const next = slotEl(1)
+      const h1 = list.offsetHeight
+      if (next) {
+        next.style.transition = 'none'
+        next.style.opacity = '0'
+        next.style.transform = 'translate(0px, 0px) rotate(0deg) scale(0.96)'
+      }
+      list.style.transition = 'none'
+      list.style.height = `${h0}px`
+      void list.offsetHeight
+      list.style.transition = `height ${SWIPE_SETTLE_MS}ms ${EASING}`
+      list.style.height = `${h1}px`
+      if (next) {
+        next.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}, opacity ${SWIPE_SETTLE_MS}ms ease-out`
+        next.style.opacity = ''
+        next.style.transform = ''
+      }
+      await wait(SWIPE_SETTLE_MS + 20)
+      list.style.transition = ''
+      list.style.height = ''
+      if (next) next.style.transition = ''
+    } finally {
+      busy.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const list = listRef.current
+    if (!list || !handVisible || count < 2) return
+    let drag: { id: number; x0: number; y0: number; t0: number; dx: number; active: boolean; top: HTMLElement; back: HTMLElement | null } | null = null
+
+    const onDown = (e: PointerEvent) => {
+      suppressClick.current = false
+      if (busy.current || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
+      const top = slotEl(0)
+      if (!top) return
+      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, dx: 0, active: false, top, back: slotEl(1) }
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return
+      const dx = e.clientX - drag.x0
+      const dy = e.clientY - drag.y0
+      if (!drag.active) {
+        if (Math.abs(dx) < SWIPE_SLOP_PX && Math.abs(dy) < SWIPE_SLOP_PX) return
+        if (Math.abs(dy) >= Math.abs(dx)) { drag = null; return } // a page scroll
+        drag.active = true
+        try { list.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
+        drag.top.style.transition = 'none'
+        if (drag.back) drag.back.style.transition = 'none'
+      }
+      e.preventDefault()
+      drag.dx = dx
+      paintDrag(drag.top, drag.back, dx)
+    }
+    const onEnd = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return
+      const d = drag
+      drag = null
+      if (!d.active) return
+      suppressClick.current = true
+      // Touch drags fire no click afterwards: do not swallow a later, unrelated one.
+      setTimeout(() => { suppressClick.current = false }, 400)
+      const speed = Math.abs(d.dx) / Math.max(1, e.timeStamp - d.t0)
+      const commit = e.type === 'pointerup'
+        && (Math.abs(d.dx) > d.top.offsetWidth * SWIPE_COMMIT_SHARE || (speed > SWIPE_COMMIT_SPEED && Math.abs(d.dx) > 30))
+      void (commit ? advance(d.top, d.back, Math.sign(d.dx) || -1) : settle(d.top, d.back))
+    }
+    // A native drag of a link or image would swallow the pointer stream.
+    const onDragStart = (e: DragEvent) => e.preventDefault()
+
+    list.addEventListener('pointerdown', onDown)
+    list.addEventListener('pointermove', onMove)
+    list.addEventListener('pointerup', onEnd)
+    list.addEventListener('pointercancel', onEnd)
+    list.addEventListener('dragstart', onDragStart)
+    return () => {
+      list.removeEventListener('pointerdown', onDown)
+      list.removeEventListener('pointermove', onMove)
+      list.removeEventListener('pointerup', onEnd)
+      list.removeEventListener('pointercancel', onEnd)
+      list.removeEventListener('dragstart', onDragStart)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handVisible, count, advance, settle])
+
+  // ── Expand / collapse ────────────────────────────────────────────────
+
   const animate = useCallback(async (to: PreviewState) => {
     const list = listRef.current
     if (!list) {
@@ -166,104 +288,72 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
       return
     }
     const items = Array.from(list.children) as HTMLElement[]
+    const slotOfEl = (el: HTMLElement) => (el.dataset.slot === undefined ? undefined : Number(el.dataset.slot))
     const before = items.map(layoutBox)
-    // Hand shadows (and the stack under the back tile) fade instead of vanishing in one frame.
+    const posesBefore = items.map(poseOf)
+    // Deck shadows (and the stack under the back card) fade instead of vanishing in one frame.
     const shadowsBefore = items.map(el => getComputedStyle(el).boxShadow)
-    // Expand: copies of the hand tiles, made while they still look like tiles.
-    const ghost = to === 'open' ? buildHandGhost(list, items, slotOf) : null
 
     flushSync(() => setState(to))
 
     const after = items.map(layoutBox)
-    // The tile every hand slot is laid out in (all slots share grid cell 1/1).
-    const tileFor = (boxes: Box[]) => {
-      const index = items.findIndex((_, i) => slotOf(i) === 0)
-      return boxes[index >= 0 ? index : 0]
-    }
-
     type Final = { transform: string; opacity: string; boxShadow: string }
-    const animated: Array<{ el: HTMLElement; delay: number; final: Final; fadeMs?: number }> = []
-    // Expand order: the hand tiles leave together, front first, wherever they sit in the list
-    // (a pinned item can be the last one); the items dealt from behind the hand follow in
-    // list order. A list-index stagger would hold a pinned last item in the hand for ~200 ms.
-    let dealt = 0
-    items.forEach((el, index) => {
-      const slot = slotOf(index)
-      // Keep the hand's stacking for the whole flight: the front tile on top, then the
-      // other slots, and the items dealt from behind the hand under all of them. Without
-      // it the tiles stack in DOM order the moment the state flips (a visible flicker).
-      const zIndex = String(slot === undefined ? 1 : 10 - slot)
-      if (to === 'open') {
-        // From the hand (or, for hidden items, from behind the last tile) to the list.
-        const tile = tileFor(before)
-        const from = handTransform(slot ?? SLOT_GEOMETRY.length - 1, tile, after[index])
+    const animated: Array<{ el: HTMLElement; delay: number; final: Final }> = []
+
+    if (to === 'open') {
+      // Items not in the deck are dealt from behind the back card (or the top card).
+      const backIndex = items.findIndex(el => slotOfEl(el) === 1)
+      const anchor = backIndex >= 0 ? backIndex : items.findIndex(el => slotOfEl(el) === 0)
+      let dealt = 0
+      items.forEach((el, index) => {
+        const slot = slotOfEl(el)
+        const src = slot === undefined ? anchor : index
+        if (src < 0) return
         el.style.transition = 'none'
         el.style.transformOrigin = '0 0'
-        el.style.transform = from
-        el.style.zIndex = zIndex
+        el.style.transform = fromPose(before[src], posesBefore[src], after[index])
+        // The deck's stacking holds for the whole flight: top card, back card, then the rest.
+        el.style.zIndex = String(slot === undefined ? 1 : 10 - slot)
+        el.style.boxShadow = shadowsBefore[src]
         if (slot === undefined) el.style.opacity = '0'
-        el.style.boxShadow = shadowsBefore[index]
-        const order = slot ?? SLOT_GEOMETRY.length + dealt++
-        const delay = order * EXPAND_STAGGER_MS
-        const copy = ghost?.tiles.get(index)
-        if (copy) {
-          // Cross-fade: the copy keeps the tile's look and follows the card's exact path —
-          // the card's transform wrapped so the copy's box maps onto the card's box — while it
-          // fades out and the card (already in its open layout) fades in.
-          const b = layoutBox(copy)
-          const at = after[index]
-          const wrapIn = (inner: string) => `translate(${at.x - b.x}px, ${at.y - b.y}px) ${inner} scale(${b.w > 0 ? at.w / b.w : 1})`
-          copy.style.transition = 'none'
-          copy.style.transformOrigin = '0 0'
-          copy.style.transform = wrapIn(from)
-          el.style.opacity = '0'
-          const fadeMs = Math.round(DURATION_MS * CROSSFADE_SHARE)
-          animated.push({ el: copy, delay, fadeMs, final: { transform: wrapIn(HAND_IDENTITY), opacity: '0', boxShadow: '' } })
-          animated.push({ el, delay, fadeMs, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
-        } else {
-          animated.push({ el, delay, final: { transform: 'none', opacity: '1', boxShadow: 'none' } })
-        }
-      } else if (slot !== undefined) {
-        // From the list back to the hand; hidden items are already display: none.
-        const tile = after[index]
+        const order = slot ?? 2 + dealt++
+        animated.push({ el, delay: order * EXPAND_STAGGER_MS, final: { transform: IDENTITY, opacity: '1', boxShadow: 'none' } })
+      })
+    } else {
+      // From the list back to the deck; the other items are already display: none.
+      items.forEach((el, index) => {
+        const slot = slotOfEl(el)
+        if (slot === undefined) return
+        const pose = poseOf(el)
+        const handShadow = getComputedStyle(el).boxShadow
         const at = after[index]
         const from = before[index]
-        const scale = at.w > 0 ? from.w / at.w : 1
         el.style.transition = 'none'
         el.style.transformOrigin = '0 0'
-        const handShadow = getComputedStyle(el).boxShadow
-        el.style.transform = `translate(${from.x - at.x}px, ${from.y - at.y}px) scale(${scale})`
-        el.style.zIndex = zIndex
+        el.style.transform = `translate(${from.x - at.x}px, ${from.y - at.y}px) translate(0px, 0px) matrix(1, 0, 0, 1, 0, 0) translate(0px, 0px) scale(${at.w > 0 ? from.w / at.w : 1})`
+        el.style.zIndex = String(10 - slot)
         el.style.boxShadow = 'none'
-        animated.push({ el, delay: (SLOT_GEOMETRY.length - 1 - slot) * COLLAPSE_STAGGER_MS, final: { transform: handTransform(slot, tile, at), opacity: '1', boxShadow: handShadow } })
-      }
-    })
+        animated.push({ el, delay: slot * COLLAPSE_STAGGER_MS, final: { transform: fromPose(at, pose, at), opacity: '1', boxShadow: handShadow } })
+      })
+    }
 
     // Commit the inverted positions (forced layout), then let them play. No
     // requestAnimationFrame: background / throttled pages would never start it.
     void list.offsetHeight
-    for (const { el, delay, final, fadeMs } of animated) {
+    for (const { el, delay, final } of animated) {
       el.style.transition = [
         `transform ${DURATION_MS}ms ${EASING} ${delay}ms`,
         `box-shadow ${DURATION_MS}ms ${EASING} ${delay}ms`,
-        fadeMs ? `opacity ${fadeMs}ms ease-out ${delay}ms` : `opacity ${DURATION_MS}ms ${EASING} ${delay}ms`,
+        `opacity ${Math.round(DURATION_MS * 0.6)}ms ease-out ${delay}ms`,
       ].join(', ')
       el.style.transform = final.transform
       el.style.opacity = final.opacity
       el.style.boxShadow = final.boxShadow
     }
     const longest = animated.reduce((max, a) => Math.max(max, a.delay), 0) + DURATION_MS
-    await new Promise(resolve => setTimeout(resolve, longest + 20))
-    ghost?.wrap.remove()
-    for (const { el } of animated) {
-      el.style.transition = ''
-      el.style.transform = ''
-      el.style.transformOrigin = ''
-      el.style.opacity = ''
-      el.style.boxShadow = ''
-      el.style.zIndex = ''
-    }
-  }, [slotOf])
+    await wait(longest + 20)
+    for (const { el } of animated) clearInline(el)
+  }, [])
 
   const focusItem = useCallback((index: number) => {
     const li = listRef.current?.children[index] as HTMLElement | undefined
@@ -291,7 +381,7 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
     window.scrollTo({ top: y, behavior: matches(REDUCED_MOTION_QUERY) ? 'auto' : 'smooth' })
   }, [])
 
-  /** `index`: the tapped back tile's item, scrolled to and focused; otherwise the first item. */
+  /** `index`: the tapped card's item, scrolled to and focused; otherwise the first item. */
   const expand = useCallback(async (index?: number) => {
     if (!collapsible || busy.current || state === 'open') return
     busy.current = true
@@ -328,16 +418,28 @@ export function useSectionPreview({ collapsible, slotOf, onAnnounce, expandedTex
   }, [collapsible, state, isPhone, animate, onAnnounce, collapsedText])
 
   /**
-   * Click on a back tile's `[data-hand-expand]` overlay: expand instead of following its link,
-   * then bring that tile's item into view.
+   * Clicks inside the deck (capture phase): the click after a swipe is swallowed; a tap on the
+   * back card, or on the top card outside its own link / button / player, opens the group and
+   * brings that card's item into view. A top card's link keeps working as usual.
    */
-  const onExpandTarget = useCallback((event: MouseEvent) => {
+  const onListClickCapture = useCallback((event: MouseEvent) => {
+    if (!handVisible) return
+    if (suppressClick.current) {
+      suppressClick.current = false
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    const target = event.target as HTMLElement
+    const li = target.closest<HTMLElement>('[data-preview-list] > li')
+    if (!li || li.dataset.slot === undefined) return
+    const top = li.dataset.slot === '0'
+    if (top && target.closest(INTERACTIVE)) return
     event.preventDefault()
     event.stopPropagation()
-    const li = (event.currentTarget as HTMLElement).closest('li')
-    const index = li?.parentElement ? Array.prototype.indexOf.call(li.parentElement.children, li) : -1
+    const index = Array.prototype.indexOf.call(li.parentElement!.children, li)
     void expand(index >= 0 ? index : undefined)
-  }, [expand])
+  }, [handVisible, expand])
 
-  return { state, isPhone, handVisible, expand, collapse, onExpandTarget, listRef, headingRef, showAllRef }
+  return { state, swiped, isPhone, handVisible, expand, collapse, onListClickCapture, listRef, headingRef, showAllRef }
 }

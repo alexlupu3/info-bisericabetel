@@ -70,8 +70,9 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 - **One level of nesting only** — groups cannot contain other groups.
 - A Group itself supports site scoping and drag-and-drop ordering (see Compound Site Scope for the current enforcement gap).
 - Only Cards and Posters may be placed in a group. This is enforced by the admin drag-and-drop UI (Richtext and Video items cannot be dropped into a group); the API does not validate it.
-- On phones, a group with 4 or more visible items starts collapsed into a fanned "hand" of 3 items with a "see all" control; group headings show the visible item count (BR-055).
-- An item inside a group can be **pinned** (`pinned_in_group`). Pinned items lead the collapsed hand (first 3 pinned, in group order) without changing the group order anywhere else; the pin is cleared when the item leaves or changes group and is not copied on duplicate (BR-056 – BR-058).
+- On phones, a group with 4 or more visible items starts collapsed into a swipeable deck of 2 full cards with a "see all" control, unless the group opted out (`section_preview`, BR-059); group headings show the visible item count (BR-055).
+- An item inside a group can be **pinned** (`pinned_in_group`). Pinned items lead the collapsed deck (all pinned, in group order, then the rest) without changing the group order anywhere else; the pin is cleared when the item leaves or changes group and is not copied on duplicate (BR-056 – BR-058).
+- A group has a **section preview** switch (`section_preview`, boolean, default true; BR-059, FR-115): false keeps the group a plain list on phones.
 
 ## Shared Metadata (all content items and groups)
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)

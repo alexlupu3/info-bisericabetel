@@ -81,18 +81,18 @@ function hasImage(item: ContentItem): boolean {
 
 /** Renders items, collapsing consecutive same-group items into GroupBlocks */
 function Feed({ items, accent, activeSite, showSiteLabel, onAnnounce }: { items: ContentItem[]; accent: string; activeSite: string | null; showSiteLabel: boolean; onAnnounce: (text: string) => void }) {
-  const blocks: Array<{ key: string; items: ContentItem[]; groupTitle: string | null }> = []
+  const blocks: Array<{ key: string; items: ContentItem[]; groupTitle: string | null; preview: boolean }> = []
   let i = 0
 
   while (i < items.length) {
     const item = items[i]
     if (item.groupId) {
       const groupItems = items.filter(it => it.groupId === item.groupId)
-      blocks.push({ key: item.groupId, items: groupItems, groupTitle: item.groupTitle ?? '' })
+      blocks.push({ key: item.groupId, items: groupItems, groupTitle: item.groupTitle ?? '', preview: item.groupPreview !== false })
       // Skip all items that belong to this group
       i += groupItems.length
     } else {
-      blocks.push({ key: item.id, items: [item], groupTitle: null })
+      blocks.push({ key: item.id, items: [item], groupTitle: null, preview: false })
       i++
     }
   }
@@ -109,6 +109,7 @@ function Feed({ items, accent, activeSite, showSiteLabel, onAnnounce }: { items:
             <GroupBlock
               groupId={b.key}
               title={b.groupTitle}
+              preview={b.preview}
               items={b.items}
               accent={accent}
               activeSite={activeSite}

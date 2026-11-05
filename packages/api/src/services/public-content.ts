@@ -13,9 +13,13 @@ export { DEFAULT_LOCALE }
 
 export interface PublicContentOptions { site: string | null; locale: string }
 
-/** A row of content_items plus `groupTitle`, with `data` merged with the locale's translation. */
+/**
+ * A row of content_items plus `groupTitle` and `groupPreview` (the group's section-preview
+ * switch; null for ungrouped items), with `data` merged with the locale's translation.
+ */
 export type PublicContentItem = typeof contentItems.$inferSelect & {
   groupTitle: string | null
+  groupPreview: boolean | null
   data: Record<string, unknown>
 }
 
@@ -85,6 +89,7 @@ async function queryVisible(where: SQL | undefined, locale: string): Promise<Pub
       .select({
         ...getTableColumns(contentItems),
         groupTitle: groups.title,
+        groupPreview: groups.sectionPreview,
         translatedData: contentTranslations.data,
         translatedGroupTitle: groupTranslations.title,
       })
@@ -119,6 +124,7 @@ async function queryVisible(where: SQL | undefined, locale: string): Promise<Pub
     .select({
       ...getTableColumns(contentItems),
       groupTitle: groups.title,
+      groupPreview: groups.sectionPreview,
     })
     .from(contentItems)
     .leftJoin(groups, eq(contentItems.groupId, groups.id))

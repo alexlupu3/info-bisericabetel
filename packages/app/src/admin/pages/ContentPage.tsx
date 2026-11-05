@@ -343,11 +343,12 @@ export default function ContentPage() {
     }))
   }
   const createGroupMut = useMutation({
-    mutationFn: ({ title, sites }: { title: string; sites: string[] }) => api.groups.create(title, sites),
+    mutationFn: ({ title, sites, sectionPreview }: { title: string; sites: string[]; sectionPreview: boolean }) =>
+      api.groups.create(title, sites, sectionPreview),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup creat') },
   })
   const updateGroupMut = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { title?: string; sites?: string[] } }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: { title?: string; sites?: string[]; sectionPreview?: boolean } }) =>
       api.groups.update(id, patch),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-groups'] }); toast('Grup actualizat') },
   })
@@ -677,7 +678,7 @@ export default function ContentPage() {
         <GroupDialog
           key={dialogKey(dialog)}
           availableSites={availableSites}
-          onSubmit={(title, sites) => createGroupMut.mutateAsync({ title, sites })}
+          onSubmit={(title, sites, sectionPreview) => createGroupMut.mutateAsync({ title, sites, sectionPreview })}
           onClose={dialogs.close}
           onSaved={saved => {
             if (saved?.id) setLanding({ kind: 'group', id: saved.id, savedAt: Date.now() })
@@ -690,7 +691,7 @@ export default function ContentPage() {
           key={dialogKey(dialog)}
           group={dialogGroup}
           availableSites={availableSites}
-          onSubmit={(title, sites) => updateGroupMut.mutateAsync({ id: dialogGroup.id, patch: { title, sites } })}
+          onSubmit={(title, sites, sectionPreview) => updateGroupMut.mutateAsync({ id: dialogGroup.id, patch: { title, sites, sectionPreview } })}
           onClose={dialogs.close}
           onSaved={() => {
             setLanding({ kind: 'group', id: dialogGroup.id, savedAt: Date.now() })
@@ -1018,7 +1019,7 @@ function SortableContentRow({ item, dragData, groupItems, availableSites = [], h
           />
         </button>
       </div>
-      {groupItems && <GroupPinToggle item={item} groupItems={groupItems} />}
+      {groupItems && <GroupPinToggle item={item} />}
       <div className="flex items-center gap-2 flex-shrink-0">
         <ItemContextMenu
           itemId={item.id}

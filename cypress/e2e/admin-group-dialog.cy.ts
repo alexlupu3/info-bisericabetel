@@ -23,7 +23,7 @@ describe('Group dialog — create', () => {
     cy.get('[data-testid="create-group-title"]').type('Tabere')
     cy.get('[data-testid="create-group-site-centru"]').check()
     cy.get('[data-testid="create-group-submit"]').click()
-    cy.wait('@create').its('request.body').should('deep.equal', { title: 'Tabere', sites: ['centru'] })
+    cy.wait('@create').its('request.body').should('deep.equal', { title: 'Tabere', sites: ['centru'], sectionPreview: true })
 
     cy.get('[data-testid="group-dialog"]').should('not.exist')
     cy.get('[data-testid="toast"]').should('contain', 'Grup creat')
@@ -63,6 +63,29 @@ describe('Group dialog — edit', () => {
     cy.get('[data-testid="toast"]').should('contain', 'Grup actualizat')
     cy.get('[data-testid="group-block-g1"]').should('have.attr', 'data-highlight', 'true')
     cy.get('[data-testid="collapse-toggle-g1"]').should('have.attr', 'aria-label', 'Extinde grup')
+  })
+
+  it('the phone card-deck switch is on by default and can be turned off per group', () => {
+    cy.intercept('PATCH', '/api/admin/groups/g1', { ...g1, sectionPreview: false }).as('patch')
+    visitAdmin()
+    cy.get('[data-testid="group-name-g1"]').click()
+    cy.get('[data-testid="edit-group-section-preview"]').should('be.checked')
+      .and('have.attr', 'aria-describedby')
+    cy.get('[data-testid="group-dialog"]').should('contain', 'Pachet de carduri pe telefon')
+    cy.get('[data-testid="edit-group-section-preview"]').uncheck()
+    // A change like any other: dismissing now asks first.
+    beforeUnloadPrevented().should('eq', true)
+    cy.get('[data-testid="edit-group-save-g1"]').click()
+    cy.wait('@patch').its('request.body.sectionPreview').should('eq', false)
+    cy.get('[data-testid="group-dialog"]').should('not.exist')
+  })
+
+  it('a group that opted out opens with the switch off', () => {
+    stubAdmin({ groups: [{ ...g1, sectionPreview: false }] })
+    visitAdmin()
+    cy.get('[data-testid="group-name-g1"]').click()
+    cy.get('[data-testid="edit-group-section-preview"]').should('not.be.checked')
+    beforeUnloadPrevented().should('eq', false)
   })
 
   it('also opens from the group menu', () => {

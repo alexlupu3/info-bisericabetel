@@ -19,7 +19,7 @@ export default function VideoItem({ item, showSiteLabel = false, headingLevel = 
   if (!videoId) return null
 
   return (
-    <article data-item-id={item.id} data-tile="text">
+    <article data-item-id={item.id}>
       {d.title && (
         <Heading className="betel-title-bold text-lg leading-tight mb-2">{d.title}</Heading>
       )}

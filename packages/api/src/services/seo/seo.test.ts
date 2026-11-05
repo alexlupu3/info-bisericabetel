@@ -232,18 +232,27 @@ test('snapshot: a group of 4+ prints the collapsed hand (spec 08, FR-096 – FR-
   const html = renderSnapshot(buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items }))
   assert.match(html, /<section aria-labelledby="group-g-title" id="evenimente" data-preview="hand"/)
   assert.match(html, /Evenimente <span class="betel-group-count">· 4<\/span><\/h2>/)
-  // Pinned D leads, then A and B in group order; C has no slot.
+  // Pinned D tops the deck, A is behind it; B and C have no slot.
   const list = html.slice(html.indexOf('<ul id="group-g-items"'), html.indexOf('</ul>', html.indexOf('group-g-items')))
   assert.equal(list.match(/<li[ >]/g)?.length, 4)
-  assert.deepEqual([...html.matchAll(/<li data-slot="(\d)"/g)].map(m => m[1]), ['1', '2', '0'])
-  // Back tiles (A, B): aria-hidden, no tab stop on their link, pointer-only overlay.
+  assert.deepEqual([...html.matchAll(/<li data-slot="(\d)"/g)].map(m => m[1]), ['1', '0'])
+  // Back card (A): aria-hidden, no tab stop on its link, pointer-only overlay.
   assert.match(html, /<li data-slot="1" aria-hidden="true"><a href="https:\/\/a\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
   assert.match(html, /<li data-slot="0"><a href="https:\/\/d\.example" target="_blank" rel="noopener noreferrer" class=/)
-  assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 2)
-  // B has no thumbnail: date cover; A has one: no date mark on the image.
-  assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden(?: style="--tile-tint:#[0-9a-fA-F]+")?><span class="betel-title-bold">2<\/span><span class="betel-title-condensed">[^<.]+<\/span><\/div>/)
-  assert.doesNotMatch(html, /data-tile="index"/)
+  assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 1)
+  // Full cards: no tile-only markup; the deck position starts at 1.
+  assert.doesNotMatch(html, /data-tile=/)
+  assert.match(html, /<span class="betel-deck-count sm:hidden" aria-hidden="true" data-testid="deck-count">1 \/ 4<\/span>/)
   assert.match(html, /<button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="group-g-items">Vezi toate · 4<\/button>/)
+})
+
+test('snapshot: a group that opted out of the preview stays a plain list', () => {
+  const g = { groupId: 'g', groupTitle: 'Evenimente', groupPreview: false }
+  const items = [21, 22, 23, 24].map(n => item(UUID(n), { ...g, data: { title: `T${n}` } }))
+  const html = renderSnapshot(buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items }))
+  assert.match(html, /<section aria-labelledby="group-g-title" id="evenimente" class="relative">/)
+  assert.doesNotMatch(html, /data-slot=|data-preview="hand"|betel-hand-button|deck-count/)
+  assert.match(html, /Evenimente <span class="betel-group-count">· 4<\/span>/)
 })
 
 test('sitemap: hub, site pages and each visible item once, lastmod from updatedAt', () => {

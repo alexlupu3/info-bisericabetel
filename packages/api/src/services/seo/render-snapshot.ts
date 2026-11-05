@@ -11,7 +11,7 @@
 
 import {
   UI_DEFAULTS, groupDomIds, groupSlug, itemDisplayTitle, itemPlainText, itemWhen, previewSlots, readLocation,
-  siteAddressLine, tileDate, tileTint,
+  siteAddressLine,
 } from '@betel/shared'
 import { escapeHtml, safeUrl } from './escape.js'
 import { itemImagePath } from './item-image.js'
@@ -53,15 +53,13 @@ interface RenderContext {
   accent: string
 }
 
-/** Per-item options inside a group's hand (spec 08, FR-098 / FR-102). */
+/** Per-item options inside a group's deck (spec 08, FR-102). */
 interface TileOptions {
-  /** One of the hand's three tiles: print the tile-only date cover / index. */
-  tile: boolean
-  /** A back tile: its link gets no tab stop. */
+  /** The card behind the top card: its link gets no tab stop. */
   back: boolean
 }
 
-const NO_TILE: TileOptions = { tile: false, back: false }
+const NO_TILE: TileOptions = { back: false }
 
 function imageAttrs(ctx: RenderContext): string {
   if (ctx.firstImage.pending) {
@@ -95,7 +93,7 @@ function whenLine(item: FeedItem): string {
   const inner = when.dateTime
     ? `<time datetime="${escapeHtml(when.dateTime)}">${escapeHtml(when.text)}</time>`
     : `<span>${escapeHtml(when.text)}</span>`
-  return `<p data-tile="meta" class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
+  return `<p class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
 }
 
 /** Mirror of EventLocation.tsx (spec 07): map pin + visually-hidden label + the location text. */
@@ -103,7 +101,7 @@ function locationLine(item: FeedItem): string {
   const location = readLocation(item.data)
   if (!location) return ''
   const spacing = itemWhen(item.data, DATE_LOCALE) ? '-mt-1 mb-2' : 'mb-2'
-  return `<p data-tile="meta" class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
+  return `<p class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
     + `<span class="sr-only">${escapeHtml(UI_DEFAULTS['location.label'])}: </span>`
     + `<span class="min-w-0 break-words">${escapeHtml(location)}</span></p>`
 }
@@ -111,16 +109,6 @@ function locationLine(item: FeedItem): string {
 function wrapLink(html: string, href: string | null, opts: TileOptions = NO_TILE): string {
   if (!href) return html
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${opts.back ? ' tabindex="-1"' : ''} class="group block">${html}</a>`
-}
-
-/** Date cover of an imageless hand tile: day over the full month, tinted by the item's site. */
-function tileDateCover(item: FeedItem, ctx: RenderContext): string {
-  const date = tileDate(item.data, DATE_LOCALE)
-  if (!date) return ''
-  const tint = tileTint(item.sites, ctx.model.sites)
-  return `<div data-tile="cover" aria-hidden="true" hidden${tint ? ` style="--tile-tint:${tint}"` : ''}>`
-    + `<span class="betel-title-bold">${escapeHtml(date.day)}</span>`
-    + `<span class="betel-title-condensed">${escapeHtml(date.month)}</span></div>`
 }
 
 function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: TileOptions = NO_TILE): string {
@@ -138,18 +126,18 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
         + (thumb
           ? `<div class="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover">`
             + `</div>`
-          : (opts.tile ? tileDateCover(item, ctx) : ''))
+          : '')
         + `<div class="p-4">${whenLine(item)}${locationLine(item)}`
-        + `<${h} data-tile="title" class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
+        + `<${h} class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)
-        + (text ? `<p data-tile="desc" class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
-        + (cta ? `<span data-tile="hide" class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
+        + (text ? `<p class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
+        + (cta ? `<span class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
         + `</div></article>`
       return wrapLink(html, link, opts)
     }
     case 'richtext': {
       const text = itemPlainText(item)
-      return `<article data-item-id="${id}" data-tile="text" class="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">`
+      return `<article data-item-id="${id}" class="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">`
         + (title ? `<${h} class="betel-title-bold text-lg leading-tight mb-2">${escapeHtml(title)}</${h}>` : '')
         + siteLabel(item, ctx)
         + (text ? `<div class="prose-betel"><p>${escapeHtml(text)}</p></div>` : '')
@@ -158,7 +146,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
     case 'poster': {
       const src = itemImagePath(item)
       if (!src) return ''
-      const html = `<article data-item-id="${id}" data-tile="poster" class="relative overflow-hidden">`
+      const html = `<article data-item-id="${id}" class="relative overflow-hidden">`
         + `<img src="${escapeHtml(src)}" alt="${escapeHtml(item.data.alt ?? '')}" width="1080" height="1350" ${imageAttrs(ctx)} class="w-full h-auto object-cover">`
         + siteLabel(item, ctx)
         + `</article>`
@@ -167,7 +155,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
     case 'video': {
       const videoId = extractYoutubeId(item.data.url ?? item.data.youtubeId)
       if (!videoId) return ''
-      return `<article data-item-id="${id}" data-tile="text">`
+      return `<article data-item-id="${id}">`
         + (title ? `<${h} class="betel-title-bold text-lg leading-tight mb-2">${escapeHtml(title)}</${h}>` : '')
         + siteLabel(item, ctx)
         + `<p class="font-content text-sm"><a${opts.back ? ' tabindex="-1"' : ''} href="https://www.youtube.com/watch?v=${escapeHtml(videoId)}">${escapeHtml(title ?? 'YouTube')}</a></p>`
@@ -180,20 +168,21 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
 
 /**
  * Mirror of GroupBlock.tsx in its initial (collapsed) state: heading count (FR-101), and for
- * groups of 4+ the hand markup (data-preview / data-slot, back tiles hidden from keyboard and
- * screen readers with the pointer-only overlay) and the "Vezi toate · N" button (FR-096 – FR-102).
- * The collapse itself is CSS, so phones paint the hand from the first byte.
+ * groups of 4+ that did not opt out the deck markup (data-preview / data-slot, the back card
+ * hidden from keyboard and screen readers with the pointer-only overlay), the deck counter and
+ * the "Vezi toate · N" button (FR-096 – FR-102). The collapse itself is CSS, so phones paint
+ * the deck from the first byte.
  */
-function renderGroup(groupId: string, title: string, items: FeedItem[], ctx: RenderContext): string {
+function renderGroup(groupId: string, title: string, items: FeedItem[], preview: boolean, ctx: RenderContext): string {
   const ids = groupDomIds(groupId)
   const count = items.length
   const slots = new Map<number, number>()
-  previewSlots(items).forEach((itemIndex, slot) => slots.set(itemIndex, slot))
+  previewSlots(items, 0, preview).forEach((itemIndex, slot) => slots.set(itemIndex, slot))
   const collapsible = slots.size > 0
   const lis = items.map((item, index) => {
     const slot = slots.get(index)
     const back = slot !== undefined && slot > 0
-    const html = renderItem(item, 3, ctx, { tile: slot !== undefined, back })
+    const html = renderItem(item, 3, ctx, { back })
     return slot === undefined
       ? `<li>${html}</li>`
       : `<li data-slot="${slot}"${back ? ' aria-hidden="true"' : ''}>${html}${back ? '<span data-hand-expand aria-hidden="true"></span>' : ''}</li>`
@@ -201,7 +190,9 @@ function renderGroup(groupId: string, title: string, items: FeedItem[], ctx: Ren
   const showAll = UI_DEFAULTS['section.showAll'].replaceAll('{count}', String(count))
   return `<section aria-labelledby="${escapeHtml(ids.heading)}" id="${escapeHtml(groupSlug(title))}"${collapsible ? ' data-preview="hand"' : ''} class="relative">`
     + `<header class="flex items-center gap-3 mb-6"><span class="block w-4 h-px flex-shrink-0" style="background-color:${escapeHtml(ctx.accent)}" aria-hidden="true"></span>`
-    + `<h2 id="${escapeHtml(ids.heading)}" class="betel-title-bold text-sm tracking-widest uppercase">${escapeHtml(title)} <span class="betel-group-count">· ${count}</span></h2></header>`
+    + `<h2 id="${escapeHtml(ids.heading)}" class="betel-title-bold text-sm tracking-widest uppercase">${escapeHtml(title)} <span class="betel-group-count">· ${count}</span></h2>`
+    + (collapsible ? `<span class="betel-deck-count sm:hidden" aria-hidden="true" data-testid="deck-count">1 / ${count}</span>` : '')
+    + `</header>`
     + `<ul id="${escapeHtml(ids.list)}" data-preview-list class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">${lis.join('')}</ul>`
     + (collapsible
       ? `<div class="sm:hidden mt-5 flex justify-center"><button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="${escapeHtml(ids.list)}">${escapeHtml(showAll)}</button></div>`
@@ -218,7 +209,7 @@ function renderFeed(ctx: RenderContext): string {
     return `<p class="font-content text-sm text-[var(--muted)] leading-relaxed">${escapeHtml(text)}</p>`
   }
   const blocks = groupFeed(model.items).map(block => {
-    if (block.kind === 'group') return renderGroup(block.groupId, block.title, block.items, ctx)
+    if (block.kind === 'group') return renderGroup(block.groupId, block.title, block.items, block.preview, ctx)
     return renderItem(block.item, 2, ctx)
   })
   return `<div class="space-y-8">${blocks.map(b => `<div>${b}</div>`).join('')}</div>`

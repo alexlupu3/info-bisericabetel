@@ -13,7 +13,7 @@ export default function GroupDialog({ group, availableSites, onSubmit, onClose, 
   /** Present in edit mode. */
   group?: Group | null
   availableSites: Site[]
-  onSubmit: (title: string, sites: string[]) => Promise<Group>
+  onSubmit: (title: string, sites: string[], sectionPreview: boolean) => Promise<Group>
   onClose: () => void
   onSaved: (group: Group | null) => void
 }) {
@@ -35,10 +35,10 @@ export default function GroupDialog({ group, availableSites, onSubmit, onClose, 
     else onClose()
   }
 
-  const submit = async (title: string, sites: string[]) => {
+  const submit = async (title: string, sites: string[], sectionPreview: boolean) => {
     setBusy(true); setError('')
     try {
-      const saved = await onSubmit(title, sites)
+      const saved = await onSubmit(title, sites, sectionPreview)
       setBusy(false)
       // A navigation blocked during the save is dropped, not replayed on top of the close.
       setConfirming(false)
@@ -66,6 +66,7 @@ export default function GroupDialog({ group, availableSites, onSubmit, onClose, 
         groupId={group?.id}
         initialTitle={group?.title ?? ''}
         initialSites={group?.sites ?? []}
+        initialSectionPreview={group?.sectionPreview !== false}
         availableSites={availableSites}
         busy={busy}
         error={error}

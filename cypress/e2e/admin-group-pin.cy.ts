@@ -45,11 +45,11 @@ describe('Admin — pin a group item to the phone preview', () => {
     cy.get('[data-testid="pin-toggle-root"]').should('not.exist')
   })
 
-  it('hints that only the first three pinned items lead the hand', () => {
+  it('every pinned item leads the deck: no "first three" hint (regression)', () => {
     cy.viewport(1280, 800)
     setup(['a', 'b', 'c', 'd'].map(id => item(id, { pinnedInGroup: true })))
-    ;['a', 'b', 'c'].forEach(id => cy.get(`[data-testid="pin-hint-${id}"]`).should('not.exist'))
-    cy.get('[data-testid="pin-hint-d"]').should('be.visible').and('have.text', 'Doar primele 3 elemente fixate apar în față')
+    cy.get('[data-testid="pin-toggle-d"]').should('have.attr', 'title', 'Apare primul în previzualizarea grupului pe telefon')
+    cy.get('[data-testid^="pin-hint-"]').should('not.exist')
   })
 
   it('saving a pinned item without changing its group keeps the pin (regression)', () => {

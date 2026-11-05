@@ -23,6 +23,8 @@ export interface FeedItem {
   groupTitle: string | null
   /** Leads the group's phone preview (FR-097); absent reads as false. */
   pinnedInGroup?: boolean
+  /** The group's section-preview switch; absent or null reads as on. */
+  groupPreview?: boolean | null
   expiresAt: string | Date | null
   data: Record<string, unknown>
   createdAt: string | Date
@@ -97,7 +99,7 @@ export function selectEvents(items: FeedItem[], pageSite: PublicSite | null, sit
 }
 
 export type FeedBlock =
-  | { kind: 'group'; groupId: string; title: string; items: FeedItem[] }
+  | { kind: 'group'; groupId: string; title: string; items: FeedItem[]; preview: boolean }
   | { kind: 'item'; item: FeedItem }
 
 /**
@@ -111,7 +113,7 @@ export function groupFeed(items: FeedItem[]): FeedBlock[] {
     const item = items[i]
     if (item.groupId) {
       const groupItems = items.filter(it => it.groupId === item.groupId)
-      blocks.push({ kind: 'group', groupId: item.groupId, title: item.groupTitle ?? '', items: groupItems })
+      blocks.push({ kind: 'group', groupId: item.groupId, title: item.groupTitle ?? '', items: groupItems, preview: item.groupPreview !== false })
       i += groupItems.length
     } else {
       blocks.push({ kind: 'item', item })

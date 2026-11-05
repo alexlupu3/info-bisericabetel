@@ -2,7 +2,7 @@
  * Spec 03 §9.2 — the server-rendered HTML snapshot (packages/api/src/services/seo/
  * render-snapshot.ts) and the SPA must show the same items: same (title, date, link)
  * (+ location row, spec 07) per item, in the same order, for the same data. Guards the two renderers from drifting.
- * Spec 08: both also print the same group heading counts and hand slots (data-slot).
+ * Spec 08: both also print the same group heading counts and deck slots (data-slot).
  */
 import { SITES_FIXTURE, LANGUAGES_FIXTURE, baseItem, stubPublicBasics } from '../support/helpers/public'
 
@@ -11,7 +11,7 @@ const items = [
   { ...baseItem, id: 'p-range', type: 'card', data: { title: 'Conferință', startDate: '2099-04-10', endDate: '2099-04-12', location: 'Sala mare, etaj 1' } },
   { ...baseItem, id: 'p-group-1', type: 'card', groupId: 'g', groupTitle: 'Grupuri', sites: ['centru'], data: { title: 'Grup de tineri', link: 'https://example.com/tineri', siteLinks: { centru: 'https://example.com/tineri-centru' } } },
   { ...baseItem, id: 'p-group-2', type: 'richtext', groupId: 'g', groupTitle: 'Grupuri', data: { title: 'Program', body: 'Duminică **10:00**' } },
-  // A group of 4 (spec 08): collapses on phones; the pinned item leads the hand.
+  // A group of 4 (spec 08): collapses on phones; the pinned item tops the deck.
   ...['1', '2', '3', '4'].map(n => ({
     ...baseItem, id: `p-ev-${n}`, type: 'card', groupId: 'ev', groupTitle: 'Evenimente', pinnedInGroup: n === '3',
     data: { title: `Eveniment ${n}`, startDate: `2099-05-0${n}`, link: `https://example.com/ev-${n}` },
@@ -39,7 +39,7 @@ function tuples(root: ParentNode): Tuple[] {
   })
 }
 
-/** Group heading texts and each item's hand slot (spec 08, FR-097 / FR-101). */
+/** Group heading texts and each item's deck slot (spec 08, FR-097 / FR-101). */
 function groupMarkup(root: ParentNode) {
   return {
     headings: Array.from(root.querySelectorAll('section h2')).map(h => (h.textContent ?? '').replace(/\s+/g, ' ').trim()),
@@ -58,7 +58,7 @@ function compare(path: string, siteSlug: string | null) {
     expect(snapshot.map(t => t.id)).to.deep.equal(items.map(i => i.id))
     const snapshotGroups = groupMarkup(parsed)
     expect(snapshotGroups.headings).to.deep.equal(['Grupuri · 2', 'Evenimente · 4'])
-    expect(snapshotGroups.slots).to.deep.equal(['p-ev-1=1', 'p-ev-2=2', 'p-ev-3=0'])
+    expect(snapshotGroups.slots).to.deep.equal(['p-ev-1=1', 'p-ev-3=0'])
 
     cy.visit(path)
     cy.get('[data-testid="content-list"]').should('exist')

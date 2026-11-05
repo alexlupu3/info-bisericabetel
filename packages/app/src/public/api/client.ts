@@ -11,6 +11,8 @@ export interface ContentItem {
   groupTitle: string | null
   /** Leads the group's phone preview (FR-097). Absent in responses cached before migration 0015. */
   pinnedInGroup?: boolean
+  /** The group's section-preview switch (false = opted out); absent in older cached responses. */
+  groupPreview?: boolean | null
   expiresAt: string | null
   data: Record<string, unknown>
   createdAt: string

@@ -1,23 +1,24 @@
-# ADR-026: Phone-only collapsed group preview with CSS geometry and a pin column
+# ADR-026: Phone-only collapsed group preview (swipeable card deck) with CSS geometry and a pin column
 
 - **Status:** Accepted
 - **Date:** 2026-11-04
 - **Related:** ADR-022 (server-rendered snapshot and parity), ADR-013 (HTTP cache)
-- **Implements:** FR-096 – FR-104
+- **Implements:** FR-096 – FR-104, FR-115
+- **Revised:** 2026-11-05 — user testing replaced the fanned hand of tiles with a two-card swipeable deck and added a per-group opt-out (see Revision)
 
 ## Context
 Long groups make the phone feed long: nine events stack into several screens before the next group. The public hub is also server-rendered (ADR-022): the snapshot must show the same items as the SPA, and crawlers must keep seeing every item. Editors want to choose which items lead a shortened group without changing the group's (often chronological) order.
 
 ## Options Considered
 - **Capped list + "see all"** (first 3 in the grid, a counted row expands in place): cheapest and calmest, but plain; its mechanics are kept underneath the chosen option.
-- **Fanned "hand of cards"** (3 tiles fanned like cards held in a hand, dealt into the grid on demand): the most distinctive and the most compact; tile content must be clipped. Chosen.
+- **Fanned "hand of cards"** (3 trimmed tiles fanned like cards held in a hand, dealt into the grid on demand): the most compact, but the tiles had to be clipped and re-styled (date cover, hidden description and CTA), and testers found them hard to read. Chosen at first, superseded by the deck (see Revision).
 - **Horizontal snap carousel**: shortest section, but items past the second hide behind a swipe that desktop users rarely try and that conflicts with the iOS back-swipe.
 - **Where to apply it**: everywhere vs. phones only. On desktop three items already fill one grid row, so collapsing saves little; phones only.
 - **How to collapse**: remove items from the DOM on the client (layout shift on hydration, snapshot/SPA divergence) vs. keep every item and collapse with CSS (no shift, crawlers unchanged). CSS chosen.
 - **Where to store pins**: a `data` JSONB key (would be translated and copied, survives group changes) vs. a column next to `group_id` and `order_position`. Column chosen.
 
 ## Decision
-1. Collapse only below 640 px, only groups with 4+ visible items, to a hand of 3.
+1. Collapse only below 640 px, only groups with 4+ visible items, to a hand of 3 (superseded: a deck of 2, see Revision).
 2. Keep every item in the DOM, in group order, in both renderers; the hand is pure CSS (`data-preview="hand"`, `data-slot` on 3 items, percentage transforms), so the first paint on phones is already collapsed and the HTML for crawlers is unchanged in content and order.
 3. JavaScript adds only state, the back tiles' `aria-hidden` / `tabindex` toggling, the pointer-only expand overlay's click handler, focus and a FLIP animation (transform/opacity, disabled under reduced motion).
 4. Store pins as `content_items.pinned_in_group` (boolean), cleared whenever the stored `group_id` changes; pins reorder only the hand.
@@ -27,7 +28,16 @@ Long groups make the phone feed long: nine events stack into several screens bef
 
 ## Consequences
 - No layout shift on phones and no SEO change; snapshot parity keeps comparing DOM order.
-- Tile content is clipped (descriptions hidden, posters cropped) until the group is opened.
+- Tile content is clipped (descriptions hidden, posters cropped) until the group is opened (superseded: deck cards are full cards).
 - A new column and a reset rule on the three write paths that change `group_id` (PATCH, restore, group delete); a future path that changes `group_id` must reset it too.
-- Follow-ups: MCP pinning, a per-group opt-out, expand analytics (spec 08 §11).
-- Deviations from the original spec: (a) the snapshot sets `tabindex="-1"` only on the back tiles' links, not on the hidden items' content (those are `display: none` on phones, and `tabindex="-1"` on them would remove desktop keyboard stops before hydration); (b) collapsing animates the 3 hand tiles back, the other items disappear instantly instead of fading; (c) site labels are hidden inside tiles, like the description and CTA; (d) the "Doar primele 3…" hint is text from the `md` breakpoint and the toggle's title on smaller screens; (e) a site switch resets groups to the hand (`GroupBlock` is keyed by site and group).
+- Follow-ups: MCP pinning, expand analytics (spec 08 §11). The per-group opt-out shipped in the revision.
+- Deviations from the original spec: (a) the snapshot sets `tabindex="-1"` only on the back tiles' links, not on the hidden items' content (those are `display: none` on phones, and `tabindex="-1"` on them would remove desktop keyboard stops before hydration); (b) collapsing animates the 3 hand tiles back, the other items disappear instantly instead of fading; (c) site labels are hidden inside tiles, like the description and CTA; (d) the "Doar primele 3…" hint (removed in the 2026-11-05 revision, when all pins started leading the deck); (e) a site switch resets groups to the hand (`GroupBlock` is keyed by site and group).
+
+## Revision (2026-11-05): two-card swipeable deck and per-group opt-out
+User testing found the fanned tiles hard to read and the trimmed cards unlike the open list. The collapsing mechanism (CSS in both renderers, every item in the DOM, pin column, phones only, 4+ items) is unchanged; the presentation and interaction changed. Decisions 1 and 3 above are amended; decision 4 keeps its column but pins are no longer capped at 3.
+1. **Deck of 2 full cards** instead of a hand of 3 tiles. The top card is in flow, the next one is tucked behind it (offset 8 px / 10 px, tilted 2°, cut off at the top card's height) with two sheets under it. Cards are the same component as in the open list; the tile-only variant (date cover, `tileDate` / `tileTint`, `data-tile` markers, the `previewTile` prop, cross-fade copies on expand) is gone. `SECTION_PREVIEW_SIZE` is 2 and the collapse rule stays "more than 3 visible items" (`SECTION_PREVIEW_THRESHOLD`).
+2. **Swipe through the whole group.** A horizontal drag sends the top card off either side and deals the next card in deck order (all pinned items in group order, then unpinned; wraps around). Commit at 28 % of the card width or on a fling, otherwise it snaps back; vertical drags stay page scrolls (`touch-action: pan-y`). A visual-only "N / total" counter marks the position. State is JavaScript (`useSectionPreview.ts`); the first paint is still the CSS deck at card 1.
+3. **Taps:** only the top card stays interactive. A tap on it outside an interactive element, or anywhere on the back card, expands the group, scrolls to and focuses that item; the back card keeps `aria-hidden`, `tabindex="-1"` and the pointer-only `[data-hand-expand]` overlay. Expand and collapse run FLIP on the real cards from their deck pose (computed transform matrix).
+4. **Per-group opt-out** as a column, for the same reason as the pin: `groups.section_preview BOOLEAN NOT NULL DEFAULT true` (migration `0016_group_section_preview.sql`), editable in the admin group dialog and carried to the public feed as `groupPreview` on each grouped item so the app and the snapshot agree (FR-115, BR-059). Rejected: a global setting (groups differ: a prayer-request list reads better as a list), and a per-site setting (sites are data, but the choice is about the group's content).
+
+Consequences: swiping adds gesture code and a state beyond expanded/collapsed that resets on reload; keyboard and screen-reader users cannot swipe and expand with the button (unchanged); crawlers still see every item in order. Full cards make the deck as tall as its top card, so a group with a tall poster on top is taller than the old hand.
