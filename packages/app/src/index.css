@@ -347,13 +347,12 @@ body {
   border-radius: 2px;
 }
 
-/* ── Section preview: swipeable card deck on phones (spec 08, ADR-026) ──
+/* ── Section preview: swipeable pair of tiles on phones (spec 08, ADR-026) ──
    GroupBlock and the server-rendered snapshot print the same markup:
    section[data-preview="hand|open"] > ul[data-preview-list] > li[data-slot="0|1"].
-   Below 640 px a collapsed group shows two full cards as a deck (pure CSS, so the first paint
-   is already collapsed): the top card and the next one tucked behind it, tilted, both as
-   tall as the group's tallest card. Swiping deals the next cards (useSectionPreview.ts, which
-   mirrors the back card's resting place in BACK). */
+   Below 640 px a collapsed group shows two small preview tiles (image or date cover, title),
+   fanned and overlapping (pure CSS, so the first paint is already collapsed); swiping the top
+   tile deals the next ones (useSectionPreview.ts, which mirrors the slot geometry in SLOTS). */
 :root {
   --hand-shadow: rgba(0, 0, 0, 0.28);
 }
@@ -430,45 +429,48 @@ body {
 .betel-hand-less > button { pointer-events: auto; }
 
 @media (max-width: 639px) {
-  /* The deck: every item of the group shares one grid cell, so the cell is as tall as the
-     group's tallest card and every card stretches to that height (the deck keeps one size
-     while swiping and no card is cut off). Items outside the deck stay laid out but
-     invisible (visibility: hidden also takes them out of the tab order and the
-     accessibility tree). Cards are 24px narrower than the list, which leaves room for the
-     back card's offset, tilt and the two sheets under it, so nothing reaches past the page
-     gutter. Vertical drags scroll the page; horizontal ones swipe. */
+  /* Every item of the group shares one grid cell, so the cell is as tall as the group's
+     tallest tile (between 36 and 65 % of the list width, cqw) and the deck keeps one size
+     while swiping. Only the two deck tiles show; the others stay laid out but invisible
+     (visibility: hidden also takes them out of the tab order and the accessibility tree).
+     Tiles are 46 % wide; the pair is centred with room for the ±4° tilt and the stack under
+     the back tile, so nothing reaches past the page gutter. Vertical drags scroll the page;
+     horizontal ones swipe. The slot geometry is mirrored in useSectionPreview.ts (SLOTS). */
   [data-preview="hand"] > [data-preview-list] {
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
-    margin-bottom: 1.25rem;
+    container-type: inline-size;
+    padding: 0 0 1.75rem;
     touch-action: pan-y;
   }
   [data-preview="hand"] > [data-preview-list] > li {
     grid-area: 1 / 1;
-    width: calc(100% - 24px);
+    width: 46%;
+    margin-left: 9%;
+    min-height: 36cqw;
+    max-height: 65cqw;
+    overflow: hidden;
+    transform-origin: 50% 140%;
+    background: var(--surface);
   }
   [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) {
     visibility: hidden;
     pointer-events: none;
   }
   [data-preview="hand"] > [data-preview-list] > li[data-slot] {
-    background: var(--surface);
     box-shadow: 0 6px 18px -10px var(--hand-shadow);
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  [data-preview="hand"] li[data-slot] > a,
-  [data-preview="hand"] li[data-slot] > a > article,
-  [data-preview="hand"] li[data-slot] > article { height: 100%; }
-  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { z-index: 2; cursor: pointer; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0%, 16px) rotate(-4deg); z-index: 3; cursor: pointer; }
   [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] {
-    z-index: 1;
-    transform: translate(8px, 10px) rotate(2deg);
-    /* Two sheets peeking out under the back card: there is more in this group. */
+    transform: translate(68%, 10px) rotate(4deg);
+    z-index: 2;
+    /* Two sheets peeking out under the back tile: there is more in this group. */
     box-shadow:
-      4px 4px 0 -1px var(--surface), 4px 4px 0 0 var(--border),
-      8px 8px 0 -1px var(--surface), 8px 8px 0 0 var(--border),
+      5px 4px 0 -1px var(--surface), 5px 4px 0 0 var(--border),
+      10px 8px 0 -1px var(--surface), 10px 8px 0 0 var(--border),
       0 6px 18px -10px var(--hand-shadow);
   }
   [data-preview="hand"] > [data-preview-list] > li[data-slot] > [data-hand-expand] {
@@ -477,7 +479,96 @@ body {
   }
   [data-preview="hand"] li[data-slot] a,
   [data-preview="hand"] li[data-slot] img { -webkit-user-drag: none; }
-  [data-preview="hand"] li[data-slot] > a:hover { transform: none; }
+
+  /* Tile content (FR-098), on every item of the group (the hidden ones size the cell): image
+     (or date cover) and title only. The date already shows on the image or the cover, so the
+     date / place rows and description, CTA and glyphs are dropped; every tile is about as tall
+     as its image plus title, so no empty chin. */
+  [data-preview="hand"] [data-preview-list] > li > a,
+  [data-preview="hand"] [data-preview-list] > li > a > article,
+  [data-preview="hand"] [data-preview-list] > li > article { height: 100%; }
+  [data-preview="hand"] [data-preview-list] > li > a:hover { transform: none; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="hide"],
+  [data-preview="hand"] [data-preview-list] > li [data-tile="desc"],
+  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"],
+  [data-preview="hand"] [data-preview-list] > li [data-testid="site-label"] { display: none; }
+  [data-preview="hand"] [data-preview-list] > li article > .p-4 { padding: 0.625rem 0.75rem 0.75rem; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="title"] {
+    font-size: 0.95rem;
+    line-height: 1.2;
+    /* Last resort: a word wider than the tile breaks instead of being cut off. */
+    overflow-wrap: break-word;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
+  /* Card with neither image nor date: title at the top, then the description, clamped with an
+     ellipsis. 5 lines always fit under a 3-line title within the 65cqw tile cap; 4 on narrow
+     lists. Markdown paragraphs run inline so the clamp counts all of them. */
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    overflow: hidden;
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > * { display: inline; margin: 0; }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > :not(:last-child)::after { content: ' '; }
+  @container (max-width: 300px) {
+    [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] { -webkit-line-clamp: 4; }
+  }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1rem; }
+
+  /* Card without image: typographic date cover in place of the 16:9 thumbnail — the day over
+     the full month, centred, on a light washed gradient. --tile-tint is the item's own site
+     accent (set inline when it belongs to exactly one site); without it a warm stone tint gives
+     the neutral wash. Mixing into --surface keeps the wash light in light mode and deep in dark
+     mode; the last stop turns the hue a little for a softer, two-tone wash. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] {
+    --tint: var(--tile-tint, #a8987f);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    aspect-ratio: 16 / 9;
+    border-bottom: 1px solid var(--border);
+    /* No relative colour syntax: inside a var() an unsupported value would drop the whole
+       background. Mixing in oklch with a lavender turns the tint's hue for the last stop. */
+    background: linear-gradient(150deg,
+      color-mix(in oklab, var(--tint) 30%, var(--surface)) 0%,
+      color-mix(in oklab, var(--tint) 12%, var(--surface)) 55%,
+      color-mix(in oklab, color-mix(in oklch, var(--tint) 65%, #b8a8ff) 20%, var(--surface)) 100%);
+    line-height: 1;
+    text-align: center;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] > :first-child { font-size: 2.5rem; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] > :last-child {
+    font-size: 1.2rem;
+    text-transform: lowercase;
+    color: color-mix(in oklab, var(--tint) 55%, var(--text));
+  }
+
+  /* Poster: the image fills the tile, anchored at the top. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="poster"] img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="poster"] > div { height: 100%; }
+
+  /* Richtext / video (only reachable through the API): clipped with a bottom fade. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="text"] {
+    height: 100%;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

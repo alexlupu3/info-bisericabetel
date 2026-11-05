@@ -1,7 +1,7 @@
 /**
- * Spec 08 — section preview (swipeable card deck) on phones: FR-096 – FR-103.
- * Below 640 px a group with 4+ visible items collapses into a deck of 2 full cards (pinned
- * items first) that swipes through the whole group, with "Vezi toate · N" / "Arată mai
+ * Spec 08 — section preview (swipeable pair of tiles) on phones: FR-096 – FR-103.
+ * Below 640 px a group with 4+ visible items collapses into 2 small preview tiles (pinned
+ * items first) that swipe through the whole group, with "Vezi toate · N" / "Arată mai
  * puțin"; a group can opt out; every group heading shows its item count.
  */
 import { baseItem, isoDay, stubPublicBasics } from '../support/helpers/public'
@@ -53,13 +53,13 @@ function visitWith(items: object[]) {
   cy.wait('@content')
 }
 
-describe('Section preview — phone card deck', () => {
+describe('Section preview — phone pair of tiles', () => {
   beforeEach(() => {
     stubPublicBasics()
     cy.viewport(375, 812)
   })
 
-  it('collapses a long group into a deck of 2 full cards with the pinned item on top', () => {
+  it('collapses a long group into 2 tiles with the pinned item on top', () => {
     visitWith(feed())
     section('evenimente').should('have.attr', 'data-preview', 'hand')
     section('evenimente').find('h2').should('have.text', 'Evenimente · 5')
@@ -67,39 +67,30 @@ describe('Section preview — phone card deck', () => {
     li('E').should('have.attr', 'data-slot', '0').and('be.visible').and('not.have.attr', 'aria-hidden')
     li('A').should('have.attr', 'data-slot', '1').and('be.visible').and('have.attr', 'aria-hidden', 'true')
     ;['B', 'C', 'D'].forEach(id => li(id).should('not.be.visible').and('not.have.attr', 'data-slot'))
-    // The top card is the full card: date row, image and title as in the open list.
-    li('E').find('time').should('be.visible')
-    li('E').find('img').should('be.visible')
-    li('E').find('h3').should('have.css', 'font-size', '20px')
-    // One tab stop for the top card, then the button: the back card's link is out of the tab order.
+    // One tab stop for the top tile, then the button: the back tile's link is out of the tab order.
     li('A').find('a').should('have.attr', 'tabindex', '-1')
     section('evenimente').then($s => {
       const stops = $s.find('a[href], button').filter((_, el) =>
         el.getAttribute('tabindex') !== '-1' && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden')
       expect(stops.map((_, el) => el.getAttribute('href') ?? el.textContent?.trim()).get()).to.deep.equal(['https://example.com/E', 'Vezi toate · 5'])
     })
-    // No tile-only markup is left.
-    section('evenimente').find('[data-tile]').should('not.exist')
+    // A tile: image (or date cover) and a clamped title; the date row, description and CTA hidden.
+    li('E').find('[data-tile="title"]').should('have.css', '-webkit-line-clamp', '3')
+    li('E').find('[data-tile="meta"]').should('not.be.visible')
+    li('E').find('[data-tile="cover"]').should('not.exist')
+    li('B').find('[data-tile="cover"]').should('exist').and('have.attr', 'aria-hidden', 'true')
   })
 
-  it('every deck card is as tall as the group\'s tallest card, so none is cut off (regression)', () => {
-    const items = feed().map(i => (i.id === 'C'
-      ? { ...i, data: { ...i.data, description: 'Un text lung care face cardul cel mai înalt din grup. '.repeat(12) } }
-      : i))
-    visitWith(items)
-    // C (not in the deck yet) sets the height; its card is laid out but invisible.
-    li('C').should('have.css', 'visibility', 'hidden')
-    li('C').then($c => {
-      const tallest = $c[0].offsetHeight
-      expect(tallest).to.be.greaterThan(500)
-      li('E').should($e => expect($e[0].offsetHeight).to.equal(tallest))
-      li('A').should($a => expect($a[0].offsetHeight).to.equal(tallest))
-      li('C').find('article').should($art => expect($art[0].scrollHeight).to.be.at.most($art[0].clientHeight + 1))
-      drag('evenimente', -200)
-      drag('evenimente', -200)
-      li('B').should('have.attr', 'data-slot', '0').and($b => expect($b[0].offsetHeight).to.equal(tallest))
-      li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
+  it('every tile is as tall as the group\'s tallest tile, so the pair keeps one size (regression)', () => {
+    visitWith(feed())
+    section('evenimente').find('li').then($lis => {
+      const heights = $lis.map((_, el) => el.offsetHeight).get()
+      expect(new Set(heights).size).to.equal(1)
     })
+    li('C').should('have.css', 'visibility', 'hidden')
+    drag('evenimente', -200)
+    drag('evenimente', -200)
+    li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
   })
 
   it('a swipe either way deals the next card; the deck wraps around', () => {
@@ -182,14 +173,52 @@ describe('Section preview — phone card deck', () => {
     cy.document().should(doc => {
       expect(doc.documentElement.scrollWidth).to.be.at.most(375)
     })
-    // The back card carries the "more cards" stack; the button has no dash.
-    li('A').should('have.css', 'box-shadow').and('match', /8px 8px/)
+    // The back tile carries the "more cards" stack; the button has no dash.
+    li('A').should('have.css', 'box-shadow').and('match', /10px 8px/)
     cy.contains('button', 'Vezi toate · 5').then($b => {
       expect(getComputedStyle($b[0], '::before').content).to.be.oneOf(['none', 'normal'])
     })
   })
 
-  it('the top card keeps its own link', () => {
+  it('a tile with neither image nor date shows its title at the top, then its description', () => {
+    const NI = { groupId: 'g-ni', groupTitle: 'Implicare' }
+    visitWith(['1', '2', '3', '4'].map(n => card(`N${n}`, NI, {
+      title: `Implicare ${n}`,
+      description: 'Completează acest formular, iar cineva te va contacta.',
+    })))
+    li('N1').find('[data-tile="title"]').then($t => {
+      const article = $t[0].closest('article')!.getBoundingClientRect()
+      const title = $t[0].getBoundingClientRect()
+      expect(title.top - article.top).to.be.lessThan(40)
+    })
+    li('N1').find('[data-tile="desc"]').should('be.visible').and('have.css', '-webkit-line-clamp', '5')
+    cy.contains('button', 'Vezi toate · 4').click()
+    li('N1').find('[data-tile="desc"]').should('have.css', 'font-size', '14px')
+  })
+
+  it('a date cover shows the day over the full month, tinted by the card\'s own site', () => {
+    const items = feed().map(i => (i.id === 'B' ? { ...i, sites: ['vest'] } : i))
+    visitWith(items)
+    drag('evenimente', -200)
+    li('B').should('have.attr', 'data-slot', '1')
+    li('B').find('[data-tile="cover"]').should('be.visible').and('have.attr', 'style').and('contain', '--tile-tint: #a0384b')
+    li('B').find('[data-tile="cover"] > span').then($s => {
+      expect($s).to.have.length(2)
+      expect($s.eq(1).text()).to.match(/^[a-zăâîșț]{4,}$/) // full month, no abbreviation dot
+      const [day, month] = [$s[0], $s[1]]
+      expect(month.offsetTop).to.be.at.least(day.offsetTop + day.offsetHeight - 2) // under the day
+      expect(Math.abs((day.offsetLeft + day.offsetWidth / 2) - (month.offsetLeft + month.offsetWidth / 2))).to.be.lessThan(2) // centred
+    })
+    li('B').find('[data-tile="cover"]').should('have.css', 'background-image').and('match', /^linear-gradient/)
+  })
+
+  it('a date cover without a single site uses the neutral wash', () => {
+    visitWith(feed())
+    li('B').find('[data-tile="cover"]').should('not.have.attr', 'style')
+    li('B').find('[data-tile="cover"]').should('have.css', 'background-image').and('match', /^linear-gradient/)
+  })
+
+  it('the top tile keeps its own link', () => {
     visitWith(feed())
     cy.document().then(doc => {
       doc.addEventListener('click', e => {
@@ -202,7 +231,7 @@ describe('Section preview — phone card deck', () => {
     section('evenimente').should('have.attr', 'data-preview', 'hand')
   })
 
-  it('a tap on a top card without a link opens the group at that card', () => {
+  it('a tap on a top tile without a link opens the group at that item', () => {
     const NI = { groupId: 'g-ni', groupTitle: 'Implicare' }
     visitWith(['1', '2', '3', '4', '5', '6'].map(n => card(`N${n}`, NI, {
       title: `Implicare ${n}`, link: undefined,
@@ -223,12 +252,12 @@ describe('Section preview — phone card deck', () => {
     cy.focused().closest('li').find('[data-item-id]').should('have.attr', 'data-item-id', 'N5')
   })
 
-  it('a tap on the back card opens the group and scrolls to it instead of following its link', () => {
+  it('a tap on the back tile opens the group and scrolls to it instead of following its link', () => {
     visitWith(feed())
-    // The back card peeks out at the right of the top card.
+    // Inside the visible right part of the tilted back tile (its box corners fall outside it).
     li('A').find('[data-hand-expand]').then($o => {
       const { width, height } = $o[0].getBoundingClientRect()
-      cy.wrap($o).click(width - 6, height / 2)
+      cy.wrap($o).click(width - 30, height / 2)
     })
     section('evenimente').should('have.attr', 'data-preview', 'open')
     section('evenimente').find('li[style*="transform"]').should('not.exist')
@@ -247,7 +276,7 @@ describe('Section preview — phone card deck', () => {
     li('A').find('a').should('not.have.attr', 'tabindex')
   })
 
-  it('keeps the deck stacking while the cards fly out, then clears it (regression: flicker)', () => {
+  it('keeps the deck stacking while the tiles fly out, then clears it (regression: flicker)', () => {
     visitWith(feed())
     cy.contains('button', 'Vezi toate · 5').click()
     const z = ($li: JQuery<HTMLElement>) => Number(getComputedStyle($li[0]).zIndex)
@@ -275,7 +304,12 @@ describe('Section preview — phone card deck', () => {
     delay('G').should('equal', 0)
     delay('A').should('be.lessThan', 0.05)
     delay('B').should('be.at.least', 0.05)
+    // Cross-fade: inert copies of the two deck tiles fly with the cards, then go away.
+    cy.get('[data-hand-ghost]').should('have.attr', 'aria-hidden', 'true').and('have.prop', 'inert', true)
+    cy.get('[data-hand-ghost] li[data-slot]').should('have.length', 2)
+    cy.get('[data-hand-ghost] [data-item-id], [data-hand-ghost] [data-hand-expand]').should('not.exist')
     section('evenimente').find('li[style*="transform"]').should('not.exist')
+    cy.get('[data-hand-ghost]').should('not.exist')
     li('G').should('have.css', 'opacity', '1')
   })
 
@@ -334,18 +368,22 @@ describe('Section preview — phone card deck', () => {
     li('B').should('have.attr', 'data-slot', '1')
   })
 
-  it('a poster keeps its own aspect in the deck and when expanded', () => {
+  it('crops a poster to its tile and restores its own aspect when expanded (regression)', () => {
     const PO = { groupId: 'g-po', groupTitle: 'Afișe' }
     visitWith(['1', '2', '3', '4'].map(n => ({
       ...baseItem, ...PO, id: `P${n}`, type: 'poster', data: { imageUrl: '/icons/icon-512.png', alt: `Afiș ${n}` },
     })))
-    const square = () => li('P1').find('img').should($img => {
+    li('P1').find('img').should('have.css', 'object-fit', 'cover').and($img => {
       const img = $img[0] as HTMLImageElement
       expect(img.naturalWidth).to.be.greaterThan(0)
+      // The image fills its tile (offset sizes ignore the slot rotation).
+      const tile = img.closest('li')!
+      expect(img.offsetHeight).to.be.closeTo(tile.offsetHeight, 1)
+    })
+    cy.contains('button', 'Vezi toate · 4').click()
+    li('P1').find('img').should($img => {
+      const img = $img[0] as HTMLImageElement
       expect(img.offsetHeight / img.offsetWidth).to.be.closeTo(1, 0.02)
     })
-    square()
-    cy.contains('button', 'Vezi toate · 4').click()
-    square()
   })
 })

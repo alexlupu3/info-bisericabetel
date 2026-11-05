@@ -232,16 +232,19 @@ test('snapshot: a group of 4+ prints the collapsed hand (spec 08, FR-096 – FR-
   const html = renderSnapshot(buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items }))
   assert.match(html, /<section aria-labelledby="group-g-title" id="evenimente" data-preview="hand"/)
   assert.match(html, /Evenimente <span class="betel-group-count">· 4<\/span><\/h2>/)
-  // Pinned D tops the deck, A is behind it; B and C have no slot.
+  // Pinned D is the top tile, A is behind it; B and C have no slot.
   const list = html.slice(html.indexOf('<ul id="group-g-items"'), html.indexOf('</ul>', html.indexOf('group-g-items')))
   assert.equal(list.match(/<li[ >]/g)?.length, 4)
   assert.deepEqual([...html.matchAll(/<li data-slot="(\d)"/g)].map(m => m[1]), ['1', '0'])
-  // Back card (A): aria-hidden, no tab stop on its link, pointer-only overlay.
+  // Back tile (A): aria-hidden, no tab stop on its link, pointer-only overlay.
   assert.match(html, /<li data-slot="1" aria-hidden="true"><a href="https:\/\/a\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
   assert.match(html, /<li data-slot="0"><a href="https:\/\/d\.example" target="_blank" rel="noopener noreferrer" class=/)
   assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 1)
-  // Full cards: no tile-only markup; the deck position starts at 1.
-  assert.doesNotMatch(html, /data-tile=/)
+  // Every item of the group is printed as a tile: B has no thumbnail, so it gets the date
+  // cover (shown only in the deck); A has one, so no date mark on its image.
+  assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden(?: style="--tile-tint:#[0-9a-fA-F]+")?><span class="betel-title-bold">2<\/span><span class="betel-title-condensed">[^<.]+<\/span><\/div>/)
+  assert.doesNotMatch(html, /data-tile="index"/)
+  // The deck position starts at 1.
   assert.match(html, /<span class="betel-deck-count sm:hidden" aria-hidden="true" data-testid="deck-count">1 \/ 4<\/span>/)
   assert.match(html, /<button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="group-g-items">Vezi toate · 4<\/button>/)
 })

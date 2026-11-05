@@ -83,6 +83,7 @@ export default function GroupBlock({ groupId, title, items, accent, activeSite =
                 showSiteLabel={showSiteLabel}
                 headingLevel={3}
                 eager={item.id === eagerItemId}
+                previewTile={collapsible}
               />
               {back && <span data-hand-expand aria-hidden="true" />}
             </li>

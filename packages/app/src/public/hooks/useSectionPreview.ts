@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 
-// Section preview (swipeable card deck) on phones — spec 08, FR-096 – FR-102, ADR-026.
+// Section preview (swipeable pair of tiles) on phones — spec 08, FR-096 – FR-102, ADR-026.
 //
-// The deck itself is CSS (index.css, `[data-preview="hand"]`): the top card and the next card
-// tucked behind it, both as tall as the group's tallest card. This hook keeps the per-group state (collapsed / open and how far the
-// deck has been swiped), hides the back card from keyboard and screen readers, handles the
-// swipe and the taps that open the group, moves focus, announces the change and runs the
-// FLIP animations (transform / opacity only).
+// The deck itself is CSS (index.css, `[data-preview="hand"]`): two small preview tiles, the top
+// one in front, the next one fanned out behind it. This hook keeps the per-group state
+// (collapsed / open and how far the deck has been swiped), hides the back tile from keyboard
+// and screen readers, handles the swipe and the taps that open the group, moves focus,
+// announces the change and runs the FLIP animations (transform / opacity only), cross-fading
+// each tile into its full card on expand.
 
 export type PreviewState = 'hand' | 'open'
 
@@ -24,10 +25,17 @@ const SWIPE_COMMIT_SPEED = 0.45 // px / ms
 const SWIPE_OUT_MS = 280
 const SWIPE_SETTLE_MS = 240
 /**
- * Resting place of the back card, mirroring index.css (`li[data-slot="1"]`): it rises to the
- * top card's place while the top card is dragged away.
+ * Slot geometry, mirroring index.css (`li[data-slot="0|1"]`, transform origin 50 % 140 %):
+ * translate x in % of the tile width, y in px, rotation in degrees. The back tile moves to
+ * the top tile's place while the top tile is dragged away.
  */
-const BACK = { x: 8, y: 10, rotate: 2 } as const
+const SLOTS = [
+  { tx: 0, ty: 16, rotate: -4 },
+  { tx: 68, ty: 10, rotate: 4 },
+] as const
+const slotTransform = (tx: number, ty: number, rotate: number) => `translate(${tx}%, ${ty}px) rotate(${rotate}deg)`
+/** Share of the expand flight over which a tile cross-fades into its open card. */
+const CROSSFADE_SHARE = 0.35
 /** Marks a tabindex this hook added, so it only removes its own. */
 const TABINDEX_MARK = 'data-hand-tabindex'
 const FOCUSABLE = 'a[href], button, iframe, input, select, textarea, [tabindex]'
@@ -81,6 +89,53 @@ function fromPose(was: Box, pose: Pose, at: Box): string {
 }
 
 const IDENTITY = 'translate(0px, 0px) translate(0px, 0px) matrix(1, 0, 0, 1, 0, 0) translate(0px, 0px) scale(1)'
+
+/**
+ * Copies of the deck tiles (cross-fade on expand). The copies sit in a detached deck —
+ * `div[data-preview="hand"] > ul[data-preview-list]` laid exactly over the list, in document
+ * coordinates — so the deck CSS draws them exactly like the tiles (every item is copied, so
+ * the shared cell keeps its height; only the two deck tiles show). They carry no ids, test
+ * ids or expand overlays, and are inert and hidden from assistive tech.
+ */
+function buildDeckGhost(list: HTMLElement, items: HTMLElement[]) {
+  const rect = list.getBoundingClientRect()
+  const wrap = document.createElement('div')
+  wrap.setAttribute('data-preview', 'hand')
+  wrap.setAttribute('data-hand-ghost', '')
+  wrap.setAttribute('aria-hidden', 'true')
+  wrap.inert = true
+  Object.assign(wrap.style, {
+    position: 'absolute',
+    left: `${rect.left + window.scrollX}px`,
+    top: `${rect.top + window.scrollY}px`,
+    width: `${rect.width}px`,
+    margin: '0',
+    zIndex: '20',
+    pointerEvents: 'none',
+  })
+  const ul = document.createElement('ul')
+  ul.className = list.className
+  ul.setAttribute('data-preview-list', '')
+  ul.style.margin = '0'
+  const tiles = new Map<number, HTMLElement>()
+  items.forEach((li, index) => {
+    const copy = li.cloneNode(true) as HTMLElement
+    copy.removeAttribute('aria-hidden')
+    copy.removeAttribute('style')
+    copy.querySelectorAll('[data-hand-expand]').forEach(el => el.remove())
+    copy.querySelectorAll('[id], [data-item-id], [data-testid]').forEach(el => {
+      el.removeAttribute('id')
+      el.removeAttribute('data-item-id')
+      el.removeAttribute('data-testid')
+    })
+    copy.querySelectorAll('img').forEach(img => { img.loading = 'eager' })
+    ul.appendChild(copy)
+    if (li.dataset.slot !== undefined) tiles.set(index, copy)
+  })
+  wrap.appendChild(ul)
+  document.body.appendChild(wrap)
+  return { wrap, tiles }
+}
 
 function clearInline(el: HTMLElement) {
   el.style.transition = ''
@@ -144,13 +199,16 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   // next card of the deck order slides in behind it. Vertical drags stay native page scrolls
   // (`touch-action: pan-y` on the deck).
 
-  /** Draws the drag: the top card follows the finger, the back card rises in proportion. */
+  /** Draws the drag: the top tile follows the finger, the back tile moves up in proportion. */
   const paintDrag = (top: HTMLElement, back: HTMLElement | null, dx: number) => {
     const w = top.offsetWidth || 1
-    top.style.transform = `translate(${dx}px, ${Math.abs(dx) * 0.04}px) rotate(${(dx / w) * 10}deg)`
+    const [front, rear] = SLOTS
+    top.style.transform = `translate(${dx}px, ${Math.abs(dx) * 0.04}px) `
+      + slotTransform(front.tx, front.ty, front.rotate + (dx / w) * 10)
     if (back) {
-      const rest = 1 - Math.min(1, Math.abs(dx) / w)
-      back.style.transform = `translate(${BACK.x * rest}px, ${BACK.y * rest}px) rotate(${BACK.rotate * rest}deg)`
+      const p = Math.min(1, Math.abs(dx) / w)
+      const mix = (a: number, b: number) => a + (b - a) * p
+      back.style.transform = slotTransform(mix(rear.tx, front.tx), mix(rear.ty, front.ty), mix(rear.rotate, front.rotate))
     }
   }
 
@@ -179,24 +237,25 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
       }
       const w = top.offsetWidth
       top.style.transition = `transform ${SWIPE_OUT_MS}ms ease-in, opacity ${SWIPE_OUT_MS}ms ease-in`
-      top.style.transform = `translate(${dir * w * 1.15}px, ${w * 0.06}px) rotate(${dir * 16}deg)`
+      top.style.transform = `translate(${dir * w * 1.6}px, ${w * 0.06}px) `
+        + slotTransform(SLOTS[0].tx, SLOTS[0].ty, SLOTS[0].rotate + dir * 16)
       top.style.opacity = '0'
       if (back) {
         back.style.transition = `transform ${SWIPE_OUT_MS}ms ${EASING}`
-        back.style.transform = 'translate(0px, 0px) rotate(0deg)'
+        back.style.transform = slotTransform(SLOTS[0].tx, SLOTS[0].ty, SLOTS[0].rotate)
       }
       await wait(SWIPE_OUT_MS + 10)
 
       flushSync(() => setSwiped(s => s + 1))
-      // The old top card is now hidden and the old back card is the top card (no transform in
-      // CSS, so dropping the inline styles moves nothing). The new back card fades in.
+      // The old top tile is now hidden and the old back tile is the top tile, already drawn at
+      // the top slot, so dropping the inline styles moves nothing. The new back tile fades in.
       clearInline(top)
       if (back) clearInline(back)
       const next = slotEl(1)
       if (next) {
         next.style.transition = 'none'
         next.style.opacity = '0'
-        next.style.transform = 'translate(0px, 0px) rotate(0deg) scale(0.96)'
+        next.style.transform = `${slotTransform(SLOTS[1].tx, SLOTS[1].ty, SLOTS[1].rotate)} scale(0.96)`
       }
       void list.offsetHeight
       if (next) {
@@ -285,15 +344,17 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     const posesBefore = items.map(poseOf)
     // Deck shadows (and the stack under the back card) fade instead of vanishing in one frame.
     const shadowsBefore = items.map(el => getComputedStyle(el).boxShadow)
+    // Expand: copies of the deck tiles, made while they still look like tiles.
+    const ghost = to === 'open' ? buildDeckGhost(list, items) : null
 
     flushSync(() => setState(to))
 
     const after = items.map(layoutBox)
     type Final = { transform: string; opacity: string; boxShadow: string }
-    const animated: Array<{ el: HTMLElement; delay: number; final: Final }> = []
+    const animated: Array<{ el: HTMLElement; delay: number; final: Final; fadeMs?: number }> = []
 
     if (to === 'open') {
-      // Items not in the deck are dealt from behind the back card (or the top card).
+      // Items not in the deck are dealt from behind the back tile (or the top tile).
       const backIndex = items.findIndex(el => slotOfEl(el) === 1)
       const anchor = backIndex >= 0 ? backIndex : items.findIndex(el => slotOfEl(el) === 0)
       let dealt = 0
@@ -301,15 +362,34 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         const slot = slotOfEl(el)
         const src = slot === undefined ? anchor : index
         if (src < 0) return
+        const from = fromPose(before[src], posesBefore[src], after[index])
         el.style.transition = 'none'
         el.style.transformOrigin = '0 0'
-        el.style.transform = fromPose(before[src], posesBefore[src], after[index])
-        // The deck's stacking holds for the whole flight: top card, back card, then the rest.
+        el.style.transform = from
+        // The deck's stacking holds for the whole flight: top tile, back tile, then the rest.
         el.style.zIndex = String(slot === undefined ? 1 : 10 - slot)
         el.style.boxShadow = shadowsBefore[src]
         if (slot === undefined) el.style.opacity = '0'
         const order = slot ?? 2 + dealt++
-        animated.push({ el, delay: order * EXPAND_STAGGER_MS, final: { transform: IDENTITY, opacity: '1', boxShadow: 'none' } })
+        const delay = order * EXPAND_STAGGER_MS
+        const copy = ghost?.tiles.get(index)
+        if (copy) {
+          // Cross-fade: the copy keeps the tile's look and follows the card's exact path — the
+          // card's transform wrapped so the copy's box maps onto the card's box — while it fades
+          // out and the card (already in its open layout) fades in.
+          const b = layoutBox(copy)
+          const at = after[index]
+          const wrapIn = (inner: string) => `translate(${at.x - b.x}px, ${at.y - b.y}px) ${inner} scale(${b.w > 0 ? at.w / b.w : 1})`
+          copy.style.transition = 'none'
+          copy.style.transformOrigin = '0 0'
+          copy.style.transform = wrapIn(from)
+          el.style.opacity = '0'
+          const fadeMs = Math.round(DURATION_MS * CROSSFADE_SHARE)
+          animated.push({ el: copy, delay, fadeMs, final: { transform: wrapIn(IDENTITY), opacity: '0', boxShadow: '' } })
+          animated.push({ el, delay, fadeMs, final: { transform: IDENTITY, opacity: '1', boxShadow: 'none' } })
+        } else {
+          animated.push({ el, delay, final: { transform: IDENTITY, opacity: '1', boxShadow: 'none' } })
+        }
       })
     } else {
       // From the list back to the deck; the other items are already display: none.
@@ -332,11 +412,11 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     // Commit the inverted positions (forced layout), then let them play. No
     // requestAnimationFrame: background / throttled pages would never start it.
     void list.offsetHeight
-    for (const { el, delay, final } of animated) {
+    for (const { el, delay, final, fadeMs } of animated) {
       el.style.transition = [
         `transform ${DURATION_MS}ms ${EASING} ${delay}ms`,
         `box-shadow ${DURATION_MS}ms ${EASING} ${delay}ms`,
-        `opacity ${Math.round(DURATION_MS * 0.6)}ms ease-out ${delay}ms`,
+        `opacity ${fadeMs ?? Math.round(DURATION_MS * 0.6)}ms ease-out ${delay}ms`,
       ].join(', ')
       el.style.transform = final.transform
       el.style.opacity = final.opacity
@@ -344,6 +424,7 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     }
     const longest = animated.reduce((max, a) => Math.max(max, a.delay), 0) + DURATION_MS
     await wait(longest + 20)
+    ghost?.wrap.remove()
     for (const { el } of animated) clearInline(el)
   }, [])
 
