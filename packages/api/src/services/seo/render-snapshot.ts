@@ -134,7 +134,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
       const text = itemPlainText(item)
       const link = resolvedLink(item, ctx.activeSite)
       const cta = typeof item.data.cta === 'string' && item.data.cta.trim() && link ? item.data.cta : null
-      const html = `<article data-item-id="${id}" class="relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden">`
+      const html = `<article data-item-id="${id}" class="relative theme-card bg-[var(--surface)] overflow-hidden">`
         + (thumb
           ? `<div class="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover">`
             + `</div>`
@@ -143,13 +143,13 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
         + `<${h} data-tile="title" class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)
         + (text ? `<p data-tile="desc" class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
-        + (cta ? `<span data-tile="hide" class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
+        + (cta ? `<span data-tile="hide" class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content theme-secondary text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
         + `</div></article>`
       return wrapLink(html, link, opts)
     }
     case 'richtext': {
       const text = itemPlainText(item)
-      return `<article data-item-id="${id}" data-tile="text" class="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">`
+      return `<article data-item-id="${id}" data-tile="text" class="theme-card pl-4 pr-4 py-3">`
         + (title ? `<${h} class="betel-title-bold text-lg leading-tight mb-2">${escapeHtml(title)}</${h}>` : '')
         + siteLabel(item, ctx)
         + (text ? `<div class="prose-betel"><p>${escapeHtml(text)}</p></div>` : '')
@@ -236,7 +236,7 @@ function renderHero(model: PageModel): string {
   const bold = site ? 'BETEL' : 'BISERICA'
   const light = site ? site.name.toUpperCase() : 'BETEL'
   const website = safeUrl(model.config.orgWebsite)
-  return `<header class="border-b border-[var(--border)]"><div class="max-w-4xl mx-auto w-full px-5 pt-10 pb-8 text-center">`
+  return `<header class="theme-divider"><div class="max-w-4xl mx-auto w-full px-5 pt-10 pb-8 text-center">`
     + `<img src="/icons/favicon-dark.svg" alt="" width="54" height="64" class="mb-4 betel-logo">`
     + `<h1 class="text-4xl leading-none"><span class="betel-title-bold">${escapeHtml(bold)}</span><span class="betel-title-condensed">${escapeHtml(light)}</span></h1>`
     + `<p class="mt-3 font-content text-sm text-[var(--muted)] leading-relaxed">${escapeHtml(UI_DEFAULTS['hero.subtitle'])}</p>`
@@ -250,14 +250,14 @@ function renderNav(model: PageModel): string {
   if (model.kind !== 'hub' && model.kind !== 'site') {
     // Item and not-found pages: a way back to the hub (the item's site when it has one).
     const back = model.kind === 'item' && model.site ? `/${model.site.slug}` : '/'
-    return `<nav aria-label="${escapeHtml(UI_DEFAULTS['nav.sites'])}" class="border-b border-[var(--border)]">`
+    return `<nav aria-label="${escapeHtml(UI_DEFAULTS['nav.sites'])}" class="theme-divider">`
       + `<div class="max-w-4xl mx-auto w-full px-5 py-3"><a href="${escapeHtml(back)}" class="text-xs tracking-widest uppercase font-content text-[var(--muted)]">${escapeHtml(UI_DEFAULTS['item.backToHub'])}</a></div></nav>`
   }
   const links = [
     `<li><a href="/">${escapeHtml(UI_DEFAULTS['sites.all'])}</a></li>`,
     ...model.sites.map(s => `<li><a href="/${escapeHtml(s.slug)}">${escapeHtml(s.name)}</a></li>`),
   ]
-  return `<nav aria-label="${escapeHtml(UI_DEFAULTS['nav.sites'])}" class="border-b border-[var(--border)]">`
+  return `<nav aria-label="${escapeHtml(UI_DEFAULTS['nav.sites'])}" class="theme-divider">`
     + `<ul class="max-w-4xl mx-auto w-full px-5 py-3 flex flex-wrap gap-x-4 gap-y-1 text-xs tracking-widest uppercase text-[var(--muted)]">${links.join('')}</ul></nav>`
 }
 
@@ -275,7 +275,7 @@ export function renderSiteAddress(site: PublicSite): string {
 
 function renderFooter(model: PageModel, footerSites: PublicSite[]): string {
   const year = new Date().getFullYear()
-  return `<footer class="border-t border-[var(--border)]"><div class="max-w-4xl mx-auto w-full px-5 py-6">`
+  return `<footer class="theme-divider"><div class="max-w-4xl mx-auto w-full px-5 py-6">`
     + (footerSites.length > 0
       ? `<ul class="mb-4 space-y-1 text-[10px] tracking-widest uppercase text-[var(--muted)] font-content">${footerSites.map(renderSiteAddress).join('')}</ul>`
       : '')

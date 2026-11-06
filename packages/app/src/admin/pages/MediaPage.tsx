@@ -41,7 +41,7 @@ export default function MediaPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[var(--border)]">
+      <div className="flex gap-1 mb-6 theme-divider">
         {([
           ['all',     'Toate'],
           ['in-use',  'Utilizate'],
@@ -50,10 +50,10 @@ export default function MediaPage() {
           <button
             key={key}
             onClick={() => setFilter(key)}
-            className={`px-4 py-2 text-xs tracking-widest uppercase font-content transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2 text-xs tracking-widest uppercase font-content transition-colors ${
               filter === key
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--muted)] hover:text-[var(--text)]'
+                ? 'theme-selected text-[var(--accent)]'
+                : ' text-[var(--muted)] hover:text-[var(--text)]'
             }`}
           >
             {label}
@@ -93,7 +93,7 @@ function MediaCard({ item, onDelete, deleting }: {
   const inUse = item.usedBy.length > 0
 
   return (
-    <div className="border border-[var(--border)] flex flex-col" data-testid="media-card">
+    <div className="theme-card flex flex-col" data-testid="media-card">
       <div className="aspect-square overflow-hidden bg-[var(--surface)]">
         <img
           src={item.url}

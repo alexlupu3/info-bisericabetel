@@ -14,14 +14,14 @@ export default function DiscardConfirm({ onKeep, onDiscard }: { onKeep: () => vo
   useEffect(() => { keepRef.current?.focus() }, [])
 
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
+    <div className="absolute inset-0 z-10 flex items-center justify-center p-4 bg-[var(--scrim)] animate-fade-in">
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descId}
         data-testid="discard-confirm"
-        className="w-full max-w-[360px] bg-[var(--surface)] border border-[var(--border)] shadow-2xl p-5"
+        className="w-full max-w-[360px] theme-overlay p-5"
       >
         <h3 id={titleId} className="text-sm font-bold uppercase tracking-widest">Renunți la modificări?</h3>
         <span aria-hidden="true" className="block w-6 h-0.5 mt-2 bg-[var(--accent)]" />
@@ -42,8 +42,8 @@ export default function DiscardConfirm({ onKeep, onDiscard }: { onKeep: () => vo
             type="button"
             onClick={onKeep}
             data-testid="discard-confirm-keep"
-            className="px-4 py-2 border border-[var(--text)] bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] transition-colors"
+            className="px-4 py-2 bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
+                        transition-colors"
           >
             Continuă editarea
           </button>

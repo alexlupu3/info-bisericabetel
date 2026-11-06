@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  future: { hoverOnlyWhenSupported: true },
   // render-snapshot.ts: the API's server-rendered HTML snapshot uses the same classes (ADR-022)
   content: ['./src/**/*.{tsx,ts,jsx,js}', './index.html', '../api/src/services/seo/render-snapshot.ts'],
   theme: {

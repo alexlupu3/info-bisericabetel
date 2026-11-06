@@ -28,40 +28,68 @@
 /* ── Betel design tokens (public hub) ────────────────────────── */
 :root {
   --accent: #ffffff;
-  --bg: #eeeeee;
+  --bg: #e6e6ea;
   --surface: #ffffff;
-  --border: #dddddd;
-  --text: #111111;
-  --muted: #666666;
+  --surface-2: #f4f4f6;
+  --surface-3: #ffffff;
+  --field: #eeeef1;
+  --text: #111113;
+  --muted: #62626a;
+  --scrim: rgb(16 16 24 / 0.45);
+  --sheen: 0 0 0 0 transparent;
+  --shadow-1: 0 1px 2px rgb(20 20 40 / 0.06), 0 4px 14px -2px rgb(20 20 40 / 0.08);
+  --shadow-2: 0 2px 4px rgb(20 20 40 / 0.06), 0 12px 28px -6px rgb(20 20 40 / 0.14);
+  --shadow-3: 0 4px 8px rgb(20 20 40 / 0.08), 0 24px 56px -12px rgb(20 20 40 / 0.26);
 }
 
 /* Dark mode via system preference */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #000000;
-    --surface: #111111;
-    --border: #222222;
-    --text: #f5f5f5;
-    --muted: #d8d8d8;
+    --bg: #070708;
+    --surface: #1f1f23;
+    --surface-2: #2a2a30;
+    --surface-3: #36363d;
+    --field: #151518;
+    --text: #f4f4f5;
+    --muted: #a3a3ab;
+    --scrim: rgb(0 0 0 / 0.6);
+    --sheen: inset 0 1px 0 rgb(255 255 255 / 0.05);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 18px -4px rgb(0 0 0 / 0.55);
+    --shadow-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 14px 32px -8px rgb(0 0 0 / 0.65);
+    --shadow-3: 0 4px 10px rgb(0 0 0 / 0.55), 0 28px 64px -12px rgb(0 0 0 / 0.75);
   }
 }
 
 /* Dark mode explicitly set by user */
 [data-theme="dark"] {
-  --bg: #000000;
-  --surface: #111111;
-  --border: #222222;
-  --text: #f5f5f5;
-  --muted: #d8d8d8;
+  --bg: #070708;
+  --surface: #1f1f23;
+  --surface-2: #2a2a30;
+  --surface-3: #36363d;
+  --field: #151518;
+  --text: #f4f4f5;
+  --muted: #a3a3ab;
+  --scrim: rgb(0 0 0 / 0.6);
+  --sheen: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 18px -4px rgb(0 0 0 / 0.55);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 14px 32px -8px rgb(0 0 0 / 0.65);
+  --shadow-3: 0 4px 10px rgb(0 0 0 / 0.55), 0 28px 64px -12px rgb(0 0 0 / 0.75);
 }
 
 /* Light mode explicitly set by user */
 [data-theme="light"] {
-  --bg: #eeeeee;
+  --bg: #e6e6ea;
   --surface: #ffffff;
-  --border: #dddddd;
-  --text: #111111;
-  --muted: #666666;
+  --surface-2: #f4f4f6;
+  --surface-3: #ffffff;
+  --field: #eeeef1;
+  --text: #111113;
+  --muted: #62626a;
+  --scrim: rgb(16 16 24 / 0.45);
+  --sheen: 0 0 0 0 transparent;
+  --shadow-1: 0 1px 2px rgb(20 20 40 / 0.06), 0 4px 14px -2px rgb(20 20 40 / 0.08);
+  --shadow-2: 0 2px 4px rgb(20 20 40 / 0.06), 0 12px 28px -6px rgb(20 20 40 / 0.14);
+  --shadow-3: 0 4px 8px rgb(20 20 40 / 0.08), 0 24px 56px -12px rgb(20 20 40 / 0.26);
 }
 
 /* ── Admin theme ─────────────────────────────────────────────
@@ -71,12 +99,18 @@
 :root.admin-theme {
   --accent: #bf4800;
   --on-accent: #ffffff;
-  --bg: #f4f4f4;
+  --bg: #e6e6ea;
   --surface: #ffffff;
-  --surface-2: #ebebeb;
-  --border: #d9d9d9;
-  --text: #111111;
-  --muted: #666666;
+  --surface-2: #f4f4f6;
+  --surface-3: #ffffff;
+  --field: #eeeef1;
+  --text: #111113;
+  --muted: #62626a;
+  --scrim: rgb(16 16 24 / 0.45);
+  --sheen: 0 0 0 0 transparent;
+  --shadow-1: 0 1px 2px rgb(20 20 40 / 0.06), 0 4px 14px -2px rgb(20 20 40 / 0.08);
+  --shadow-2: 0 2px 4px rgb(20 20 40 / 0.06), 0 12px 28px -6px rgb(20 20 40 / 0.14);
+  --shadow-3: 0 4px 8px rgb(20 20 40 / 0.08), 0 24px 56px -12px rgb(20 20 40 / 0.26);
   --danger: #c62828;
   --success: #2e7d32;
   --warning: #a15c00;
@@ -93,12 +127,18 @@
   :root.admin-theme:not([data-theme="light"]) {
     --accent: #ff6200;
     --on-accent: #000000;
-    --bg: #0a0a0a;
-    --surface: #111111;
-    --surface-2: #1a1a1a;
-    --border: #222222;
-    --text: #f5f5f5;
-    --muted: #888888;
+    --bg: #070708;
+    --surface: #1f1f23;
+    --surface-2: #2a2a30;
+    --surface-3: #36363d;
+    --field: #151518;
+    --text: #f4f4f5;
+    --muted: #a3a3ab;
+    --scrim: rgb(0 0 0 / 0.6);
+    --sheen: inset 0 1px 0 rgb(255 255 255 / 0.05);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 18px -4px rgb(0 0 0 / 0.55);
+    --shadow-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 14px 32px -8px rgb(0 0 0 / 0.65);
+    --shadow-3: 0 4px 10px rgb(0 0 0 / 0.55), 0 28px 64px -12px rgb(0 0 0 / 0.75);
     --danger: #f87171;
     --success: #4ade80;
     --warning: #facc15;
@@ -110,12 +150,18 @@
 :root.admin-theme[data-theme="dark"] {
   --accent: #ff6200;
   --on-accent: #000000;
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface-2: #1a1a1a;
-  --border: #222222;
-  --text: #f5f5f5;
-  --muted: #888888;
+  --bg: #070708;
+  --surface: #1f1f23;
+  --surface-2: #2a2a30;
+  --surface-3: #36363d;
+  --field: #151518;
+  --text: #f4f4f5;
+  --muted: #a3a3ab;
+  --scrim: rgb(0 0 0 / 0.6);
+  --sheen: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 18px -4px rgb(0 0 0 / 0.55);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.5), 0 14px 32px -8px rgb(0 0 0 / 0.65);
+  --shadow-3: 0 4px 10px rgb(0 0 0 / 0.55), 0 28px 64px -12px rgb(0 0 0 / 0.75);
   --danger: #f87171;
   --success: #4ade80;
   --warning: #facc15;
@@ -126,10 +172,10 @@
 /* ── Admin overlays (spec 09) ─────────────────────────────────
    Native <dialog> primitive (ADR-027), phone drawer, after-save highlight. */
 .admin-dialog::backdrop {
-  background: rgb(0 0 0 / 0.55);
+  background: var(--scrim);
 }
 .admin-dialog[data-layout="drawer"]::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--scrim);
 }
 
 @keyframes admin-fade-in {
@@ -145,8 +191,8 @@
   to   { transform: none; }
 }
 @keyframes admin-highlight {
-  0%, 60% { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-  100%    { border-color: var(--border); box-shadow: inset 3px 0 0 transparent; }
+  0%, 60% { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent), var(--sheen), var(--shadow-1); }
+  100%    { box-shadow: inset 3px 0 0 transparent, var(--sheen), var(--shadow-1); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -154,14 +200,13 @@
   .admin-dialog::backdrop { animation: admin-fade-in 160ms ease-out; }
   .admin-dialog-panel { animation: admin-dialog-in 180ms ease-out; }
   .admin-drawer-panel { animation: admin-drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .admin-theme [data-highlight="true"] { animation: admin-highlight 2.5s ease-out forwards; }
+  :root.admin-theme [data-highlight="true"] { animation: admin-highlight 2.5s ease-out forwards; }
 }
 
 /* Reduced motion: the highlight is static while it lasts. */
 @media (prefers-reduced-motion: reduce) {
-  .admin-theme [data-highlight="true"] {
-    border-color: var(--accent);
-    box-shadow: inset 3px 0 0 var(--accent);
+  :root.admin-theme [data-highlight="true"] {
+    box-shadow: inset 3px 0 0 var(--accent), var(--sheen), var(--shadow-1);
   }
 }
 
@@ -283,7 +328,7 @@ body {
 .prose-betel li > p { margin: 0; }
 
 .prose-betel blockquote {
-  border-left: 2px solid var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
   padding-left: 0.9em;
   color: var(--muted);
   font-style: italic;
@@ -293,20 +338,19 @@ body {
   font-family: ui-monospace, monospace;
   font-size: 0.82em;
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: var(--sheen), var(--shadow-1);
   padding: 0.1em 0.35em;
-  border-radius: 2px;
   color: var(--text);
 }
 .prose-betel pre {
   background: var(--surface);
-  border: 1px solid var(--border);
+  box-shadow: var(--sheen), var(--shadow-1);
   padding: 0.85em 1em;
   overflow-x: auto;
-  border-radius: 2px;
 }
 .prose-betel pre code {
   background: none;
+  box-shadow: none;
   border: none;
   padding: 0;
   font-size: 0.82em;
@@ -314,7 +358,6 @@ body {
 
 .prose-betel hr {
   border: none;
-  border-top: 1px solid var(--border);
   margin: 1.5em 0;
 }
 
@@ -325,7 +368,6 @@ body {
 }
 .prose-betel th,
 .prose-betel td {
-  border: 1px solid var(--border);
   padding: 0.4em 0.7em;
   text-align: left;
 }
@@ -343,8 +385,7 @@ body {
   background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+  background: var(--surface-3);
 }
 
 /* ── Section preview: swipeable pair of tiles on phones (spec 08, ADR-026) ──
@@ -353,14 +394,6 @@ body {
    Below 640 px a collapsed group shows two small preview tiles (image or date cover, title),
    fanned and overlapping (pure CSS, so the first paint is already collapsed); swiping the top
    tile deals the next ones (useSectionPreview.ts, which mirrors the slot geometry in SLOTS). */
-:root {
-  --hand-shadow: rgba(0, 0, 0, 0.28);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --hand-shadow: rgba(0, 0, 0, 0.85); }
-}
-[data-theme="dark"] { --hand-shadow: rgba(0, 0, 0, 0.85); }
-[data-theme="light"] { --hand-shadow: rgba(0, 0, 0, 0.28); }
 
 /* Heading count "· N" (FR-101), every viewport. */
 .betel-group-count {
@@ -389,32 +422,31 @@ body {
 }
 [data-preview-list] > li { position: relative; }
 
-/* "Vezi toate · N" / "Arată mai puțin" pills. */
+/* "Vezi toate · N" / "Arată mai puțin" buttons. */
 .betel-hand-button {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
   padding: 0.625rem 1.375rem;
-  border: 1px solid var(--text);
-  border-radius: 9999px;
-  background: var(--bg);
+  border: 0;
+  background: var(--surface-2);
   color: var(--text);
   font-family: Lato, sans-serif;
   font-size: 0.6875rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 200ms ease, color 200ms ease;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 .betel-hand-button:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .betel-hand-button--solid {
   background: var(--text);
   color: var(--bg);
-  box-shadow: 0 8px 24px -10px var(--hand-shadow);
+  box-shadow: var(--sheen), var(--shadow-2);
 }
 /* Floats at the bottom of the screen while the open group is on screen (FR-100). */
 .betel-hand-less {
@@ -480,7 +512,7 @@ body {
   [data-preview="hand"] > [data-preview-list] > li[data-depth] {
     visibility: visible;
     opacity: 1;
-    box-shadow: 0 6px 18px -10px var(--hand-shadow);
+    box-shadow: var(--sheen), var(--shadow-1);
     transition: transform 180ms ease-out, opacity 180ms ease-out, box-shadow 200ms ease-out;
   }
   [data-preview="hand"] > [data-preview-list] > li[data-slot] {
@@ -573,7 +605,6 @@ body {
     justify-content: center;
     gap: 0.2rem;
     aspect-ratio: 16 / 9;
-    border-bottom: 1px solid var(--border);
     /* No relative colour syntax: inside a var() an unsupported value would drop the whole
        background. Mixing in oklch with a lavender turns the tint's hue for the last stop. */
     background: linear-gradient(150deg,
@@ -614,3 +645,56 @@ body {
   [data-preview] li[data-slot] > a { transition: none; }
   [data-preview] li[data-slot] > a:hover { transform: none; }
 }
+
+/* Surface hierarchy shared by the client and the server-rendered snapshot. */
+@layer components {
+  .theme-card { background: var(--surface); box-shadow: var(--sheen), var(--shadow-1); }
+  .theme-raised { background: var(--surface-2); box-shadow: var(--sheen), var(--shadow-2); }
+  .theme-overlay { background: var(--surface-3); box-shadow: var(--sheen), var(--shadow-3); }
+  .theme-divider { margin-block: 0.5rem; }
+  .theme-secondary { background: var(--surface-2); }
+  .theme-selected { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent), var(--sheen), var(--shadow-1); }
+}
+
+/* Reset native controls, including the UA border on <dialog>. */
+input, select, textarea, button, dialog, hr { border: 0; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea {
+  background: var(--field);
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus, textarea:focus {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+:root :is(a, button, input, select, textarea, summary, [tabindex], [role="button"], [contenteditable="true"]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.theme-card.theme-selected { background: var(--surface-2); }
+.theme-overlay { background: var(--surface-3); }
+.theme-shadow-3 { box-shadow: var(--sheen), var(--shadow-3); }
+tbody tr:nth-child(odd), .prose-betel tbody tr:nth-child(odd) { background: var(--surface-2); }
+/* Hover feedback only where a pointer can really hover: on touch screens :hover sticks to the last tapped element. */
+@media (hover: hover) {
+  .theme-secondary:hover, .betel-hand-button:hover { background: var(--surface-3); }
+  .theme-card.theme-selected:where(a:hover *, button:hover, [role="button"]:hover, [tabindex]:hover) {
+    box-shadow: inset 3px 0 0 var(--accent), var(--sheen), var(--shadow-2);
+  }
+  .theme-card:where(a:hover *, button:hover, [role="button"]:hover, [tabindex]:hover) {
+    background: var(--surface-2);
+    box-shadow: var(--sheen), var(--shadow-2);
+  }
+}
+
+/* System colours remain visible when forced-colors removes fills and shadows. */
+@media (forced-colors: active) {
+  :is(.theme-card, .theme-raised, .theme-overlay, article, input, select, textarea, button, dialog, [role="dialog"], [role="menu"], [role="listbox"], [data-dialog-panel], .betel-hand-button) {
+    border: 1px solid CanvasText;
+  }
+  .theme-selected, [aria-selected="true"], [aria-current="page"], [aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: 0; }
+input[type="color"]::-moz-color-swatch { border: 0; }

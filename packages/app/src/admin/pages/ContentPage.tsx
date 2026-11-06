@@ -44,7 +44,7 @@ function SiteCircles({ sites, exclusiveSite, availableSites }: { sites: string[]
       >
         <Lock className="w-3 h-3" style={{ color: 'var(--muted)' }} />
         <span
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0 cursor-default ring-1 ring-[var(--text)]/40"
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 cursor-default"
           style={{ backgroundColor: site?.accent ?? '#888' }}
         />
       </div>
@@ -569,23 +569,23 @@ export default function ContentPage() {
               onClick={toggleAllGroups}
               data-testid="toggle-all-groups-btn"
               title={allGroupsCollapsed ? 'Extinde toate grupurile' : 'Restrânge toate grupurile'}
-              className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+              className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors">
               {allGroupsCollapsed ? <><ChevronDown size={14} className="inline" /> Extinde toate</> : <><ChevronUp size={14} className="inline" /> Restrânge toate</>}
             </button>
           )}
           <button
             onClick={() => dialogs.open({ kind: 'newGroup' })}
             data-testid="create-group-btn"
-            className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+            className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                       hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors">
             + Grup nou
           </button>
           <button
             onClick={() => dialogs.open({ kind: 'create', groupId: null })}
             data-testid="create-content-btn"
-            className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+            className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                       hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors">
             + Adaugă
           </button>
         </div>
@@ -739,10 +739,10 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
 
   return (
     <div ref={setSortableRef} style={style}
-         className={`border transition-colors ${isOver ? 'border-[var(--accent)]' : 'border-[var(--border)]'}`}
+         className={`transition-colors ${isOver ? 'theme-selected' : 'theme-card'}`}
          data-testid={`group-block-${entry.id}`}
          data-highlight={highlightedId === entry.id ? 'true' : undefined}>
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
+      <div className="flex items-center gap-2 px-3 py-2 theme-divider">
         <button ref={setActivatorNodeRef} {...listeners} {...attributes}
           className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
           aria-label="Reordonează grup">
@@ -765,7 +765,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           onClick={onSortChronological}
           data-testid={`group-sort-chronological-${entry.id}`}
           title="Sortează cronologic"
-          className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1 rounded"
+          className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
           aria-label="Sortează cronologic"
         >
           <ArrowUpDown size={14} />
@@ -774,7 +774,7 @@ function SortableGroupBlock({ entry, availableSites, isCollapsed, onToggleCollap
           onClick={onAddContent}
           data-testid={`group-add-content-${entry.id}`}
           title="Adaugă conținut în grup"
-          className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1 rounded"
+          className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
           aria-label="Adaugă conținut în grup"
         >
           <Plus size={14} />
@@ -842,13 +842,13 @@ function ItemContextMenu({ itemId, onEdit, onDelete, onPublish, onArchive, onDup
       <button
         data-testid={`item-menu-trigger-${itemId}`}
         onClick={() => setOpen(v => !v)}
-        className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1 rounded"
+        className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
         aria-label="Opțiuni"
       >
         <Settings size={14} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[120px] bg-[var(--surface)] border border-[var(--border)] shadow-lg">
+        <div className="absolute right-0 top-full mt-1 z-50 min-w-[120px] theme-overlay">
           {itemState !== 'published' && (
             <button
               data-testid={`item-menu-publish-${itemId}`}
@@ -920,13 +920,13 @@ function GroupContextMenu({ groupId, onEdit, onDelete }: {
       <button
         data-testid={`group-menu-trigger-${groupId}`}
         onClick={() => setOpen(v => !v)}
-        className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1 rounded"
+        className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
         aria-label="Opțiuni grup"
       >
         <Settings size={14} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-[var(--surface)] border border-[var(--border)] shadow-lg">
+        <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] theme-overlay">
           <button
             data-testid={`group-menu-edit-${groupId}`}
             onClick={() => { setOpen(false); onEdit() }}
@@ -974,7 +974,7 @@ function SortableContentRow({ item, dragData, groupItems, availableSites = [], h
 
   return (
     <li ref={setNodeRef} style={style}
-        className="flex items-center gap-4 border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+        className="flex items-center gap-4 theme-card bg-[var(--surface)] px-4 py-3"
         data-testid={`content-row-${item.id}`}
         data-highlight={highlighted ? 'true' : undefined}>
       <button ref={setActivatorNodeRef} {...listeners} {...attributes}
@@ -1009,9 +1009,9 @@ function SortableContentRow({ item, dragData, groupItems, availableSites = [], h
           data-testid={`publish-toggle-${item.id}`}
           onClick={onTogglePublish}
           title={item.state === 'published' ? 'Depublică' : 'Publică'}
-          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
+          className={`relative inline-flex h-5 w-9 p-0.5 flex-shrink-0 cursor-pointer
             transition-colors duration-200 focus:outline-none
-            ${item.state === 'published' ? 'bg-green-500' : 'bg-[var(--border)]'}`}
+            ${item.state === 'published' ? 'bg-green-500' : 'bg-[var(--surface-2)]'}`}
         >
           <span
             className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200
@@ -1042,7 +1042,7 @@ function ContentRowOverlay({ item }: { item: ContentItem }) {
     : item.state === 'archived' ? 'text-[var(--muted)]'
     : item.state === 'deleted' ? 'text-[var(--danger)]' : 'text-[var(--warning)]'
   return (
-    <li className="flex items-center gap-4 border border-[var(--accent)] bg-[var(--surface)] px-4 py-3 opacity-90 list-none">
+    <li className="flex items-center gap-4 theme-selected px-4 py-3 opacity-90 list-none">
       <span className="flex-shrink-0 text-[var(--muted)] p-1"><GripVertical size={16} /></span>
       <span title={item.type} className="w-8 flex-shrink-0 flex items-center text-[var(--muted)]"><ContentTypeIcon type={item.type} /></span>
       <span className="flex-1 text-sm font-content truncate">{(item.data as any).title ?? (item.data as any).name ?? (item.data as any).url ?? item.id}</span>
@@ -1053,7 +1053,7 @@ function ContentRowOverlay({ item }: { item: ContentItem }) {
 
 function GroupBlockOverlay({ title }: { title: string }) {
   return (
-    <div className="border border-[var(--accent)] bg-[var(--surface)] opacity-90">
+    <div className="theme-selected opacity-90">
       <div className="flex items-center gap-2 px-3 py-2">
         <span className="text-[var(--muted)] p-1"><GripVertical size={16} /></span>
         <span className="text-xs tracking-widest uppercase font-content font-bold">{title}</span>

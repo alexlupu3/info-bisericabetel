@@ -30,7 +30,7 @@ export default function VideoItem({ item, showSiteLabel = false, headingLevel = 
           title={d.title ?? 'Video'}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          className="absolute inset-0 w-full h-full border-0"
+          className="absolute inset-0 w-full h-full"
           loading="lazy"
         />
       </div>

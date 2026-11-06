@@ -42,9 +42,9 @@ export default function LoginPage() {
               type="email" required value={email}
               onChange={e => setEmail(e.target.value)}
               data-testid="login-email"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3
+              className="w-full bg-[var(--field)] px-4 py-3
                          text-base font-content text-[var(--text)] focus:outline-none
-                         focus:border-[var(--accent)]"
+                         "
             />
           </div>
           <div>
@@ -55,16 +55,16 @@ export default function LoginPage() {
               type="password" required value={password}
               onChange={e => setPassword(e.target.value)}
               data-testid="login-password"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3
+              className="w-full bg-[var(--field)] px-4 py-3
                          text-base font-content text-[var(--text)] focus:outline-none
-                         focus:border-[var(--accent)]"
+                         "
             />
           </div>
           <button
             type="submit" disabled={busy}
             data-testid="login-submit"
-            className="w-full py-3 border border-[var(--text)] text-xs tracking-widest
-                       uppercase font-content hover:border-[var(--accent)]
+            className="w-full py-3 theme-secondary text-xs tracking-widest
+                       uppercase font-content hover:bg-[var(--surface-3)]
                        hover:text-[var(--accent)] transition-colors disabled:opacity-40"
           >
             {busy ? 'Se autentifică…' : 'Autentificare'}

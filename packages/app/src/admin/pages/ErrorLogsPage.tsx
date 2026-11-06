@@ -93,8 +93,8 @@ export default function ErrorLogsPage() {
           placeholder="Filtrează după site (slug)…"
           value={siteFilter}
           onChange={handleSiteFilter}
-          className="border border-[var(--border)] bg-transparent text-base font-content px-3 py-1.5
-                     placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]
+          className=" bg-[var(--field)] text-base font-content px-3 py-1.5
+                     placeholder:text-[var(--muted)] focus:outline-none
                      transition-colors w-64"
         />
       </div>
@@ -111,7 +111,7 @@ export default function ErrorLogsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-content border-collapse" data-testid="error-logs-table">
               <thead>
-                <tr className="border-b border-[var(--border)]">
+                <tr className="theme-divider">
                   <th className="text-left px-3 py-2 text-xs uppercase tracking-widest text-[var(--muted)] font-normal whitespace-nowrap">
                     Data / Ora
                   </th>
@@ -144,7 +144,7 @@ export default function ErrorLogsPage() {
                   <tr
                     key={log.id}
                     data-testid={`error-log-row-${log.id}`}
-                    className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors align-top">
+                    className="theme-divider hover:bg-[var(--surface)] transition-colors align-top">
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-[var(--muted)]">
                       {formatDate(log.occurredAt)}
                     </td>
@@ -173,8 +173,8 @@ export default function ErrorLogsPage() {
             <button
               onClick={() => setOffset(o => Math.max(0, o - PAGE_SIZE))}
               disabled={offset === 0}
-              className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] transition-colors disabled:opacity-30">
+              className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] transition-colors disabled:opacity-30">
               ← Anterior
             </button>
             <span className="text-xs font-content text-[var(--muted)]">
@@ -183,8 +183,8 @@ export default function ErrorLogsPage() {
             <button
               onClick={() => setOffset(o => o + PAGE_SIZE)}
               disabled={!hasMore}
-              className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] transition-colors disabled:opacity-30">
+              className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] transition-colors disabled:opacity-30">
               Următor →
             </button>
           </div>

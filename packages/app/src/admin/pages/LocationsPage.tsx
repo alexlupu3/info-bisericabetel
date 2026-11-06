@@ -64,7 +64,7 @@ function SiteCard({ site }: { site: Site }) {
   const filledStructured = STRUCTURED_FIELDS.filter(f => site[f.key] !== null && site[f.key] !== undefined && site[f.key] !== '')
 
   return (
-    <div className="border border-[var(--border)] p-4" data-testid={`site-card-${site.slug}`}>
+    <div className="theme-card p-4" data-testid={`site-card-${site.slug}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <span
@@ -111,7 +111,7 @@ function SiteCard({ site }: { site: Site }) {
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
             />
           </div>
           <div className="space-y-1">
@@ -121,12 +121,12 @@ function SiteCard({ site }: { site: Site }) {
                 type="color"
                 value={accent}
                 onChange={e => setAccent(e.target.value)}
-                className="w-10 h-10 border border-[var(--border)] bg-[var(--surface)] cursor-pointer p-1"
+                className="w-10 h-10 bg-[var(--field)] cursor-pointer p-1"
               />
               <input
                 value={accent}
                 onChange={e => setAccent(e.target.value)}
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-mono"
+                className="flex-1 bg-[var(--field)] px-3 py-2 text-base font-mono"
               />
             </div>
           </div>
@@ -136,10 +136,10 @@ function SiteCard({ site }: { site: Site }) {
               value={address}
               onChange={e => setAddress(e.target.value)}
               placeholder="ex: Str. Exemplu nr. 1, Cluj-Napoca"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
             />
           </div>
-          <fieldset className="space-y-3 border-t border-[var(--border)] pt-3">
+          <fieldset className="space-y-3 theme-divider pt-3">
             <legend className="text-xs tracking-widest uppercase font-content text-[var(--muted)] pr-2">
               Adresă structurată (opțional)
             </legend>
@@ -159,7 +159,7 @@ function SiteCard({ site }: { site: Site }) {
                     onChange={e => setStructured(prev => ({ ...prev, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     inputMode={f.numeric ? 'decimal' : undefined}
-                    className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+                    className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
                   />
                 </div>
               ))}
@@ -169,8 +169,8 @@ function SiteCard({ site }: { site: Site }) {
             <button
               onClick={save}
               disabled={updateMut.isPending || !name}
-              className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40">
+              className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors disabled:opacity-40">
               {updateMut.isPending ? 'Se salvează…' : 'Salvează'}
             </button>
             <button

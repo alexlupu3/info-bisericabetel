@@ -54,27 +54,27 @@ export default function SetupPage({ onDone }: { onDone: () => void }) {
             type="email" value={email} onChange={e => setEmail(e.target.value)}
             placeholder="Email"
             data-testid="setup-email"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
-                       focus:border-[var(--text)] outline-none transition-colors" />
+            className="w-full bg-[var(--field)] px-4 py-3 text-base font-content
+                        outline-none transition-colors" />
           <input
             type="password" value={password} onChange={e => setPassword(e.target.value)}
             placeholder="Parolă (min. 8 caractere)"
             data-testid="setup-password"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
-                       focus:border-[var(--text)] outline-none transition-colors" />
+            className="w-full bg-[var(--field)] px-4 py-3 text-base font-content
+                        outline-none transition-colors" />
           <input
             type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
             placeholder="Confirmă parola"
             data-testid="setup-confirm"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content
-                       focus:border-[var(--text)] outline-none transition-colors" />
+            className="w-full bg-[var(--field)] px-4 py-3 text-base font-content
+                        outline-none transition-colors" />
         </div>
 
         <button
           onClick={submit} disabled={busy || !email || !password}
           data-testid="setup-submit"
-          className="w-full py-3 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors
+          className="w-full py-3 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors
                      disabled:opacity-40">
           {busy ? 'Se configurează…' : 'Creează cont'}
         </button>

@@ -110,7 +110,7 @@ describe('Admin — Translations page', () => {
 
     // Find the hero.subtitle key row and type a translation
     cy.contains('hero.subtitle')
-      .closest('div.border')
+      .closest('div.theme-card')
       .find('input')
       .first()
       .clear()

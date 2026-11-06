@@ -73,7 +73,7 @@ export default function ArchivePage() {
           <li
             key={item.id}
             data-testid={`archive-row-${item.id}`}
-            className="flex items-center gap-4 border border-[var(--border)] px-4 py-3"
+            className="flex items-center gap-4 theme-card px-4 py-3"
           >
             <span className="w-8 flex-shrink-0 flex items-center text-[var(--muted)]">
               <ContentTypeIcon type={item.type} />

@@ -57,7 +57,7 @@ export function NavMenu({ role, collapsed, onLinkClick, activeLinkRef }: {
       {groups.map((g, i) => {
         const headingId = `${baseId}-${g.id}`
         return (
-          <div key={g.id} className={i > 0 ? (collapsed ? 'mt-2 pt-2 border-t border-[var(--border)] mx-3' : 'mt-4') : ''}>
+          <div key={g.id} className={i > 0 ? (collapsed ? 'mt-2 pt-2 theme-divider mx-3' : 'mt-4') : ''}>
             <h2
               id={headingId}
               className={collapsed
@@ -129,7 +129,7 @@ export function NavFooter({ user, collapsed, onLogout }: { user: User; collapsed
   const themeLabel = theme === 'dark' ? 'Temă luminoasă' : 'Temă întunecată'
 
   return (
-    <div className="border-t border-[var(--border)] py-2" data-testid="nav-footer">
+    <div className="theme-divider py-2" data-testid="nav-footer">
       <div
         ref={el => { userTip.anchor.current = el }}
         tabIndex={collapsed ? 0 : undefined}
@@ -138,8 +138,8 @@ export function NavFooter({ user, collapsed, onLogout }: { user: User; collapsed
       >
         {collapsed ? (
           <span
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold uppercase border
-              ${superAdmin ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-[var(--border)] text-[var(--muted)]'}`}
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold uppercase
+              ${superAdmin ? 'theme-selected text-[var(--accent)]' : 'theme-card text-[var(--muted)]'}`}
           >
             <span aria-hidden="true">{user.email.charAt(0)}</span>
             <span className="sr-only">{user.email}, {roleLabel}</span>
@@ -148,8 +148,8 @@ export function NavFooter({ user, collapsed, onLogout }: { user: User; collapsed
           <span className="flex-1 min-w-0 truncate text-xs font-content" data-testid="nav-user-email">{user.email}</span>
           <span
             data-testid="nav-user-role"
-            className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] tracking-wider uppercase font-content border
-              ${superAdmin ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-[var(--border)] text-[var(--muted)]'}`}
+            className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] tracking-wider uppercase font-content
+              ${superAdmin ? 'theme-selected text-[var(--accent)]' : 'theme-card text-[var(--muted)]'}`}
           >
             {roleLabel}
           </span>

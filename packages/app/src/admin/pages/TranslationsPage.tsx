@@ -115,36 +115,36 @@ export default function TranslationsPage() {
           <h2 className="text-xl font-bold">Limbi</h2>
           <button
             onClick={() => setAddingLang(true)}
-            className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+            className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                       hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors"
           >
             + Adaugă limbă
           </button>
         </div>
 
         {addingLang && (
-          <div className="border border-[var(--border)] p-4 mb-4 space-y-3">
+          <div className="theme-card p-4 mb-4 space-y-3">
             <div className="flex gap-3">
               <input
                 value={newCode}
                 onChange={e => setNewCode(e.target.value)}
                 placeholder="Cod (ex: en)"
                 maxLength={5}
-                className="w-20 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+                className="w-20 bg-[var(--field)] px-3 py-2 text-base font-content"
               />
               <input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 placeholder="Denumire (ex: English)"
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+                className="flex-1 bg-[var(--field)] px-3 py-2 text-base font-content"
               />
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => createLangMut.mutate()}
                 disabled={!newCode.trim() || !newName.trim() || createLangMut.isPending}
-                className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                           hover:border-[var(--accent)] transition-colors disabled:opacity-40"
+                className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                           hover:bg-[var(--surface-3)] transition-colors disabled:opacity-40"
               >
                 {createLangMut.isPending ? 'Se adaugă...' : 'Adaugă'}
               </button>
@@ -166,7 +166,7 @@ export default function TranslationsPage() {
           {languages.map(lang => (
             <li
               key={lang.code}
-              className="flex items-center gap-4 border border-[var(--border)] px-4 py-3"
+              className="flex items-center gap-4 theme-card px-4 py-3"
             >
               <span className="text-xs tracking-widest uppercase font-content text-[var(--muted)] w-10">
                 {lang.code}
@@ -212,8 +212,8 @@ export default function TranslationsPage() {
               <button
                 onClick={() => generateMut.mutate()}
                 disabled={generateMut.isPending}
-                className="px-4 py-2 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                           hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
+                className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                           hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
               >
                 {generateMut.isPending ? 'Se generează...' : 'Generează lipsă'}
               </button>
@@ -222,8 +222,8 @@ export default function TranslationsPage() {
               <button
                 onClick={() => saveMut.mutate()}
                 disabled={saveMut.isPending}
-                className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                           hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
+                className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                           hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors disabled:opacity-40"
               >
                 {saveMut.isPending ? 'Se salvează...' : 'Salvează'}
               </button>
@@ -244,7 +244,7 @@ export default function TranslationsPage() {
         {nonDefaultLanguages.length > 0 && (
           <div className="space-y-4">
             {allKeys.map(key => (
-              <div key={key} className="border border-[var(--border)] p-4 space-y-2">
+              <div key={key} className="theme-card p-4 space-y-2">
                 <p className="text-xs tracking-widest uppercase font-content text-[var(--muted)]">
                   {key}
                 </p>
@@ -262,7 +262,7 @@ export default function TranslationsPage() {
                       value={getValue(key, lang.code)}
                       onChange={e => setEdit(key, lang.code, e.target.value)}
                       placeholder={`Traducere ${lang.name}`}
-                      className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+                      className="flex-1 bg-[var(--field)] px-3 py-2 text-base font-content"
                     />
                   </div>
                 ))}

@@ -16,11 +16,11 @@ export default function AdminSidebar({ user, onLogout }: { user: User; onLogout:
       data-testid="admin-sidebar"
       data-state={collapsed ? 'collapsed' : 'expanded'}
       className={`sticky top-0 h-[100dvh] flex-shrink-0 flex flex-col overflow-y-auto overflow-x-hidden
-        bg-[var(--surface)] border-r border-[var(--border)] z-[var(--z-sidebar)]
+        theme-card z-[var(--z-sidebar)]
         transition-[width] duration-200 ease-out motion-reduce:transition-none
         ${collapsed ? 'w-16' : 'w-60'}`}
     >
-      <div className={`flex items-center h-14 flex-shrink-0 border-b border-[var(--border)] ${collapsed ? 'flex-col justify-center gap-1 h-auto py-3' : 'justify-between pl-5 pr-3'}`}>
+      <div className={`flex items-center h-14 flex-shrink-0 theme-divider ${collapsed ? 'flex-col justify-center gap-1 h-auto py-3' : 'justify-between pl-5 pr-3'}`}>
         {collapsed ? (
           <span className="text-sm betel-title-bold leading-none" aria-label="Betel admin">
             B<span aria-hidden="true" className="block w-3 h-0.5 mt-1 mx-auto bg-[var(--accent)]" />

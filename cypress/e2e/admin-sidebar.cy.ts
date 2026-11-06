@@ -250,6 +250,9 @@ describe('Admin sidebar — phone FAB and drawer', () => {
     const items = Array.from({ length: 12 }, (_, i) => contentItem(`i${i}`, `Element ${i}`, { orderPosition: i }))
     stubAdmin({ role: 'admin', items })
     visitAdmin('/admin/content')
+    // Wait for the last row to render and the page height to settle before scrolling to the end.
+    cy.get('[data-testid="item-menu-trigger-i11"]').should('exist')
+    cy.wait(500)
     cy.scrollTo('bottom')
     // No auto-scroll: the trigger must be clickable where it is after scrolling to the end.
     cy.get('[data-testid="item-menu-trigger-i11"]').click({ scrollBehavior: false })

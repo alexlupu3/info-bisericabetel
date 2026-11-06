@@ -106,7 +106,7 @@ export default function ShortLinkPreviewPanel({ itemId, link, shortUrl, language
   return (
     <div
       data-testid={`short-link-preview-${link.id}`}
-      className="border-t border-[var(--border)] px-3 py-4 space-y-4 bg-[var(--surface)]"
+      className="theme-divider px-3 py-4 space-y-4 bg-[var(--surface)]"
     >
       <div className="grid gap-4 sm:grid-cols-[minmax(0,20rem)_1fr]">
         {/* Share card, styled like a chat link bubble */}
@@ -116,15 +116,15 @@ export default function ShortLinkPreviewPanel({ itemId, link, shortUrl, language
           {preview && (preview.willPreview ? (
             <div
               data-testid="short-link-share-card"
-              className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg)]"
+              className="overflow-hidden theme-card"
             >
               <img
                 src={preview.imageUrl}
                 alt=""
                 loading="lazy"
-                className="block w-full aspect-[1.91/1] object-cover bg-[var(--border)]"
+                className="block w-full aspect-[1.91/1] object-cover bg-[var(--surface-2)]"
               />
-              <div className="border-l-2 border-[var(--accent)] mx-2 my-2 pl-2 space-y-0.5">
+              <div className="theme-selected mx-2 my-2 pl-2 space-y-0.5">
                 <p className="text-sm font-content font-bold leading-snug line-clamp-2">{preview.title}</p>
                 {preview.description && (
                   <p className="text-xs font-content text-[var(--muted)] leading-snug line-clamp-2">
@@ -139,7 +139,7 @@ export default function ShortLinkPreviewPanel({ itemId, link, shortUrl, language
           ) : (
             <div
               data-testid="short-link-preview-fallback"
-              className="border border-dashed border-[var(--border)] px-3 py-3 text-xs font-content text-[var(--muted)]"
+              className="theme-card px-3 py-3 text-xs font-content text-[var(--muted)]"
             >
               <p>Se va folosi previzualizarea paginii destinație</p>
               {preview.reason && <p className="mt-1 italic">— {REASON_LABELS[preview.reason]}</p>}
@@ -165,7 +165,7 @@ export default function ShortLinkPreviewPanel({ itemId, link, shortUrl, language
                 value={effectiveLocale}
                 onChange={e => setLocale(e.target.value)}
                 data-testid="short-link-preview-locale"
-                className="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-sm font-content"
+                className="bg-[var(--field)] px-3 py-1.5 text-sm font-content"
               >
                 {languages.map(l => (
                   <option key={l.code} value={l.code}>{l.name} ({l.code.toUpperCase()})</option>

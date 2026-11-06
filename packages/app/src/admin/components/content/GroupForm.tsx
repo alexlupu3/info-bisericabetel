@@ -50,7 +50,7 @@ export default function GroupForm({ groupId, initialTitle = '', initialSites = [
             placeholder={isEdit ? undefined : 'ex. Anunțuri duminică'}
             data-testid={isEdit ? `edit-group-title-${groupId}` : 'create-group-title'}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
-            className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content"
+            className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
           />
         </div>
         {availableSites.length > 0 && (
@@ -100,8 +100,8 @@ export default function GroupForm({ groupId, initialTitle = '', initialSites = [
           </button>
           <button type="button" onClick={submit} disabled={!canSubmit}
             data-testid={isEdit ? `edit-group-save-${groupId}` : 'create-group-submit'}
-            className="px-5 py-2 border border-[var(--text)] bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent)] transition-colors disabled:opacity-40 disabled:pointer-events-none">
+            className="px-5 py-2 bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
+                        hover:bg-[var(--accent)] hover:text-[var(--on-accent)] transition-colors disabled:opacity-40 disabled:pointer-events-none">
             {busy ? 'Se salvează…' : isEdit ? 'Salvează' : 'Creează'}
           </button>
         </div>

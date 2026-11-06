@@ -7,7 +7,7 @@ export const DRAWER_ID = 'admin-nav-drawer'
 /** Round FAB geometry shared by the FAB and the drawer's × (drawn at the same spot). */
 export const FAB_CLASS = `fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))]
   w-14 h-14 rounded-full items-center justify-center
-  bg-[var(--text)] text-[var(--bg)] shadow-lg
+  bg-[var(--text)] text-[var(--bg)] theme-shadow-3
   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)]`
 
 export function FabFace({ open }: { open: boolean }): ReactNode {

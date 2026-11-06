@@ -33,8 +33,8 @@ export default function UsersPage() {
         <button
           onClick={() => setCreating(true)}
           data-testid="create-user-btn"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+          className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors">
           + Adaugă
         </button>
       </div>
@@ -47,11 +47,11 @@ export default function UsersPage() {
       )}
 
       {resetResult && (
-        <div className="border border-[var(--border)] p-4 mb-6 space-y-4" data-testid="reset-password-display">
+        <div className="theme-card p-4 mb-6 space-y-4" data-testid="reset-password-display">
           <p className="text-sm font-content text-[var(--success)]">Parola a fost resetată pentru <strong>{resetResult.email}</strong>.</p>
           <div className="space-y-1">
             <p className="text-xs font-content text-[var(--muted)] uppercase tracking-widest">Parolă temporară</p>
-            <p className="font-mono text-lg tracking-wider border border-[var(--border)] px-4 py-2 bg-[var(--surface)] select-all"
+            <p className="font-mono text-lg tracking-wider theme-card px-4 py-2 bg-[var(--surface)] select-all"
                data-testid="reset-password-value">
               {resetResult.tempPassword}
             </p>
@@ -60,8 +60,8 @@ export default function UsersPage() {
             </p>
           </div>
           <button onClick={() => setResetResult(null)}
-            className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] transition-colors">
+            className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                       hover:bg-[var(--surface-3)] transition-colors">
             Gata
           </button>
         </div>
@@ -73,7 +73,7 @@ export default function UsersPage() {
         {users.map(user => (
           <li key={user.id}
               data-testid={`user-row-${user.id}`}
-              className="flex items-center gap-4 border border-[var(--border)] px-4 py-3">
+              className="flex items-center gap-4 theme-card px-4 py-3">
             <span className="flex-1 text-sm font-content">{user.email}</span>
             <span className="text-xs tracking-widest uppercase font-content text-[var(--muted)] flex-shrink-0">
               {user.role}
@@ -122,11 +122,11 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
 
   if (tempPassword) {
     return (
-      <div className="border border-[var(--border)] p-4 mb-6 space-y-4" data-testid="temp-password-display">
+      <div className="theme-card p-4 mb-6 space-y-4" data-testid="temp-password-display">
         <p className="text-sm font-content text-[var(--success)]">Utilizator creat cu succes.</p>
         <div className="space-y-1">
           <p className="text-xs font-content text-[var(--muted)] uppercase tracking-widest">Parolă temporară</p>
-          <p className="font-mono text-lg tracking-wider border border-[var(--border)] px-4 py-2 bg-[var(--surface)] select-all"
+          <p className="font-mono text-lg tracking-wider theme-card px-4 py-2 bg-[var(--surface)] select-all"
              data-testid="temp-password-value">
             {tempPassword}
           </p>
@@ -135,8 +135,8 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
           </p>
         </div>
         <button onClick={onCreated}
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] transition-colors">
+          className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] transition-colors">
           Gata
         </button>
       </div>
@@ -144,24 +144,24 @@ function CreateUserForm({ onClose, onCreated }: { onClose: () => void; onCreated
   }
 
   return (
-    <div className="border border-[var(--border)] p-4 mb-6 space-y-3" data-testid="create-user-form">
+    <div className="theme-card p-4 mb-6 space-y-3" data-testid="create-user-form">
       {error && <p className="text-[var(--danger)] text-sm font-content" data-testid="create-user-error">{error}</p>}
       <input
         value={email} onChange={e => setEmail(e.target.value)}
         placeholder="Email"
         type="email"
         data-testid="create-user-email"
-        className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+        className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
       <select value={role} onChange={e => setRole(e.target.value)}
         data-testid="create-user-role"
-        className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
+        className="bg-[var(--field)] px-3 py-2 text-base font-content">
         {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
       </select>
       <div className="flex gap-3">
         <button onClick={submit} disabled={busy || !email}
           data-testid="create-user-submit"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] transition-colors disabled:opacity-40">
+          className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] transition-colors disabled:opacity-40">
           {busy ? 'Se creează…' : 'Creează'}
         </button>
         <button onClick={onClose}

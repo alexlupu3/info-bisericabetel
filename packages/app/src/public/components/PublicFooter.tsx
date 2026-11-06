@@ -9,7 +9,7 @@ export default function PublicFooter({ sites }: { sites: Site[] }) {
   const { t } = useLanguage()
   const { theme, toggle } = useTheme()
   return (
-    <footer className="border-t border-[var(--border)]">
+    <footer className="theme-divider">
       <div className="max-w-4xl mx-auto w-full px-5 py-6">
         <SiteAddressList sites={sites} />
         <div className="flex items-center justify-between">

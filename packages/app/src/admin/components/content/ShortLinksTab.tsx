@@ -91,15 +91,15 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
         </p>
         <button
           onClick={() => setCreating(v => !v)}
-          className="px-3 py-1.5 border border-[var(--border)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+          className="px-3 py-1.5 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors"
         >
           + Link nou
         </button>
       </div>
 
       {creating && (
-        <div className="border border-[var(--border)] p-3 space-y-3 bg-[var(--surface)]">
+        <div className="theme-card p-3 space-y-3 bg-[var(--surface)]">
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">
               Etichetă *
@@ -111,7 +111,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
               autoFocus
               data-testid="short-link-label-input"
               onKeyDown={e => { if (e.key === 'Enter' && label.trim()) submitCreate() }}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content"
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
             />
           </div>
 
@@ -124,7 +124,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
                 value={siteSlug ?? ''}
                 onChange={e => setSiteSlug(e.target.value || null)}
                 data-testid="short-link-site-select"
-                className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-base font-content"
+                className="w-full bg-[var(--field)] px-3 py-2 text-base font-content"
               >
                 <option value="">Link implicit</option>
                 {sitesWithOverrides.map(s => (
@@ -148,8 +148,8 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
               onClick={submitCreate}
               disabled={!label.trim() || createMut.isPending}
               data-testid="short-link-create-btn"
-              className="px-3 py-1.5 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] transition-colors disabled:opacity-40"
+              className="px-3 py-1.5 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] transition-colors disabled:opacity-40"
             >
               {createMut.isPending ? 'Se creează…' : 'Creează'}
             </button>
@@ -176,7 +176,7 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
             return (
               <div
                 key={link.id}
-                className="border border-[var(--border)] text-sm font-content"
+                className="theme-card text-sm font-content"
                 data-testid={`short-link-row-${link.id}`}
               >
                 <div className="flex items-center gap-3 px-3 py-2">
@@ -194,10 +194,10 @@ export default function ShortLinksTab({ itemId, itemData, availableSites }: Prop
                     onClick={() => setExpandedId(expanded ? null : link.id)}
                     aria-expanded={expanded}
                     data-testid={`short-link-preview-toggle-${link.id}`}
-                    className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 border text-[10px] tracking-widest uppercase
+                    className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-[10px] tracking-widest uppercase
                                 transition-colors ${expanded
-                                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                                  : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]'}`}
+                                  ? 'theme-selected text-[var(--accent)]'
+                                  : 'theme-secondary text-[var(--muted)] hover:text-[var(--text)]'}`}
                   >
                     Previzualizare
                     <ChevronDown size={11} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />

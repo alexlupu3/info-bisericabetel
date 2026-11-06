@@ -41,13 +41,13 @@ export default function ChangePasswordPage() {
             {error && <p className="text-[var(--danger)] text-sm font-content">{error}</p>}
             <input type="password" placeholder="Parola actuală" required value={current}
               onChange={e => setCurrent(e.target.value)}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content" />
+              className="w-full bg-[var(--field)] px-4 py-3 text-base font-content" />
             <input type="password" placeholder="Parola nouă (min. 8 caractere)" required value={next}
               onChange={e => setNext(e.target.value)} minLength={8}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-4 py-3 text-base font-content" />
+              className="w-full bg-[var(--field)] px-4 py-3 text-base font-content" />
             <button type="submit" disabled={busy}
-              className="w-full py-3 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                         hover:border-[var(--accent)] transition-colors disabled:opacity-40">
+              className="w-full py-3 theme-secondary text-xs tracking-widest uppercase font-content
+                         hover:bg-[var(--surface-3)] transition-colors disabled:opacity-40">
               {busy ? 'Se salvează…' : 'Salvează parola'}
             </button>
           </form>

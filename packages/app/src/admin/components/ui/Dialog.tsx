@@ -158,7 +158,7 @@ export default function Dialog({
       aria-labelledby={ariaLabel ? undefined : titleId}
       aria-label={ariaLabel}
       aria-describedby={description ? descId : undefined}
-      className={`admin-dialog m-0 p-0 border-0 bg-transparent w-full h-full max-w-none max-h-none overflow-hidden
+      className={`admin-dialog m-0 p-0 bg-transparent w-full h-full max-w-none max-h-none overflow-hidden
         text-[var(--text)] open:flex ${isDrawer
           ? 'justify-end'
           : 'items-stretch justify-center md:items-center md:p-6'}`}
@@ -197,13 +197,13 @@ export default function Dialog({
       <div
         data-dialog-panel
         className={isDrawer
-          ? 'admin-drawer-panel relative flex flex-col h-full w-[84%] max-w-[320px] bg-[var(--surface)] border-l border-[var(--border)]'
-          : `admin-dialog-panel relative flex flex-col w-full h-[100dvh] bg-[var(--bg)]
-             md:h-auto md:max-h-[calc(100dvh-3rem)] md:border md:border-[var(--border)] md:shadow-2xl ${PANEL_WIDTH[layout]}`}
+          ? 'admin-drawer-panel relative flex flex-col h-full w-[84%] max-w-[320px] theme-overlay'
+          : `admin-dialog-panel relative flex flex-col w-full h-[100dvh] theme-overlay
+             md:h-auto md:max-h-[calc(100dvh-3rem)] ${PANEL_WIDTH[layout]}`}
       >
         <div ref={mainRef} className="flex flex-col flex-1 min-h-0">
           {header && (
-            <div className="flex items-start gap-3 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[var(--border)] flex-shrink-0">
+            <div className="flex items-start gap-3 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] theme-divider flex-shrink-0">
               <div className="flex-1 min-w-0">
                 <h2 id={titleId} className="text-sm font-bold uppercase tracking-widest">{title}</h2>
                 <span aria-hidden="true" className="block w-6 h-0.5 mt-2 bg-[var(--accent)]" />
@@ -248,7 +248,7 @@ export function DialogBody({ children, className = '' }: { children: ReactNode; 
 /** The fixed bottom bar of a dialog (sticky on the phone sheet). */
 export function DialogFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[var(--border)] bg-[var(--bg)] flex-shrink-0">
+    <div className="flex flex-wrap items-center gap-3 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] theme-divider bg-[var(--surface-2)] flex-shrink-0">
       {children}
     </div>
   )

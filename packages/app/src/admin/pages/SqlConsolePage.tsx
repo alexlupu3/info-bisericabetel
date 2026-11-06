@@ -39,7 +39,7 @@ function ErrorLocation({ query, line, column }: { query: string; line: number; c
 function ErrorPanel({ error, query }: { error: SqlQueryError; query: string }) {
   return (
     <div data-testid="sql-error" data-kind={error.kind}
-      className="border border-[var(--border)] border-l-2 border-l-[var(--accent)] p-4 mb-6">
+      className="theme-card theme-selected p-4 mb-6">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-1">
         <span className="text-xs uppercase tracking-widest font-content text-[var(--accent)]">
           {ERROR_LABELS[error.kind]}
@@ -78,10 +78,10 @@ function ResultTable({ result }: { result: SqlQueryResult }) {
         </p>
       )}
       {columns.length > 0 && (
-        <div className="overflow-x-auto border border-[var(--border)]">
+        <div className="overflow-x-auto theme-card">
           <table data-testid="sql-result-table" className="w-full text-xs font-mono border-collapse">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--surface)]">
+              <tr className="theme-divider bg-[var(--surface)]">
                 {columns.map(c => (
                   <th key={c} className="text-left px-3 py-2 font-normal text-[var(--muted)] whitespace-nowrap">{c}</th>
                 ))}
@@ -92,7 +92,7 @@ function ResultTable({ result }: { result: SqlQueryResult }) {
                 <tr><td colSpan={columns.length} className="px-3 py-4 text-center text-[var(--muted)] font-content">Niciun rând.</td></tr>
               )}
               {result.rows.map((row, i) => (
-                <tr key={i} className="border-b border-[var(--border)] last:border-b-0 align-top hover:bg-[var(--surface)]">
+                <tr key={i} className="theme-divider align-top hover:bg-[var(--surface)]">
                   {columns.map(c => (
                     <td key={c} className="px-3 py-1.5 max-w-[320px] whitespace-pre-wrap break-words">{formatCell(row[c])}</td>
                   ))}
@@ -158,8 +158,8 @@ export default function SqlConsolePage() {
         rows={8}
         placeholder="SELECT slug, name FROM sites;"
         aria-label="Interogare SQL"
-        className="w-full font-mono text-sm bg-[var(--surface)] border border-[var(--border)] p-3 resize-y
-                   placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+        className="w-full font-mono text-sm bg-[var(--field)] p-3 resize-y
+                   placeholder:text-[var(--muted)] focus:outline-none transition-colors"
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3 mt-3 mb-8">
@@ -180,7 +180,7 @@ export default function SqlConsolePage() {
             data-testid="sql-run"
             onClick={requestRun}
             disabled={!query.trim() || run.isPending}
-            className="px-5 py-2 rounded-full bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
+            className="px-5 py-2 bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
                        hover:opacity-90 transition-opacity disabled:opacity-30">
             {run.isPending ? 'Se rulează…' : 'Rulează'}
           </button>
