@@ -494,17 +494,28 @@ body {
   [data-preview="hand"] li[data-slot] img { -webkit-user-drag: none; }
 
   /* Tile content (FR-098), on every item of the group (the hidden ones size the cell): image
-     (or date cover) and title only. The date already shows on the image or the cover, so the
-     date / place rows and description, CTA and glyphs are dropped; every tile is about as tall
-     as its image plus title, so no empty chin. */
+     (or date cover), the date and place rows (one line each, cut with an ellipsis) and the
+     title. Description, CTA and glyphs are dropped; every tile is about as tall as its image
+     plus those rows and the title, so no empty chin. */
   [data-preview="hand"] [data-preview-list] > li > a,
   [data-preview="hand"] [data-preview-list] > li > a > article,
   [data-preview="hand"] [data-preview-list] > li > article { height: 100%; }
   [data-preview="hand"] [data-preview-list] > li > a:hover { transform: none; }
   [data-preview="hand"] [data-preview-list] > li [data-tile="hide"],
   [data-preview="hand"] [data-preview-list] > li [data-tile="desc"],
-  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"],
   [data-preview="hand"] [data-preview-list] > li [data-testid="site-label"] { display: none; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"] {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    margin: 0 0 0.25rem;
+    letter-spacing: 0.06em;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"] > :not(svg):not(.sr-only) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
   [data-preview="hand"] [data-preview-list] > li article > .p-4 { padding: 0.625rem 0.75rem 0.75rem; }
   [data-preview="hand"] [data-preview-list] > li [data-tile="title"] {
     font-size: 0.95rem;

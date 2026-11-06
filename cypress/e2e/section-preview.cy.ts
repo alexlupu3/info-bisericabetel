@@ -79,7 +79,7 @@ describe('Section preview — phone pair of tiles', () => {
     })
     // A tile: image (or date cover) and a clamped title; the date row, description and CTA hidden.
     li('E').find('[data-tile="title"]').should('have.css', '-webkit-line-clamp', '3')
-    li('E').find('[data-tile="meta"]').should('not.be.visible')
+    li('E').find('[data-tile="meta"]').should('be.visible').and('contain.text', ' ')
     li('E').find('[data-tile="cover"]').should('not.exist')
     li('B').find('[data-tile="cover"]').should('exist').and('have.attr', 'aria-hidden', 'true')
   })
@@ -96,7 +96,7 @@ describe('Section preview — phone pair of tiles', () => {
     li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
   })
 
-  it('a swipe left lays the back tile on the top pile; right takes it back; the deck wraps around', () => {
+  it('a swipe left lays the back tile on the top pile; right takes it back; the deck ends at the last card', () => {
     visitWith(feed())
     li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'aria-hidden', 'true')
     section('evenimente').find('li[data-under="pile"]').should('not.exist')
@@ -118,14 +118,24 @@ describe('Section preview — phone pair of tiles', () => {
     drag('evenimente', 200)
     li('E').should('have.attr', 'data-slot', '0')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
-    ;[0, 1, 2, 3].forEach(() => drag('evenimente', -200))
+    ;[0, 1, 2].forEach(() => drag('evenimente', -200))
+    li('C').should('have.attr', 'data-slot', '0')
+    li('D').should('have.attr', 'data-slot', '1')
+    section('evenimente').find('li[data-under="next"]').should('not.exist')
+    // The last card goes onto the left pile: nothing is left on the right and the walk ends.
+    drag('evenimente', -200)
     li('D').should('have.attr', 'data-slot', '0')
-    li('E').should('have.attr', 'data-slot', '1')
+    li('C').should('have.attr', 'data-under', 'pile')
+    section('evenimente').find('li[data-slot="1"], li[data-under="next"]').should('not.exist')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
     drag('evenimente', -200)
-    li('E').should('have.attr', 'data-slot', '0')
-    li('D').should('have.attr', 'data-under', 'pile')
-    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
+    li('D').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
+    // …and a swipe right still walks back.
+    drag('evenimente', 200)
+    li('C').should('have.attr', 'data-slot', '0')
+    li('D').should('have.attr', 'data-slot', '1')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '4 / 5')
     // Swiping never opens a card's link.
     cy.get('@events.all').then(calls => {
       const clicks = (calls as unknown as Array<{ request: { body: { type?: string } } }>).filter(c => c.request.body?.type === 'link_click')
@@ -211,6 +221,30 @@ describe('Section preview — phone pair of tiles', () => {
     li('A').should('have.css', 'box-shadow').and('not.match', /10px 8px/)
     cy.contains('button', 'Vezi toate · 5').then($b => {
       expect(getComputedStyle($b[0], '::before').content).to.be.oneOf(['none', 'normal'])
+    })
+  })
+
+  it('a tile shows its date and place on one line each, cut with an ellipsis', () => {
+    const items = feed()
+    const e = items.find(i => i.id === 'E') as { data: Record<string, unknown> }
+    e.data.location = 'Sala mare de conferințe a Casei de Cultură a Sindicatelor, etajul 2'
+    visitWith(items)
+    li('E').find('[data-tile="meta"]').should('have.length', 2).each($row => {
+      const row = $row[0] as HTMLElement
+      expect(row.offsetHeight).to.be.lessThan(20) // layout height: the tile is tilted
+      expect(getComputedStyle(row).whiteSpace).to.equal('nowrap')
+    })
+    li('E').find('[data-testid="event-location"] > span:last-child').should($span => {
+      const el = $span[0]
+      expect(getComputedStyle(el).textOverflow).to.equal('ellipsis')
+      expect(el.scrollWidth).to.be.greaterThan(el.clientWidth)
+    })
+    // The rows stay within the tile, above the title.
+    li('E').then($li => {
+      const loc = $li[0].querySelector<HTMLElement>('[data-testid="event-location"]')!
+      const title = $li[0].querySelector('[data-tile="title"]')!
+      expect(loc.scrollWidth).to.be.at.most(loc.clientWidth + 1)
+      expect(loc.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).to.be.greaterThan(0)
     })
   })
 
