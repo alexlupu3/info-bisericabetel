@@ -199,6 +199,18 @@ describe('Section preview — phone pair of tiles', () => {
     section('evenimente').find('li[style*="transform"]').should('not.exist')
   })
 
+  it('on expand the cards peeking under the piles fade out with the deck tiles (regression)', () => {
+    visitWith(feed())
+    drag('evenimente', -100)
+    drag('evenimente', -100)
+    cy.contains('button', 'Vezi toate · 5').click()
+    // Every copy of a card under the piles is fading out, not left over the open list.
+    cy.get('[data-hand-ghost] li[data-depth]').should('have.length.at.least', 2).each($copy => {
+      expect(($copy[0] as HTMLElement).style.opacity).to.equal('0')
+    })
+    cy.get('[data-hand-ghost]').should('not.exist')
+  })
+
   it('a decisive fling deals two cards onto the left pile', () => {
     visitWith(feed())
     section('evenimente').find('ul[data-preview-list]').then($ul => {

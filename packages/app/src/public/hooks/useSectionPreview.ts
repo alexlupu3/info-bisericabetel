@@ -145,6 +145,8 @@ function buildDeckGhost(list: HTMLElement, items: HTMLElement[]) {
   ul.setAttribute('data-preview-list', '')
   ul.style.margin = '0'
   const tiles = new Map<number, HTMLElement>()
+  /** Copies of the real cards peeking out under the piles: they fade out with the deck tiles. */
+  const layers: HTMLElement[] = []
   items.forEach((li, index) => {
     const copy = li.cloneNode(true) as HTMLElement
     copy.removeAttribute('aria-hidden')
@@ -158,10 +160,11 @@ function buildDeckGhost(list: HTMLElement, items: HTMLElement[]) {
     copy.querySelectorAll('img').forEach(img => { img.loading = 'eager' })
     ul.appendChild(copy)
     if (li.dataset.slot !== undefined) tiles.set(index, copy)
+    else if (li.dataset.depth !== undefined) layers.push(copy)
   })
   wrap.appendChild(ul)
   document.body.appendChild(wrap)
-  return { wrap, tiles }
+  return { wrap, tiles, layers }
 }
 
 /**
@@ -504,6 +507,13 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
           animated.push({ el, delay, final: { transform: IDENTITY, opacity: '1', boxShadow: 'none' } })
         }
       })
+      // The cards peeking out under the piles stay where they are and fade with the deck tiles
+      // (left in the copy, they would cover the open list until the copy goes away).
+      for (const copy of ghost?.layers ?? []) {
+        copy.style.transition = 'none'
+        copy.style.opacity = '1'
+        animated.push({ el: copy, delay: 0, fadeMs: Math.round(DURATION_MS * CROSSFADE_SHARE), final: { transform: '', opacity: '0', boxShadow: '' } })
+      }
     } else {
       // From the list back to the deck; the other items are already under the piles or hidden.
       items.forEach((el, index) => {
