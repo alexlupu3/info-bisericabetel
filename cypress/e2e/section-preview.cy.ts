@@ -183,9 +183,36 @@ describe('Section preview — phone pair of tiles', () => {
       })
       ;['E', 'B'].forEach(id => li(id).should($li => expect($li[0].style.transform).to.equal('')))
       li('B').should('have.css', 'visibility', 'visible')
+      // Optimistic: picked up, the deck already took its new roles under the finger.
+      li('A').should('have.attr', 'data-slot', '0')
+      li('B').should('have.attr', 'data-slot', '1')
+      li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
+      section('evenimente').find('[data-testid="deck-count"]').should('have.text', '2 / 5')
       cy.wrap($ul).trigger('pointerup', at(-90))
     })
     li('A').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+  })
+
+  it('a swipe left dropped short goes back with the swipe-right tuck', () => {
+    visitWith(feed())
+    section('evenimente').find('ul[data-preview-list]').then($ul => {
+      const r = $ul[0].getBoundingClientRect()
+      const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 12, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width / 2 + dx, clientY: r.top + 60, force: true })
+      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(-12)).trigger('pointermove', at(-20))
+      li('A').should('have.attr', 'data-slot', '0')
+      // Released short of the commit distance, after a pause (no fling).
+      cy.wait(150)
+      cy.wrap($ul).trigger('pointerup', at(-20))
+    })
+    // The deck steps back at once and the tile tucks under the top tile onto the right pile.
+    li('E').should('have.attr', 'data-slot', '0')
+    li('A').should('have.attr', 'data-slot', '1')
+    li('A').should($li => {
+      const frames = $li[0].getAnimations().flatMap(a => (a.effect as KeyframeEffect).getKeyframes())
+      expect(frames.some(f => String(f.transform ?? '').includes('translate(96%'))).to.equal(true)
+    })
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
     section('evenimente').find('li[style*="transform"]').should('not.exist')
   })
 

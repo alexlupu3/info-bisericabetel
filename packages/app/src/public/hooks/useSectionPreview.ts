@@ -232,9 +232,11 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   // under it) and the back tile on the right (with the next one already under it). A swipe to
   // the left lays the back tile onto the left pile, revealing the next tile in its place; a
   // swipe to the right takes the top tile back onto the right pile. The deck does not wrap
-  // around: once the last tile is on the left pile the right side is empty and the walk ends. Only the moving tile
-  // animates: the tiles underneath are already in place. Vertical drags stay native page
-  // scrolls (`touch-action: pan-y` on the deck).
+  // around: once the last tile is on the left pile the right side is empty and the walk ends.
+  // A swipe left is optimistic: as soon as the back tile is picked up the deck takes its new
+  // roles (the piles rearrange under the finger), so a drop on the left only lands the tile; a
+  // change of mind takes it back with the same tuck as a swipe right. Vertical drags stay
+  // native page scrolls (`touch-action: pan-y` on the deck).
 
   /** Draws the drag: the moving tile follows the finger from its pile towards the other one. */
   const paintDrag = (moving: HTMLElement, dir: number, dx: number) => {
@@ -263,20 +265,23 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     clearInline(moving)
   }, [])
 
-  /** Lands the moving tile on the other pile (-1: back tile onto the left, 1: top tile back right). */
+  /**
+   * Lands the moving tile on the other pile. -1: the picked-up tile onto the left pile (the deck
+   * already took its new roles at pick-up). 1: the top tile back onto the right pile with the
+   * tuck, one step back (also how a picked-up tile goes back when the swipe left is dropped).
+   */
   const advance = useCallback(async (moving: HTMLElement, dir: number) => {
     busy.current = true
     const step = () => flushSync(() => setSwiped(s => Math.max(0, Math.min(s - dir, count - 1))))
     try {
       if (matches(REDUCED_MOTION_QUERY)) {
-        step()
+        if (dir > 0) step()
       } else if (dir < 0) {
-        // Onto the left pile, on top: it is the new top tile.
+        // Onto the left pile, on top: it is already the top tile, the rest is in place.
         const [f] = SLOTS
         moving.style.transition = `transform ${SWIPE_LAND_MS}ms ${EASING}`
         moving.style.transform = swipeTransform(0, 0, f.tx, f.ty, f.rotate)
         await wait(SWIPE_LAND_MS + 10)
-        step()
       } else {
         // Back onto the right pile, under the top tile. The deck changes at once (the tile is
         // the back tile from here on) and one keyframe animation carries it from the finger a
@@ -336,6 +341,11 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         try { list.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
         drag.moving.style.transition = 'none'
         drag.moving.style.zIndex = '10'
+        if (drag.dir < 0 && !drag.resist) {
+          // Picked up from the right pile: the deck rearranges now, as if already dropped on the
+          // left (the tile becomes the top tile, held under the finger by its inline styles).
+          flushSync(() => setSwiped(s => Math.min(s + 1, count - 1)))
+        }
       }
       e.preventDefault()
       drag.dx = dx
@@ -354,7 +364,11 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
       const speed = along / Math.max(1, e.timeStamp - d.t0)
       const commit = e.type === 'pointerup' && !d.resist
         && (along > d.moving.offsetWidth * SWIPE_COMMIT_SHARE || (speed > SWIPE_COMMIT_SPEED && along > 30))
-      void (commit ? advance(d.moving, d.dir) : settle(d.moving))
+      // A swipe left already took the deck forward at pick-up: dropped short, the tile goes back
+      // to the right pile with the swipe-right tuck (one step back).
+      if (commit) void advance(d.moving, d.dir)
+      else if (d.dir < 0 && !d.resist) void advance(d.moving, 1)
+      else void settle(d.moving)
     }
     // A native drag of a link or image would swallow the pointer stream.
     const onDragStart = (e: DragEvent) => e.preventDefault()
