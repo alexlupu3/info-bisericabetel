@@ -70,5 +70,5 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-023](ADR-023-event-start-time-wall-clock.md) | Event start time as Bucharest wall-clock `HH:mm`; event-time helpers in `@betel/shared` | Accepted |
 | [ADR-024](ADR-024-mcp-shared-tool-contract-and-service-layer.md) | MCP tool parity via a shared tool contract and an API service layer | Accepted |
 | [ADR-025](ADR-025-short-link-preview-by-user-agent.md) | Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302 | Accepted |
-| [ADR-026](ADR-026-phone-section-preview.md) | Phone-only collapsed group preview: CSS geometry in both renderers, full DOM kept, pin as a column | Proposed |
-| [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Proposed |
+| [ADR-026](ADR-026-phone-section-preview.md) | Phone-only collapsed group preview (swipeable two-tile deck, per-group opt-out): CSS geometry in both renderers, full DOM kept, pin as a column | Accepted |
+| [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Accepted |

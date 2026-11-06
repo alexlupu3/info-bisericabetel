@@ -7,7 +7,7 @@ export default function EventLocation({ location, className = '' }: { location: 
   const { t } = useLanguage()
   if (!location) return null
   return (
-    <p className={`${META_ROW_CLASS} ${className}`} data-testid="event-location">
+    <p data-tile="meta" className={`${META_ROW_CLASS} ${className}`} data-testid="event-location">
       <MapPinIcon />
       <span className="sr-only">{t(UI_KEYS.LOCATION_LABEL, UI_DEFAULTS['location.label'])}: </span>
       <span className="min-w-0 break-words">{location}</span>

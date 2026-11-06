@@ -35,6 +35,11 @@ export const UI_DEFAULTS = {
   'feed.untitled': 'Eveniment',
   // Spec 07 (event location): screen-reader label of the card's location row
   'location.label': 'Loc de desfășurare',
+  // Spec 08 (section preview on phones)
+  'section.showAll': 'Vezi toate · {count}',
+  'section.showLess': 'Arată mai puțin',
+  'section.expanded': '{title}: se afișează toate cele {count}',
+  'section.collapsed': '{title}: se afișează {shown} din {count}',
 } as const
 
 export type UiKey = keyof typeof UI_DEFAULTS

@@ -95,7 +95,7 @@ describe('Admin — content management', () => {
     }).as('contentAfterCreate')
 
     cy.get('[data-testid="create-content-btn"]').click()
-    cy.get('[data-testid="create-form"]').should('be.visible')
+    cy.get('[data-testid="content-dialog"] [data-testid="create-form"]').should('be.visible')
     cy.get('[data-testid="create-type-select"]').select('richtext')
     cy.get('[data-testid="create-body-input"]').type('Test body')
     cy.get('[data-testid="create-submit-btn"]').click()

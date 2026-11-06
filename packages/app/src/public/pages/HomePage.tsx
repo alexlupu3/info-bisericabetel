@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { pageTitle } from '@betel/shared'
@@ -24,6 +24,8 @@ export default function HomePage() {
   const sites = useSites()
   const { t, locale } = useLanguage()
   const { pathname } = useLocation()
+  // One polite live region for every group's expand / collapse (FR-099, FR-100).
+  const [announcement, setAnnouncement] = useState('')
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent', accent)
@@ -61,9 +63,10 @@ export default function HomePage() {
             const visibleItems = filterCurrent(data.items)
             return visibleItems.length === 0
               ? <EmptyState accent={accent} siteName={site?.name ?? null} />
-              : <Feed items={visibleItems} accent={accent} activeSite={activeSite} showSiteLabel={activeSite === null} />
+              : <Feed items={visibleItems} accent={accent} activeSite={activeSite} showSiteLabel={activeSite === null} onAnnounce={setAnnouncement} />
           })()}
         </div>
+        <p className="sr-only" aria-live="polite" data-testid="section-live">{announcement}</p>
       </main>
 
       {/* ── Footer: site addresses (visible Church data) + copyright ── */}
@@ -77,19 +80,19 @@ function hasImage(item: ContentItem): boolean {
 }
 
 /** Renders items, collapsing consecutive same-group items into GroupBlocks */
-function Feed({ items, accent, activeSite, showSiteLabel }: { items: ContentItem[]; accent: string; activeSite: string | null; showSiteLabel: boolean }) {
-  const blocks: Array<{ key: string; items: ContentItem[]; groupTitle: string | null }> = []
+function Feed({ items, accent, activeSite, showSiteLabel, onAnnounce }: { items: ContentItem[]; accent: string; activeSite: string | null; showSiteLabel: boolean; onAnnounce: (text: string) => void }) {
+  const blocks: Array<{ key: string; items: ContentItem[]; groupTitle: string | null; preview: boolean }> = []
   let i = 0
 
   while (i < items.length) {
     const item = items[i]
     if (item.groupId) {
       const groupItems = items.filter(it => it.groupId === item.groupId)
-      blocks.push({ key: item.groupId, items: groupItems, groupTitle: item.groupTitle ?? '' })
+      blocks.push({ key: item.groupId, items: groupItems, groupTitle: item.groupTitle ?? '', preview: item.groupPreview !== false })
       // Skip all items that belong to this group
       i += groupItems.length
     } else {
-      blocks.push({ key: item.id, items: [item], groupTitle: null })
+      blocks.push({ key: item.id, items: [item], groupTitle: null, preview: false })
       i++
     }
   }
@@ -100,15 +103,19 @@ function Feed({ items, accent, activeSite, showSiteLabel }: { items: ContentItem
   return (
     <div className="space-y-8" data-testid="content-list">
       {blocks.map(b => (
-        <div key={b.key}>
+        // Keyed by site too, so a site switch resets every group to its hand (FR-102).
+        <div key={`${activeSite ?? ''}:${b.key}`}>
           {b.groupTitle !== null ? (
             <GroupBlock
+              groupId={b.key}
               title={b.groupTitle}
+              preview={b.preview}
               items={b.items}
               accent={accent}
               activeSite={activeSite}
               showSiteLabel={showSiteLabel}
               eagerItemId={eagerItemId}
+              onAnnounce={onAnnounce}
             />
           ) : (
             <ContentRenderer

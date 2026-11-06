@@ -211,12 +211,57 @@ test('snapshot: one h1, group titles h2 and items h3, root items h2, first image
   const html = renderSnapshot(model)
   assert.equal(html.match(/<h1/g)?.length, 1)
   assert.match(html, /<h2 [^>]*>Item 00000000-0000-4000-8000-000000000011<\/h2>/)
-  assert.match(html, /<h2 [^>]*>Grup<\/h2>/)
+  assert.match(html, /<h2 [^>]*>Grup <span class="betel-group-count">· 2<\/span><\/h2>/)
+  // A group of 2 never collapses (FR-096): no hand markup, no button.
+  assert.doesNotMatch(html, /data-preview=|data-slot=|data-hand-expand|aria-expanded/)
   assert.match(html, /<h3 [^>]*>Item 00000000-0000-4000-8000-000000000012<\/h3>/)
   assert.match(html, /<time datetime="2099-03-01">/)
   assert.match(html, /src="\/uploads\/1\.jpg" alt="" width="1600" height="900" fetchpriority="high"/)
   assert.match(html, /src="\/uploads\/2\.jpg" alt="" width="1600" height="900" loading="lazy"/)
   assert.match(html, /alt="Afiș"/)
+})
+
+test('snapshot: a group of 4+ prints the collapsed hand (spec 08, FR-096 – FR-102)', () => {
+  const g = { groupId: 'g', groupTitle: 'Evenimente' }
+  const items = [
+    item(UUID(21), { ...g, data: { title: 'A', thumbnail: '/uploads/a.jpg', startDate: '2099-03-01', link: 'https://a.example' } }),
+    item(UUID(22), { ...g, data: { title: 'B', startDate: '2099-03-02', link: 'https://b.example' } }),
+    item(UUID(23), { ...g, data: { title: 'C' } }),
+    item(UUID(24), { ...g, pinnedInGroup: true, data: { title: 'D', link: 'https://d.example' } }),
+  ]
+  const html = renderSnapshot(buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items }))
+  assert.match(html, /<section aria-labelledby="group-g-title" id="evenimente" data-preview="hand"/)
+  assert.match(html, /Evenimente <span class="betel-group-count">· 4<\/span><\/h2>/)
+  // Pinned D is the top tile, A is behind it; B and C have no slot.
+  const list = html.slice(html.indexOf('<ul id="group-g-items"'), html.indexOf('</ul>', html.indexOf('group-g-items')))
+  assert.equal(list.match(/<li[ >]/g)?.length, 4)
+  assert.deepEqual([...html.matchAll(/<li data-slot="(\d)"/g)].map(m => m[1]), ['1', '0'])
+  // Back tile (A): aria-hidden, no tab stop on its link, pointer-only overlay.
+  assert.match(html, /<li data-slot="1" aria-hidden="true"><a href="https:\/\/a\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
+  assert.match(html, /<li data-slot="0"><a href="https:\/\/d\.example" target="_blank" rel="noopener noreferrer" class=/)
+  assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 1)
+  // B and C (next in the deck order) lie under the back tile with their edge showing (depth 1
+  // and 2), hidden from keyboard and screen readers.
+  assert.match(html, /<li data-under="next" data-depth="1" aria-hidden="true"><a href="https:\/\/b\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
+  assert.match(html, /<li data-under="next" data-depth="2" aria-hidden="true"><article/)
+  assert.equal(html.match(/data-under=/g)?.length, 2)
+  assert.equal(html.match(/data-depth=/g)?.length, 2)
+  // Every item of the group is printed as a tile: B has no thumbnail, so it gets the date
+  // cover (shown only in the deck); A has one, so no date mark on its image.
+  assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden(?: style="--tile-tint:#[0-9a-fA-F]+")?><span class="betel-title-bold">2<\/span><span class="betel-title-condensed">[^<.]+<\/span><\/div>/)
+  assert.doesNotMatch(html, /data-tile="index"/)
+  // The deck position starts at 1.
+  assert.match(html, /<span class="betel-deck-count sm:hidden" aria-hidden="true" data-testid="deck-count">1 \/ 4<\/span>/)
+  assert.match(html, /<button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="group-g-items">Vezi toate · 4<\/button>/)
+})
+
+test('snapshot: a group that opted out of the preview stays a plain list', () => {
+  const g = { groupId: 'g', groupTitle: 'Evenimente', groupPreview: false }
+  const items = [21, 22, 23, 24].map(n => item(UUID(n), { ...g, data: { title: `T${n}` } }))
+  const html = renderSnapshot(buildPageModel({ kind: 'hub', path: '/', baseUrl: BASE, config, sites, languages, items }))
+  assert.match(html, /<section aria-labelledby="group-g-title" id="evenimente" class="relative">/)
+  assert.doesNotMatch(html, /data-slot=|data-preview="hand"|betel-hand-button|deck-count/)
+  assert.match(html, /Evenimente <span class="betel-group-count">· 4<\/span>/)
 })
 
 test('sitemap: hub, site pages and each visible item once, lastmod from updatedAt', () => {

@@ -243,7 +243,8 @@ describe('Admin — Short Links tab', () => {
 
     cy.contains('+ Link nou').click()
     cy.get('[data-testid="short-link-label-input"]').should('be.visible')
-    cy.contains('Anulează').first().click()
+    // Scoped: the dialog footer has its own "Închide"/"Anulează" (spec 09)
+    cy.get('[data-testid="short-link-label-input"]').parents('div').contains('button', 'Anulează').first().click()
     cy.get('[data-testid="short-link-label-input"]').should('not.exist')
   })
 })

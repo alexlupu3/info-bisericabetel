@@ -18,7 +18,7 @@ The Content page already handled drag-and-drop reordering of items. Adding group
 
 ### Option B: Consolidate group management into the Content page (chosen)
 - Groups appear as visual container sections directly on the Content page
-- "+ Grup nou" button creates a group inline (title only required)
+- "+ Grup nou" button opens a dialog on the Content page to create a group (title only required)
 - "Șterge grup" button on each group header deletes that group; child items are soft-deleted (state → `deleted`, groupId cleared) and recoverable from `/admin/archive`
 - Multi-container drag and drop allows moving items between groups without any extra navigation
 - The content create/edit form retains a group dropdown as a convenience field
@@ -48,3 +48,4 @@ Group management is fully integrated into the Content page. The "Grupuri" nav li
 - 2026-03-17: Added expand-panel group editing, site-scope checkboxes in creation form, and API-driven site list.
 - 2026-03-18: Added per-group collapse/expand toggle and a "toggle all groups" button in the page header (see Consequences above).
 - 2026-04-19: Group delete behavior updated — child items are now soft-deleted (state → `deleted`) instead of being migrated to ungrouped. Recoverable from `/admin/archive`.
+- 2026-11-04: Group creation and group editing moved from inline forms into dialogs on the same Content page (spec 09, ADR-027). The decision itself — no separate Groups page, all group lifecycle actions on the Content page — is unchanged.

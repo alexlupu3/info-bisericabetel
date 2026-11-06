@@ -31,7 +31,7 @@ describe('Admin — soft reload regression', () => {
     })
     cy.wait('@me')
     // App should be mounted with navigation visible
-    cy.contains('BETEL ADMIN').should('be.visible')
+    cy.get('[data-testid="admin-shell"]').should('be.visible')
 
     // Simulate a soft reload — if the SW intercept bug were present this would hang
     setupInterceptors()
@@ -39,7 +39,7 @@ describe('Admin — soft reload regression', () => {
     cy.wait('@me')
 
     // Admin app must still mount correctly, not show PWA content
-    cy.contains('BETEL ADMIN').should('be.visible')
+    cy.get('[data-testid="admin-shell"]').should('be.visible')
     cy.get('[data-testid="content-list"]').should('exist')
   })
 })

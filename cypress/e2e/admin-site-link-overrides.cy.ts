@@ -187,10 +187,11 @@ describe('Admin — per-site link overrides: edit mode', () => {
     cy.get('[data-testid="item-menu-trigger-item-1"]').click()
     cy.get('[data-testid="item-menu-edit-item-1"]').click()
 
-    // Section should be expanded because overrides exist
-    cy.get('[data-testid="site-link-input-centru"]').should('be.visible')
+    // Section should be expanded because overrides exist (it scrolls inside the dialog body)
+    cy.get('[data-testid="content-dialog"]').should('be.visible')
+    cy.get('[data-testid="site-link-input-centru"]').scrollIntoView().should('be.visible')
       .and('have.value', 'https://betel-centru.ro/donate')
-    cy.get('[data-testid="site-link-input-vest"]').should('be.visible')
+    cy.get('[data-testid="site-link-input-vest"]').scrollIntoView().should('be.visible')
       .and('have.value', '')
   })
 

@@ -1,9 +1,16 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react'
-import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
-import { Menu, Moon, Sun, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../public/hooks/useTheme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { UnsavedChangesProvider, useDisplayLocation } from './context/UnsavedChangesContext'
+import { visibleNavItems, type NavItemId } from './navigation'
+import { DESKTOP_QUERY, useMediaQuery } from './hooks/useMediaQuery'
+import AdminSidebar from './components/shell/AdminSidebar'
+import MobileHeader from './components/shell/MobileHeader'
+import NavFab from './components/shell/NavFab'
+import NavDrawer, { DRAWER_STATE_KEY, isDrawerState } from './components/shell/NavDrawer'
+import type { User } from './api/client'
 import LoginPage from './pages/LoginPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import ContentPage from './pages/ContentPage'
@@ -36,22 +43,6 @@ export default function AdminApp() {
   )
 }
 
-function ThemeToggle() {
-  const { theme, toggle } = useTheme()
-  const label = theme === 'dark' ? 'Temă luminoasă' : 'Temă întunecată'
-  return (
-    <button
-      data-testid="admin-theme-toggle"
-      onClick={toggle}
-      aria-label={label}
-      title={label}
-      className="text-[var(--muted)] hover:text-[var(--text)] transition-colors"
-    >
-      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-    </button>
-  )
-}
-
 function PageContainer({ children }: { children: ReactNode }) {
   return (
     <div className="max-w-[900px] mx-auto w-full">
@@ -60,9 +51,26 @@ function PageContainer({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * The element of every menu page. Keyed by `NavItemId`, so a page added to
+ * `navigation.ts` must get its element here; the route is rendered only for the roles
+ * that see it in the menu (FR-106: a menu page is linked iff its route is rendered).
+ */
+const PAGE_ELEMENTS: Record<NavItemId, ReactNode> = {
+  content: <PageContainer><ContentPage /></PageContainer>,
+  media: <PageContainer><MediaPage /></PageContainer>,
+  archive: <PageContainer><ArchivePage /></PageContainer>,
+  analytics: <PageContainer><AnalyticsPage /></PageContainer>,
+  locations: <PageContainer><LocationsPage /></PageContainer>,
+  users: <PageContainer><UsersPage /></PageContainer>,
+  translations: <PageContainer><TranslationsPage /></PageContainer>,
+  logs: <LogsPage />,
+  'error-logs': <ErrorLogsPage />,
+  sql: <SqlConsolePage />,
+}
+
 function Shell() {
-  const { user, loading, logout } = useAuth()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, loading } = useAuth()
 
   if (loading) return <div className="min-h-full flex items-center justify-center">
     <span className="text-[var(--muted)] text-sm font-content">Loading…</span>
@@ -77,121 +85,67 @@ function Shell() {
     <Route path="*" element={<ChangePasswordPage />} />
   </Routes>
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `text-xs tracking-widest uppercase font-content transition-colors ${isActive ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`
+  return (
+    <UnsavedChangesProvider>
+      <SignedInShell user={user} />
+    </UnsavedChangesProvider>
+  )
+}
+
+function SignedInShell({ user }: { user: User }) {
+  const { logout } = useAuth()
+  const location = useLocation()
+  const displayLocation = useDisplayLocation()
+  const navigate = useNavigate()
+  const desktop = useMediaQuery(DESKTOP_QUERY)
+  const fabRef = useRef<HTMLButtonElement>(null)
+  // Apply the stored / system theme on load; on phones the toggle only mounts with the drawer.
+  useTheme()
+  const drawerOpen = !desktop && isDrawerState(location.state)
+
+  // A reload restores history.state: never come back with the drawer open (FR-108).
+  useEffect(() => {
+    if (!isDrawerState(location.state)) return
+    const { [DRAWER_STATE_KEY]: _, ...rest } = location.state as Record<string, unknown>
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: Object.keys(rest).length ? rest : null,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const openDrawer = () => navigate(`${location.pathname}${location.search}${location.hash}`, {
+    state: { ...(location.state as Record<string, unknown> | null), [DRAWER_STATE_KEY]: true },
+  })
 
   return (
-    <div className="min-h-full flex flex-col">
-      <nav className="border-b border-[var(--border)] px-5 py-3 flex items-center justify-between gap-6">
-        <div className="flex items-center gap-6">
-          <span className="text-sm">
-            <span className="betel-title-bold">BETEL</span>
-            {' '}
-            <span className="betel-title-condensed">ADMIN</span>
-          </span>
-          <div className="hidden md:flex items-center gap-6">
-            <NavLink to="content" className={navLinkClass}>Conținut</NavLink>
-            {user.role === 'super-admin' && (
-              <NavLink to="locations" className={navLinkClass}>Locații</NavLink>
-            )}
-            <NavLink to="media" className={navLinkClass}>Media</NavLink>
-            <NavLink to="archive" className={navLinkClass}>Arhivă</NavLink>
-            <NavLink to="analytics" className={navLinkClass}>Statistici</NavLink>
-            {user.role === 'super-admin' && (
-              <NavLink to="users" className={navLinkClass}>Utilizatori</NavLink>
-            )}
-            {user.role === 'super-admin' && (
-              <NavLink to="logs" className={navLinkClass}>Jurnale</NavLink>
-            )}
-            {user.role === 'super-admin' && (
-              <NavLink to="error-logs" className={navLinkClass}>Erori</NavLink>
-            )}
-            {user.role === 'super-admin' && (
-              <NavLink to="translations" className={navLinkClass}>Traduceri</NavLink>
-            )}
-            {user.role === 'super-admin' && (
-              <NavLink to="sql" className={navLinkClass}>SQL</NavLink>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <button onClick={logout}
-            className="hidden md:block text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors">
-            Ieșire
-          </button>
-          <button
-            data-testid="hamburger-btn"
-            onClick={() => setMobileMenuOpen(o => !o)}
-            className="md:hidden text-[var(--muted)] hover:text-[var(--text)] transition-colors"
-            aria-label="Meniu"
-          >
-            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
-        </div>
-      </nav>
-      {mobileMenuOpen && (
-        <div
-          data-testid="mobile-menu"
-          className="md:hidden bg-[var(--bg)] border-b border-[var(--border)] px-5 py-3 flex flex-col gap-4"
-        >
-          <NavLink to="content" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Conținut</NavLink>
-          {user.role === 'super-admin' && (
-            <NavLink to="locations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Locații</NavLink>
-          )}
-          <NavLink to="media" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Media</NavLink>
-          <NavLink to="archive" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Arhivă</NavLink>
-          <NavLink to="analytics" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Statistici</NavLink>
-          {user.role === 'super-admin' && (
-            <NavLink to="users" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Utilizatori</NavLink>
-          )}
-          {user.role === 'super-admin' && (
-            <NavLink to="logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Jurnale</NavLink>
-          )}
-          {user.role === 'super-admin' && (
-            <NavLink to="error-logs" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Erori</NavLink>
-          )}
-          {user.role === 'super-admin' && (
-            <NavLink to="translations" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>Traduceri</NavLink>
-          )}
-          {user.role === 'super-admin' && (
-            <NavLink to="sql" className={navLinkClass} onClick={() => setMobileMenuOpen(false)}>SQL</NavLink>
-          )}
-          <button onClick={() => { setMobileMenuOpen(false); logout() }}
-            className="text-xs tracking-widest uppercase font-content text-[var(--muted)] hover:text-[var(--text)] transition-colors text-left">
-            Ieșire
-          </button>
-        </div>
-      )}
-      <div className="flex-1">
-        <Routes>
+    <div data-testid="admin-shell" className="min-h-full md:flex">
+      <a
+        href="#admin-main"
+        onClick={e => { e.preventDefault(); document.getElementById('admin-main')?.focus() }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[var(--z-toast)]
+                   focus:px-4 focus:py-2 focus:bg-[var(--text)] focus:text-[var(--bg)] text-xs tracking-widest uppercase font-content"
+      >
+        Sari la conținut
+      </a>
+      {desktop ? (
+        <AdminSidebar user={user} onLogout={logout} />
+      ) : (<>
+        <MobileHeader />
+        <NavFab ref={fabRef} open={drawerOpen} onOpen={openDrawer} />
+        {drawerOpen && <NavDrawer user={user} fabRef={fabRef} onLogout={logout} />}
+      </>)}
+      <main id="admin-main" tabIndex={-1} className="flex-1 min-w-0 pb-28 md:pb-0 focus:outline-none">
+        <Routes location={displayLocation}>
           <Route index element={<Navigate to="content" replace />} />
-          <Route path="content" element={<PageContainer><ContentPage /></PageContainer>} />
+          {/* Legacy, intentionally unlinked (ADR-002); outside the menu invariant. */}
           <Route path="groups" element={<PageContainer><GroupsPage /></PageContainer>} />
-          {user.role === 'super-admin' && (
-            <Route path="locations" element={<PageContainer><LocationsPage /></PageContainer>} />
-          )}
-          <Route path="media" element={<PageContainer><MediaPage /></PageContainer>} />
-          <Route path="archive" element={<PageContainer><ArchivePage /></PageContainer>} />
-          <Route path="analytics" element={<PageContainer><AnalyticsPage /></PageContainer>} />
-          {user.role === 'super-admin' && (
-            <Route path="users" element={<PageContainer><UsersPage /></PageContainer>} />
-          )}
-          {user.role === 'super-admin' && (
-            <Route path="logs" element={<LogsPage />} />
-          )}
-          {user.role === 'super-admin' && (
-            <Route path="error-logs" element={<ErrorLogsPage />} />
-          )}
-          {user.role === 'super-admin' && (
-            <Route path="translations" element={<PageContainer><TranslationsPage /></PageContainer>} />
-          )}
-          {user.role === 'super-admin' && (
-            <Route path="sql" element={<SqlConsolePage />} />
-          )}
+          {visibleNavItems(user.role).map(item => (
+            <Route key={item.id} path={item.path} element={PAGE_ELEMENTS[item.id]} />
+          ))}
           <Route path="*" element={<Navigate to="content" replace />} />
         </Routes>
-      </div>
+      </main>
     </div>
   )
 }

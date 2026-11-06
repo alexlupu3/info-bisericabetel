@@ -27,6 +27,8 @@ Deployed as a single container on CapRover (the API process also serves the buil
 | SQL migrations | `packages/api/src/db/migrations/NNNN_name.sql` |
 | Migration runner | `packages/api/src/db/migrate.ts` |
 | Admin pages / components / API client | `packages/app/src/admin/{pages,components,api}/` |
+| Admin menu (sidebar, phone drawer, route guard) | `packages/app/src/admin/navigation.ts` |
+| Admin dialog primitive / unsaved-changes guard | `packages/app/src/admin/components/ui/Dialog.tsx`, `packages/app/src/admin/context/UnsavedChangesContext.tsx` |
 | Public pages / components / hooks | `packages/app/src/public/{pages,components,hooks,context}/` |
 | Public UI string keys | `packages/app/src/public/i18n/keys.ts` |
 | Global styles and theme tokens | `packages/app/src/index.css` |

@@ -9,7 +9,10 @@
 // cypress/e2e/snapshot-parity.cy.ts compares (title, date, link) per item.
 // Classes are the SPA's Tailwind classes (this file is in the app's Tailwind content).
 
-import { UI_DEFAULTS, itemDisplayTitle, itemPlainText, itemWhen, readLocation, siteAddressLine } from '@betel/shared'
+import {
+  UI_DEFAULTS, groupDomIds, groupSlug, itemDisplayTitle, itemPlainText, itemWhen, previewSlots, deckLayer, deckUnder, readLocation,
+  siteAddressLine, tileDate, tileTint,
+} from '@betel/shared'
 import { escapeHtml, safeUrl } from './escape.js'
 import { itemImagePath } from './item-image.js'
 import { groupFeed, type FeedItem, type PageModel, type PublicSite } from './page-model.js'
@@ -46,7 +49,19 @@ interface RenderContext {
   showSiteLabel: boolean
   /** True until the first image of the page has been rendered (eager + high priority). */
   firstImage: { pending: boolean }
+  /** Accent of the active site (hub: currentColor), as the SPA's useSite(). */
+  accent: string
 }
+
+/** Per-item options inside a group's deck (spec 08, FR-098 / FR-102). */
+interface TileOptions {
+  /** An item of a collapsible group: print the tile-only date cover (shown only in the deck). */
+  tile: boolean
+  /** The tile behind the top one: its link gets no tab stop. */
+  back: boolean
+}
+
+const NO_TILE: TileOptions = { tile: false, back: false }
 
 function imageAttrs(ctx: RenderContext): string {
   if (ctx.firstImage.pending) {
@@ -60,7 +75,7 @@ function siteLabel(item: FeedItem, ctx: RenderContext): string {
   if (!ctx.showSiteLabel || item.sites.length !== 1) return ''
   const site = ctx.model.sites.find(s => s.slug === item.sites[0])
   if (!site) return ''
-  return `<div class="flex flex-wrap gap-x-2 gap-y-0.5 -mt-1 mb-3"><span class="text-sm font-bold font-content">${escapeHtml(site.name)}</span></div>`
+  return `<div class="flex flex-wrap gap-x-2 gap-y-0.5 -mt-1 mb-3" data-testid="site-label"><span class="text-sm font-bold font-content">${escapeHtml(site.name)}</span></div>`
 }
 
 // Mirror of packages/app/src/public/components/content/meta-icons.tsx: metadata row
@@ -80,7 +95,7 @@ function whenLine(item: FeedItem): string {
   const inner = when.dateTime
     ? `<time datetime="${escapeHtml(when.dateTime)}">${escapeHtml(when.text)}</time>`
     : `<span>${escapeHtml(when.text)}</span>`
-  return `<p class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
+  return `<p data-tile="meta" class="${META_ROW_CLASS} mb-2">${CALENDAR_ICON}${inner}</p>`
 }
 
 /** Mirror of EventLocation.tsx (spec 07): map pin + visually-hidden label + the location text. */
@@ -88,17 +103,27 @@ function locationLine(item: FeedItem): string {
   const location = readLocation(item.data)
   if (!location) return ''
   const spacing = itemWhen(item.data, DATE_LOCALE) ? '-mt-1 mb-2' : 'mb-2'
-  return `<p class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
+  return `<p data-tile="meta" class="${META_ROW_CLASS} ${spacing}" data-testid="event-location">${MAP_PIN_ICON}`
     + `<span class="sr-only">${escapeHtml(UI_DEFAULTS['location.label'])}: </span>`
     + `<span class="min-w-0 break-words">${escapeHtml(location)}</span></p>`
 }
 
-function wrapLink(html: string, href: string | null): string {
+function wrapLink(html: string, href: string | null, opts: TileOptions = NO_TILE): string {
   if (!href) return html
-  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="group block">${html}</a>`
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${opts.back ? ' tabindex="-1"' : ''} class="group block">${html}</a>`
 }
 
-function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext): string {
+/** Date cover of an imageless hand tile: day over the full month, tinted by the item's site. */
+function tileDateCover(item: FeedItem, ctx: RenderContext): string {
+  const date = tileDate(item.data, DATE_LOCALE)
+  if (!date) return ''
+  const tint = tileTint(item.sites, ctx.model.sites)
+  return `<div data-tile="cover" aria-hidden="true" hidden${tint ? ` style="--tile-tint:${tint}"` : ''}>`
+    + `<span class="betel-title-bold">${escapeHtml(date.day)}</span>`
+    + `<span class="betel-title-condensed">${escapeHtml(date.month)}</span></div>`
+}
+
+function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: TileOptions = NO_TILE): string {
   const title = itemDisplayTitle(item)
   const h = `h${level}`
   const id = escapeHtml(item.id)
@@ -111,19 +136,20 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext): string {
       const cta = typeof item.data.cta === 'string' && item.data.cta.trim() && link ? item.data.cta : null
       const html = `<article data-item-id="${id}" class="relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden">`
         + (thumb
-          ? `<div class="aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover"></div>`
-          : '')
+          ? `<div class="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]"><img src="${escapeHtml(thumb)}" alt="" width="1600" height="900" ${imageAttrs(ctx)} class="w-full h-full object-cover">`
+            + `</div>`
+          : (opts.tile ? tileDateCover(item, ctx) : ''))
         + `<div class="p-4">${whenLine(item)}${locationLine(item)}`
-        + `<${h} class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
+        + `<${h} data-tile="title" class="betel-title-bold text-xl leading-tight mb-2">${escapeHtml(title ?? '')}</${h}>`
         + siteLabel(item, ctx)
-        + (text ? `<p class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
-        + (cta ? `<span class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
+        + (text ? `<p data-tile="desc" class="font-content text-sm text-[var(--muted)] leading-relaxed mb-4">${escapeHtml(text)}</p>` : '')
+        + (cta ? `<span data-tile="hide" class="inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">${escapeHtml(cta)}</span>` : '')
         + `</div></article>`
-      return wrapLink(html, link)
+      return wrapLink(html, link, opts)
     }
     case 'richtext': {
       const text = itemPlainText(item)
-      return `<article data-item-id="${id}" class="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">`
+      return `<article data-item-id="${id}" data-tile="text" class="border-l-2 border-[var(--border)] bg-[var(--surface)] pl-4 pr-4 py-3">`
         + (title ? `<${h} class="betel-title-bold text-lg leading-tight mb-2">${escapeHtml(title)}</${h}>` : '')
         + siteLabel(item, ctx)
         + (text ? `<div class="prose-betel"><p>${escapeHtml(text)}</p></div>` : '')
@@ -132,24 +158,62 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext): string {
     case 'poster': {
       const src = itemImagePath(item)
       if (!src) return ''
-      const html = `<article data-item-id="${id}" class="relative overflow-hidden">`
+      const html = `<article data-item-id="${id}" data-tile="poster" class="relative overflow-hidden">`
         + `<img src="${escapeHtml(src)}" alt="${escapeHtml(item.data.alt ?? '')}" width="1080" height="1350" ${imageAttrs(ctx)} class="w-full h-auto object-cover">`
         + siteLabel(item, ctx)
         + `</article>`
-      return wrapLink(html, resolvedLink(item, ctx.activeSite))
+      return wrapLink(html, resolvedLink(item, ctx.activeSite), opts)
     }
     case 'video': {
       const videoId = extractYoutubeId(item.data.url ?? item.data.youtubeId)
       if (!videoId) return ''
-      return `<article data-item-id="${id}">`
+      return `<article data-item-id="${id}" data-tile="text">`
         + (title ? `<${h} class="betel-title-bold text-lg leading-tight mb-2">${escapeHtml(title)}</${h}>` : '')
         + siteLabel(item, ctx)
-        + `<p class="font-content text-sm"><a href="https://www.youtube.com/watch?v=${escapeHtml(videoId)}">${escapeHtml(title ?? 'YouTube')}</a></p>`
+        + `<p class="font-content text-sm"><a${opts.back ? ' tabindex="-1"' : ''} href="https://www.youtube.com/watch?v=${escapeHtml(videoId)}">${escapeHtml(title ?? 'YouTube')}</a></p>`
         + `</article>`
     }
     default:
       return ''
   }
+}
+
+/**
+ * Mirror of GroupBlock.tsx in its initial (collapsed) state: heading count (FR-101), and for
+ * groups of 4+ that did not opt out the deck markup (data-preview / data-slot, every item as a
+ * tile, the tiles lying under the back tile (data-under="next", data-depth="1|2" on the two whose edge shows), the back tile hidden from keyboard and screen readers with the pointer-only overlay),
+ * the deck counter and the "Vezi toate · N" button (FR-096 – FR-102). The collapse itself is
+ * CSS, so phones paint the deck from the first byte.
+ */
+function renderGroup(groupId: string, title: string, items: FeedItem[], preview: boolean, ctx: RenderContext): string {
+  const ids = groupDomIds(groupId)
+  const count = items.length
+  const slots = new Map<number, number>()
+  previewSlots(items, 0, preview).forEach((itemIndex, slot) => slots.set(itemIndex, slot))
+  const collapsible = slots.size > 0
+  const under = deckUnder(items, 0, preview)
+  const lis = items.map((item, index) => {
+    const slot = slots.get(index)
+    // Before the first swipe every other tile lies under the back tile; the first two show their edge.
+    const lying = slot === undefined ? deckLayer(under, index) : undefined
+    const back = (slot !== undefined && slot > 0) || lying?.depth !== undefined
+    const html = renderItem(item, 3, ctx, { tile: collapsible, back })
+    if (lying) return `<li data-under="${lying.under}"${lying.depth ? ` data-depth="${lying.depth}" aria-hidden="true"` : ''}>${html}</li>`
+    return slot === undefined
+      ? `<li>${html}</li>`
+      : `<li data-slot="${slot}"${back ? ' aria-hidden="true"' : ''}>${html}${back ? '<span data-hand-expand aria-hidden="true"></span>' : ''}</li>`
+  })
+  const showAll = UI_DEFAULTS['section.showAll'].replaceAll('{count}', String(count))
+  return `<section aria-labelledby="${escapeHtml(ids.heading)}" id="${escapeHtml(groupSlug(title))}"${collapsible ? ' data-preview="hand"' : ''} class="relative">`
+    + `<header class="flex items-center gap-3 mb-6"><span class="block w-4 h-px flex-shrink-0" style="background-color:${escapeHtml(ctx.accent)}" aria-hidden="true"></span>`
+    + `<h2 id="${escapeHtml(ids.heading)}" class="betel-title-bold text-sm tracking-widest uppercase">${escapeHtml(title)} <span class="betel-group-count">· ${count}</span></h2>`
+    + (collapsible ? `<span class="betel-deck-count sm:hidden" aria-hidden="true" data-testid="deck-count">1 / ${count}</span>` : '')
+    + `</header>`
+    + `<ul id="${escapeHtml(ids.list)}" data-preview-list class="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">${lis.join('')}</ul>`
+    + (collapsible
+      ? `<div class="sm:hidden mt-5 flex justify-center"><button type="button" class="betel-hand-button" aria-expanded="false" aria-controls="${escapeHtml(ids.list)}">${escapeHtml(showAll)}</button></div>`
+      : '')
+    + `</section>`
 }
 
 function renderFeed(ctx: RenderContext): string {
@@ -161,13 +225,7 @@ function renderFeed(ctx: RenderContext): string {
     return `<p class="font-content text-sm text-[var(--muted)] leading-relaxed">${escapeHtml(text)}</p>`
   }
   const blocks = groupFeed(model.items).map(block => {
-    if (block.kind === 'group') {
-      return `<section aria-label="${escapeHtml(block.title)}">`
-        + `<header class="flex items-center gap-3 mb-6"><h2 class="betel-title-bold text-sm tracking-widest uppercase">${escapeHtml(block.title)}</h2></header>`
-        + `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">`
-        + block.items.map(item => renderItem(item, 3, ctx)).join('')
-        + `</div></section>`
-    }
+    if (block.kind === 'group') return renderGroup(block.groupId, block.title, block.items, block.preview, ctx)
     return renderItem(block.item, 2, ctx)
   })
   return `<div class="space-y-8">${blocks.map(b => `<div>${b}</div>`).join('')}</div>`
@@ -242,6 +300,7 @@ export function renderSnapshot(model: PageModel): string {
     activeSite,
     showSiteLabel: model.kind === 'hub',
     firstImage: { pending: true },
+    accent: (activeSite ? model.site?.accent : null) ?? 'currentColor',
   }
   const isHub = model.kind === 'hub' || model.kind === 'site'
   const main = isHub ? renderFeed(ctx) : renderItemMain(model, ctx)

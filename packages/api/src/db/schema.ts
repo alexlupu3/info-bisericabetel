@@ -24,6 +24,8 @@ export const groups = pgTable('groups', {
   sites:         text('sites').array().notNull().default([]),
   orderPosition: integer('order_position').notNull().default(0),
   state:         text('state').notNull().default('draft'),
+  /** Phone section preview (card deck) for long groups; off = always the plain list. */
+  sectionPreview: boolean('section_preview').notNull().default(true),
   createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -83,6 +85,8 @@ export const contentItems = pgTable('content_items', {
   exclusiveSite: text('exclusive_site').references(() => sites.slug),
   orderPosition: integer('order_position').notNull().default(0),
   groupId:       uuid('group_id').references(() => groups.id),
+  // Leads the group's collapsed preview on phones; cleared whenever group_id changes (BR-057).
+  pinnedInGroup: boolean('pinned_in_group').notNull().default(false),
   expiresAt:     timestamp('expires_at', { withTimezone: true }),
   data:          jsonb('data').notNull().default({}),
   createdAt:     timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

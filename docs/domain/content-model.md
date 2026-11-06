@@ -70,16 +70,20 @@ resolvedLink = (activeSite && data.siteLinks?.[activeSite]) || data.link
 - **One level of nesting only** — groups cannot contain other groups.
 - A Group itself supports site scoping and drag-and-drop ordering (see Compound Site Scope for the current enforcement gap).
 - Only Cards and Posters may be placed in a group. This is enforced by the admin drag-and-drop UI (Richtext and Video items cannot be dropped into a group); the API does not validate it.
+- On phones, a group with 4 or more visible items starts collapsed into a swipeable deck of 2 preview tiles with a "see all" control, unless the group opted out (`section_preview`, BR-059); group headings show the visible item count (BR-055).
+- An item inside a group can be **pinned** (`pinned_in_group`). Pinned items lead the collapsed deck (all pinned, in group order, then the rest) without changing the group order anywhere else; the pin is cleared when the item leaves or changes group and is not copied on duplicate (BR-056 – BR-058).
+- A group has a **section preview** switch (`section_preview`, boolean, default true; BR-059, FR-115): false keeps the group a plain list on phones.
 
 ## Shared Metadata (all content items and groups)
 - **Site scope:** define which sites show this item (one site, multiple sites, or all sites)
 - **Sort order:** controlled by drag and drop; applies at root level and within groups
+- **Pinned in group:** boolean, default false; only meaningful while the item is in a group (BR-057).
 - **Locale:** Content is authored in Romanian (the default locale). Text fields on content items (including the card location `data.location`) and group names can be translated into additional enabled languages via the admin content edit form (language dropdown). Links and dates are shared across all locales. Images are also shared across locales for Richtext and Embedded YouTube Video types; however, Poster (`imageUrl`) and Card (`thumbnail`) items can have locale-specific images — admins see image pickers in translation mode for those types and can override the image per locale. When a translation exists for the active locale, it is served by the API; otherwise Romanian values are used as a fallback. The admin interface itself is Romanian-only regardless of the active public locale. Link previews of short links pick the locale from `?lang`, then `Accept-Language`, then the default language (FR-086). See FR-047, FR-037–FR-041 and ADR-014.
 - **Publishing state:** every content item has one of four states:
   - `draft` — created but not yet visible on the public hub
   - `published` — live and visible on the public hub (subject to site scope and expiry; an expired item stays `published` but is hidden — BR-014)
   - `archived` — no longer visible on the public hub; set only by the "Ascunde" (Hide) action in the admin (`POST /api/admin/content/:id/archive`). Archived items stay listed on the admin Content page with a muted state indicator (there is no archived filter). Automatic archiving on expiry is planned, not implemented (FR-014).
-  - `deleted` — soft-deleted via the "Șterge" (Delete) action. Not visible anywhere in the admin Content page. Only accessible from the Archive page (`/admin/archive`). From there an admin can either restore the item (returns to `draft`) or permanently hard-delete it. Restoring a soft-deleted item clears its `groupId` since the original group may have been deleted.
+  - `deleted` — soft-deleted via the "Șterge" (Delete) action. Not visible anywhere in the admin Content page. Only accessible from the Archive page (`/admin/archive`). From there an admin can either restore the item (returns to `draft`) or permanently hard-delete it. Restoring a soft-deleted item clears its `groupId` (and its group pin, BR-057) since the original group may have been deleted.
 - **State transitions:**
   - `draft` or `archived` → `published` ("Publică" action, `POST /api/admin/content/:id/publish`)
   - `published` → `archived` ("Ascunde" action)

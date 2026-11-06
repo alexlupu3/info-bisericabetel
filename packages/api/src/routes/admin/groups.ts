@@ -22,23 +22,30 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
     return { groups: rows }
   })
 
-  app.post<{ Body: { title: string; sites?: string[] } }>(
+  app.post<{ Body: { title: string; sites?: string[]; sectionPreview?: boolean } }>(
     '/admin/groups', { preHandler: auth }, async (req, reply) => {
-      const { title, sites = [] } = req.body
+      const { title, sites = [], sectionPreview } = req.body
       if (!title) return reply.code(400).send({ error: 'title is required' })
-      const [group] = await db.insert(groups).values({ title, sites }).returning()
+      if (sectionPreview !== undefined && typeof sectionPreview !== 'boolean') {
+        return reply.code(400).send({ error: 'sectionPreview must be a boolean' })
+      }
+      const [group] = await db.insert(groups).values({ title, sites, ...(sectionPreview !== undefined && { sectionPreview }) }).returning()
       scheduleGroupTranslation(group.id, title)
       return reply.code(201).send(group)
     }
   )
 
-  app.patch<{ Params: { id: string }; Body: { title?: string; sites?: string[] } }>(
+  app.patch<{ Params: { id: string }; Body: { title?: string; sites?: string[]; sectionPreview?: boolean } }>(
     '/admin/groups/:id', { preHandler: auth }, async (req, reply) => {
       const { id } = req.params
-      const { title, sites } = req.body
+      const { title, sites, sectionPreview } = req.body
+      if (sectionPreview !== undefined && typeof sectionPreview !== 'boolean') {
+        return reply.code(400).send({ error: 'sectionPreview must be a boolean' })
+      }
       const [updated] = await db.update(groups).set({
         ...(title !== undefined && { title }),
         ...(sites !== undefined && { sites }),
+        ...(sectionPreview !== undefined && { sectionPreview }),
         updatedAt: new Date(),
       }).where(eq(groups.id, id)).returning()
       if (!updated) return reply.code(404).send({ error: 'Not found' })
@@ -66,7 +73,7 @@ export async function adminGroupsRoutes(app: FastifyInstance) {
     '/admin/groups/:id', { preHandler: auth }, async (req, reply) => {
       // Soft-delete all child content items before removing the group
       await db.update(contentItems)
-        .set({ state: 'deleted', groupId: null, updatedAt: new Date() })
+        .set({ state: 'deleted', groupId: null, pinnedInGroup: false, updatedAt: new Date() })
         .where(eq(contentItems.groupId, req.params.id))
       await db.delete(groups).where(eq(groups.id, req.params.id))
       const actor = req.user as any

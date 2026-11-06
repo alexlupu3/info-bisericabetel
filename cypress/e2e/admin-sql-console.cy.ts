@@ -31,7 +31,8 @@ function visitAs(user: typeof superAdmin) {
 describe('Admin — SQL console (super-admin only)', () => {
   it('is hidden from regular admins', () => {
     visitAs(admin)
-    cy.get('nav').contains('SQL').should('not.exist')
+    cy.get('[data-testid="admin-sidebar"]').should('exist')
+    cy.get('[data-testid="nav-sql"]').should('not.exist')
     cy.location('pathname').should('eq', '/admin/content')
   })
 

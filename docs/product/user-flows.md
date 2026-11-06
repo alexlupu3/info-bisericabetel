@@ -32,20 +32,21 @@ Member-facing flows come first, followed by admin flows.
 - Steps:
   - The admin opens the Content page in the admin tool
   - Groups are displayed as labeled container sections; ungrouped items appear in a "Fără grup" (ungrouped) section at the bottom
-  - To create a group: admin clicks "+ Grup nou", enters a title, optionally ticks site-scope checkboxes (none = all sites), and the group appears immediately as an empty container
-  - To assign an item to a group while editing: admin opens the item form and selects the target group from the group dropdown
+  - To create a group: admin clicks "+ Grup nou"; the "Grup nou" dialog opens, the admin enters a title and optionally ticks site-scope checkboxes (none = all sites) and may untick "Pachet de carduri pe telefon" so the group stays a plain list on phones (FR-115); after "Creează" the dialog closes and the new, empty group is highlighted
+  - To assign an item to a group while editing: admin opens the item in the content dialog and selects the target group from the group dropdown
   - To move an item between groups via drag and drop: admin drags the item from its current container and drops it onto the target container; the order and group assignment are persisted in a single interaction
-  - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the same inline edit panel
-  - To edit a content item: admin clicks the item name directly (shortcut) or uses the "Editează" option in the item context menu; both open the inline content form
+  - To edit a group: admin clicks the group title directly (shortcut) or uses the "Editează" option in the group context menu; both open the "Editează grupul" dialog
+  - To edit a content item: admin clicks the item name directly (shortcut) or uses the "Editează" option in the item context menu; both open the content dialog (Editează element)
   - To delete a group: admin clicks "Șterge grup" on the group header; all child items are soft-deleted (state → `deleted`, groupId cleared) and the group is hard-deleted. Items are recoverable from `/admin/archive`.
   - To collapse a group: admin clicks the chevron button (▶/▼) on the group header; the item list is hidden and the group cannot receive drops until re-expanded; the drag handle remains active so the collapsed group can still be reordered
   - To collapse or expand all groups at once: admin clicks "▲ Restrânge toate" / "▼ Extinde toate" in the page header (only visible when at least one group exists)
   - To sort a group chronologically: admin clicks the "Sortează cronologic" button (ArrowUpDown icon) on the group header; all items in the group are immediately reordered by start date ascending (undated items move to the end); the order is persisted via the reorder API; if all items are undated the action is a silent no-op
-  - When adding a new content item inside a group (via the "+ adaugă conținut în grup" inline form): after the item is saved, the group is automatically re-sorted chronologically — the new item is inserted in start-date order among existing items; if the new item has no start date it is appended last
+  - When adding a new content item inside a group (via "Adaugă conținut în grup", which opens the content dialog with the group preselected): after the item is saved, the group is automatically re-sorted chronologically — the new item is inserted in start-date order among existing items; if the new item has no start date it is appended last
 - Success state: groups are created, populated, reordered, and collapsed without leaving the Content page; no separate Groups page navigation required
 - Failure or edge states:
   - A group is deleted while it still has items (handled: items are soft-deleted and moved to `/admin/archive`; recoverable via restore)
   - A drag operation is cancelled mid-way (handled: item returns to its original position)
+  - Moving a pinned item to another group or out of its group clears the pin (BR-057)
 
 ### Flow 4 (Super-Admin) — Resetting an admin user's password
 
@@ -115,7 +116,7 @@ Member-facing flows come first, followed by admin flows.
 
 - Trigger: a super-admin needs to inspect or correct data that no admin page exposes
 - Steps:
-  - The super-admin opens `/admin/sql` ("SQL" nav link)
+  - The super-admin opens `/admin/sql` ("SQL" sidebar link)
   - The super-admin types one statement; the "Doar citire" (read-only) checkbox is ticked by default and is cleared only when the statement must write
   - The super-admin clicks run; a warning modal opens
   - The super-admin presses the confirm button twice within 5 seconds; after 5 seconds the first press expires and must be repeated. Escape or Cancel closes the modal without running anything
@@ -223,3 +224,36 @@ Member-facing flows come first, followed by admin flows.
   - The chat renders the card; tapping it opens `/s/<code>` in a browser, which redirects to the destination as usual
 - Success state: the card shows the poster and title the admin wrote, not the destination's generic preview; the crawler fetch is not counted as a click
 - Failure or edge states: a crawler not on the allowlist, a link set to "Pagina destinație" or an item with nothing to show → the destination's own preview, exactly as before
+
+### Flow 19 (Admin) — Creating a content item in the dialog
+- Trigger: an admin wants to add a card, poster, text or video
+- Steps:
+  - On Conținut the admin clicks "+ Adaugă" (or "Adaugă conținut în grup" on a group header); the "Element nou" dialog opens over the page (full screen on a phone) and the page behind cannot be used
+  - The admin fills the form and clicks "Creează"
+  - The dialog closes, the toast says "Element creat", and the new item is scrolled into view, highlighted and focused (its group expanded and re-sorted chronologically when created from the group header)
+- Success state: the item exists and the admin can see where it landed
+- Failure or edge states:
+  - Validation or server error: the dialog stays open with the message, nothing typed is lost
+  - The admin presses Esc, clicks outside, "Anulează", Back or Forward after typing: "Renunți la modificări?" asks before anything is discarded; "Continuă editarea" returns to the form unchanged, "Renunță" discards and completes the navigation
+  - The admin closes or reloads the tab with unsaved input: the browser's own leave-page dialog appears (generic browser wording); staying keeps the form as it was
+  - The same rules apply to the "Grup nou" and "Editează grupul" dialogs
+
+### Flow 20 — Browsing a long group on a phone
+- Trigger: a visitor on a phone (screen narrower than 640 px) opens a site page whose group holds four or more visible items
+- Steps:
+  - The group shows a deck of two small preview tiles: the top tile on the left, tilted slightly left, and the next one beside it, tilted right and peeking out; the real following cards peek out under each pile, up to two per side and only as many as remain. Each tile shows the image (or, when the card has none, a large date on a soft gradient in its location's colours), then the date and the place on one line each (long text cut with an ellipsis), then the title. A card with neither image nor date shows its title, then its description cut off with an ellipsis. The heading reads "Evenimente · 9" with a small "1 / 9" at its end, and "Vezi toate · 9" sits below the deck
+  - Swiping left moves only the back tile, in an arc onto the left pile where it becomes the top tile; the card already waiting under it on the right is simply revealed. The piles rearrange as soon as the tile is picked up, so dropping it on the left only lands it; dropping it short sends it back with the swipe-right tuck. Quick swipes in a row all count, and a long or fast swipe left moves two cards at once. Swiping right takes the top tile back onto the right pile (one step back): it slides a little past that pile, then tucks in under the top tile's edge like a sheet slid into a folder; at the start it only gives a little and springs back. The counter follows and stays between 1 and the total. The deck does not wrap: after the last card is the top tile on the left the right side is empty and a further left drag gives a little and springs back. A short drag, or a vertical one (which scrolls the page), leaves the deck as it was
+  - Tapping the link on the top tile opens it, as in the full list; tapping the top tile elsewhere, or the tile behind it, opens the whole group, scrolling to and focusing that item
+  - Tapping "Vezi toate · 9" deals the tiles into the normal one-column list and moves focus to the group's first item. Either way the page shows "Arată mai puțin" floating at the bottom of the screen while the group is on screen
+  - After scrolling past the group, tapping "Arată mai puțin" gathers the cards back into the deck tiles; if the heading had scrolled off the top the page scrolls back to it, and focus returns to "Vezi toate · 9"
+- Success state: a long group takes about one tile of height until the visitor asks for more
+- Failure or edge states: a group with three items or fewer, or one whose admin unticked "Pachet de carduri pe telefon" (FR-115), shows its items directly as a list, with no deck, counter or button; tablets and desktops keep the full grid (the heading still shows "· N"); crossing 640 px keeps an expanded group expanded; a site switch, navigation or reload returns groups to the deck, first card on top; reduced-motion visitors get swipes and the expand switch without animation; keyboard and screen-reader users expand with the button only (they do not swipe)
+
+### Flow 21 (Admin) — Pinning an item to the front of a group's phone preview
+- Trigger: an admin wants a specific item to lead a long group's deck on phones without changing the group's order
+- Steps:
+  - On the Content page, each item row inside a group has an icon-only pin toggle (outline pin; filled once pinned)
+  - The admin pins "Tabăra de iarnă" (ninth in the chronological group order): on phones it leads the deck; in the expanded list it stays ninth
+  - Pinning four items: all four lead the deck in group order, then the unpinned items follow
+- Success state: the pin is saved on the item (`pinnedInGroup`, audit-logged in `content.update`) and the row updates immediately
+- Failure or edge states: moving a pinned item to another group, taking it out of the group or deleting the group clears the pin (BR-057); duplicating a pinned item does not copy the pin (BR-058)

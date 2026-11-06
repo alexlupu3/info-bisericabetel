@@ -82,6 +82,11 @@
   --warning: #a15c00;
   --info: #1565c0;
   color-scheme: light;
+  /* Admin floating layers (FR-109). Dialogs and the phone drawer use the browser's top
+     layer and need no z-index; toasts render inside the top dialog while one is open. */
+  --z-sidebar: 30;
+  --z-fab: 40;
+  --z-toast: 70;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -118,6 +123,48 @@
   color-scheme: dark;
 }
 
+/* ── Admin overlays (spec 09) ─────────────────────────────────
+   Native <dialog> primitive (ADR-027), phone drawer, after-save highlight. */
+.admin-dialog::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.admin-dialog[data-layout="drawer"]::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+@keyframes admin-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes admin-dialog-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes admin-drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: none; }
+}
+@keyframes admin-highlight {
+  0%, 60% { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  100%    { border-color: var(--border); box-shadow: inset 3px 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-fade-in { animation: admin-fade-in 160ms ease-out; }
+  .admin-dialog::backdrop { animation: admin-fade-in 160ms ease-out; }
+  .admin-dialog-panel { animation: admin-dialog-in 180ms ease-out; }
+  .admin-drawer-panel { animation: admin-drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .admin-theme [data-highlight="true"] { animation: admin-highlight 2.5s ease-out forwards; }
+}
+
+/* Reduced motion: the highlight is static while it lasts. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-theme [data-highlight="true"] {
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+}
+
 /* ── Base ───────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -130,6 +177,8 @@ html, body, #root {
 }
 
 body {
+  /* The page never scrolls sideways; a stray wide or rotated element is clipped instead. */
+  overflow-x: clip;
   font-family: 'Franie-SLight', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -296,4 +345,272 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 2px;
+}
+
+/* ── Section preview: swipeable pair of tiles on phones (spec 08, ADR-026) ──
+   GroupBlock and the server-rendered snapshot print the same markup:
+   section[data-preview="hand|open"] > ul[data-preview-list] > li[data-slot="0|1"].
+   Below 640 px a collapsed group shows two small preview tiles (image or date cover, title),
+   fanned and overlapping (pure CSS, so the first paint is already collapsed); swiping the top
+   tile deals the next ones (useSectionPreview.ts, which mirrors the slot geometry in SLOTS). */
+:root {
+  --hand-shadow: rgba(0, 0, 0, 0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --hand-shadow: rgba(0, 0, 0, 0.85); }
+}
+[data-theme="dark"] { --hand-shadow: rgba(0, 0, 0, 0.85); }
+[data-theme="light"] { --hand-shadow: rgba(0, 0, 0, 0.28); }
+
+/* Heading count "· N" (FR-101), every viewport. */
+.betel-group-count {
+  font-family: 'Franie-SLight', Arial, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* Deck position "2 / 7", at the end of the heading row while collapsed. */
+.betel-deck-count {
+  margin-left: auto;
+  font-family: 'Franie-SLight', Arial, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* Pointer-only expand target over the back card (FR-102): inert outside the deck. */
+[data-hand-expand] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+[data-preview-list] > li { position: relative; }
+
+/* "Vezi toate · N" / "Arată mai puțin" pills. */
+.betel-hand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.375rem;
+  border: 1px solid var(--text);
+  border-radius: 9999px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Lato, sans-serif;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease;
+}
+.betel-hand-button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.betel-hand-button--solid {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 8px 24px -10px var(--hand-shadow);
+}
+/* Floats at the bottom of the screen while the open group is on screen (FR-100). */
+.betel-hand-less {
+  position: sticky;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+  pointer-events: none;
+}
+.betel-hand-less > button { pointer-events: auto; }
+
+@media (max-width: 639px) {
+  /* Every item of the group shares one grid cell, so the cell is as tall as the group's
+     tallest tile (between 36 and 65 % of the list width, cqw) and the deck keeps one size
+     while swiping. Only the two deck tiles show; the others stay laid out but invisible
+     (visibility: hidden also takes them out of the tab order and the accessibility tree).
+     Tiles are 46 % wide; the pair is centred with room for the ±4° tilt and the cards peeking
+     out under each pile, so nothing reaches past the page gutter. Vertical drags scroll the page;
+     horizontal ones swipe. The slot geometry is mirrored in useSectionPreview.ts (SLOTS). */
+  [data-preview="hand"] > [data-preview-list] {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    container-type: inline-size;
+    padding: 0 0 1.75rem;
+    touch-action: pan-y;
+  }
+  [data-preview="hand"] > [data-preview-list] > li {
+    grid-area: 1 / 1;
+    width: 46%;
+    margin-left: 9%;
+    min-height: 36cqw;
+    max-height: 65cqw;
+    overflow: hidden;
+    transform-origin: 50% 140%;
+    background: var(--surface);
+    /* Every item is parked in its pile's top pose (data-under: the left pile before the first
+       swipe), under everything, on its own compositing layer: a tile entering or leaving the
+       deck changes neither transform nor layer as it shows or hides, so a frame painted before
+       visibility catches up is covered by that pile's top tile (seen on phones: one frame
+       drawn unrotated). */
+    transform: translate(0%, 16px) rotate(-4deg);
+    z-index: 0;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  /* Hidden: a tile leaving the second layer fades out in place and only then takes the parked
+     pose (same frame as it goes hidden, at opacity 0); one entering it fades in. */
+  [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease-out, box-shadow 180ms ease-out, transform 0s 200ms, z-index 0s 200ms, visibility 0s 200ms;
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="next"] { transform: translate(68%, 10px) rotate(4deg); }
+  /* Stacking, at rest and mid-swipe: the whole left pile over the whole right pile (top tile
+     6, its two layers 5 / 4, back tile 3, its two layers 2 / 1); only the tile under the
+     finger goes above them all (inline, useSectionPreview.ts). A tile changing role eases from
+     its old pose into its new one; the dragged tile sets its own inline transition. */
+  [data-preview="hand"] > [data-preview-list] > li[data-slot],
+  [data-preview="hand"] > [data-preview-list] > li[data-depth] {
+    visibility: visible;
+    opacity: 1;
+    box-shadow: 0 6px 18px -10px var(--hand-shadow);
+    transition: transform 180ms ease-out, opacity 180ms ease-out, box-shadow 200ms ease-out;
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0%, 16px) rotate(-4deg); z-index: 6; cursor: pointer; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] { transform: translate(68%, 10px) rotate(4deg); z-index: 3; }
+  /* The real cards under the two piles, already in place (a swipe moves only the top tile of
+     one pile onto the other), each a little further out and down so its edge peeks out: as
+     many as there are cards left in that pile, up to two. Same function list as the slot
+     poses, so a role change interpolates function by function. */
+  [data-preview="hand"] > [data-preview-list] > li[data-under="pile"][data-depth="1"] { transform: translate(calc(0% - 5px), 20px) rotate(-5deg); z-index: 5; }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="pile"][data-depth="2"] { transform: translate(calc(0% - 10px), 24px) rotate(-6deg); z-index: 4; }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="next"][data-depth="1"] { transform: translate(calc(68% + 5px), 14px) rotate(5deg); z-index: 2; }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="next"][data-depth="2"] { transform: translate(calc(68% + 10px), 18px) rotate(6deg); z-index: 1; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot] > [data-hand-expand] {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  [data-preview="hand"] li[data-slot] a,
+  [data-preview="hand"] li[data-slot] img { -webkit-user-drag: none; }
+
+  /* Tile content (FR-098), on every item of the group (the hidden ones size the cell): image
+     (or date cover), the date and place rows (one line each, cut with an ellipsis) and the
+     title. Description, CTA and glyphs are dropped; every tile is about as tall as its image
+     plus those rows and the title, so no empty chin. */
+  [data-preview="hand"] [data-preview-list] > li > a,
+  [data-preview="hand"] [data-preview-list] > li > a > article,
+  [data-preview="hand"] [data-preview-list] > li > article { height: 100%; }
+  [data-preview="hand"] [data-preview-list] > li > a:hover { transform: none; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="hide"],
+  [data-preview="hand"] [data-preview-list] > li [data-tile="desc"],
+  [data-preview="hand"] [data-preview-list] > li [data-testid="site-label"] { display: none; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"] {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    margin: 0 0 0.25rem;
+    letter-spacing: 0.06em;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="meta"] > :not(svg):not(.sr-only) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
+  [data-preview="hand"] [data-preview-list] > li article > .p-4 { padding: 0.625rem 0.75rem 0.75rem; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="title"] {
+    font-size: 0.95rem;
+    line-height: 1.2;
+    /* Last resort: a word wider than the tile breaks instead of being cut off. */
+    overflow-wrap: break-word;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+
+  /* Card with neither image nor date: title at the top, then the description, clamped with an
+     ellipsis. 5 lines always fit under a 3-line title within the 65cqw tile cap; 4 on narrow
+     lists. Markdown paragraphs run inline so the clamp counts all of them. */
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    overflow: hidden;
+    margin: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > * { display: inline; margin: 0; }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] > :not(:last-child)::after { content: ' '; }
+  @container (max-width: 300px) {
+    [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="desc"] { -webkit-line-clamp: 4; }
+  }
+  [data-preview="hand"] [data-preview-list] > li article:not(:has(img, [data-tile="cover"])) [data-tile="title"] { font-size: 1rem; }
+
+  /* Card without image: typographic date cover in place of the 16:9 thumbnail — the day over
+     the full month, centred, on a light washed gradient. --tile-tint is the item's own site
+     accent (set inline when it belongs to exactly one site); without it a warm stone tint gives
+     the neutral wash. Mixing into --surface keeps the wash light in light mode and deep in dark
+     mode; the last stop turns the hue a little for a softer, two-tone wash. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] {
+    --tint: var(--tile-tint, #a8987f);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    aspect-ratio: 16 / 9;
+    border-bottom: 1px solid var(--border);
+    /* No relative colour syntax: inside a var() an unsupported value would drop the whole
+       background. Mixing in oklch with a lavender turns the tint's hue for the last stop. */
+    background: linear-gradient(150deg,
+      color-mix(in oklab, var(--tint) 30%, var(--surface)) 0%,
+      color-mix(in oklab, var(--tint) 12%, var(--surface)) 55%,
+      color-mix(in oklab, color-mix(in oklch, var(--tint) 65%, #b8a8ff) 20%, var(--surface)) 100%);
+    line-height: 1;
+    text-align: center;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] > :first-child { font-size: 2.5rem; }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="cover"] > :last-child {
+    font-size: 1.2rem;
+    text-transform: lowercase;
+    color: color-mix(in oklab, var(--tint) 55%, var(--text));
+  }
+
+  /* Poster: the image fills the tile, anchored at the top. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="poster"] img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  [data-preview="hand"] [data-preview-list] > li [data-tile="poster"] > div { height: 100%; }
+
+  /* Richtext / video (only reachable through the API): clipped with a bottom fade. */
+  [data-preview="hand"] [data-preview-list] > li [data-tile="text"] {
+    height: 100%;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .betel-hand-button { transition: none; }
+  /* Same specificity as the per-role transitions above, later in the file. */
+  [data-preview="hand"] > [data-preview-list] > li:is([data-slot], :not([data-slot])) { transition: none; }
+  [data-preview] li[data-slot] > a { transition: none; }
+  [data-preview] li[data-slot] > a:hover { transform: none; }
 }
