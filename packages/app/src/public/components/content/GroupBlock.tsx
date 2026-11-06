@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { deckUnder, groupDomIds, groupSlug, isCollapsibleGroup, previewSlots, SECTION_PREVIEW_SIZE } from '@betel/shared'
+import { clampSwiped, deckUnder, groupDomIds, groupSlug, isCollapsibleGroup, previewSlots, SECTION_PREVIEW_SIZE } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import ContentRenderer from './ContentRenderer'
 import { useLanguage } from '../../context/LanguageContext'
@@ -47,7 +47,7 @@ export default function GroupBlock({ groupId, title, items, accent, activeSite =
   // Tiles already lying under the two piles, so a swipe moves one tile only.
   const under = useMemo(() => deckUnder(items, deck.swiped, preview), [items, deck.swiped, preview])
   const collapsed = collapsible && deck.state === 'hand'
-  const position = ((deck.swiped % Math.max(count, 1)) + count) % Math.max(count, 1) + 1
+  const position = clampSwiped(deck.swiped, count) + 1
 
   return (
     <section

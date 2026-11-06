@@ -153,7 +153,7 @@ function clearInline(el: HTMLElement) {
 interface Options {
   /** False for groups of 3 or fewer and for groups that opted out: no state, no buttons. */
   collapsible: boolean
-  /** Visible items in the group (the deck wraps around after the last one). */
+  /** Visible items in the group (the deck stops when the last one is the top card). */
   count: number
   /** Called with the live-region text after a change. */
   onAnnounce?: (text: string) => void
@@ -206,7 +206,8 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   // The deck is two piles: the top tile on the left (with the tiles already swiped through
   // under it) and the back tile on the right (with the next one already under it). A swipe to
   // the left lays the back tile onto the left pile, revealing the next tile in its place; a
-  // swipe to the right takes the top tile back onto the right pile. Only the moving tile
+  // swipe to the right takes the top tile back onto the right pile. The deck does not wrap
+  // around: once the last tile is on the left pile the right side is empty and the walk ends. Only the moving tile
   // animates: the tiles underneath are already in place. Vertical drags stay native page
   // scrolls (`touch-action: pan-y` on the deck).
 
@@ -223,7 +224,7 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     moving.style.transform = `translate(${x}px, ${-lift}px) ` + slotTransform(from.tx, mix(from.ty, to.ty), mix(from.rotate, to.rotate))
   }
 
-  /** A drag right with nothing on the left pile: the top tile gives a little and springs back. */
+  /** A drag with nowhere to go (start or end of the deck): the top tile gives a little and springs back. */
   const paintResist = (top: HTMLElement, dx: number) => {
     const [f] = SLOTS
     top.style.transform = `translate(${Math.sign(dx) * Math.min(Math.abs(dx) * 0.25, 24)}px, 0px) ` + slotTransform(f.tx, f.ty, f.rotate)
@@ -249,12 +250,12 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
       }
       // The landed tile takes the slot it is drawn in; the tiles under both piles move up a
       // role in place, so dropping the inline styles moves nothing.
-      flushSync(() => setSwiped(s => s - dir))
+      flushSync(() => setSwiped(s => Math.max(0, Math.min(s - dir, count - 1))))
       clearInline(moving)
     } finally {
       busy.current = false
     }
-  }, [])
+  }, [count])
 
   useEffect(() => {
     const list = listRef.current
@@ -278,9 +279,12 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         if (Math.abs(dx) < SWIPE_SLOP_PX && Math.abs(dy) < SWIPE_SLOP_PX) return
         if (Math.abs(dy) >= Math.abs(dx)) { drag = null; return } // a page scroll
         drag.dir = Math.sign(dx)
-        // Left: the back tile crosses over. Right: the top tile goes back, if anything is under it.
-        drag.resist = drag.dir > 0 && swipedRef.current <= 0
-        drag.moving = drag.dir < 0 ? slotEl(1) : slotEl(0)
+        // Left: the back tile crosses over, if there is one (none on the last item: the deck
+        // ends). Right: the top tile goes back, if anything is under it. Otherwise the top tile
+        // gives a little and springs back.
+        const back = slotEl(1)
+        drag.resist = drag.dir > 0 ? swipedRef.current <= 0 : !back
+        drag.moving = drag.dir < 0 && back ? back : slotEl(0)
         if (!drag.moving) { drag = null; return }
         try { list.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
         drag.moving.style.transition = 'none'

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SECTION_PREVIEW_SIZE, deckOrder, deckUnder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
+import { SECTION_PREVIEW_SIZE, clampSwiped, deckOrder, deckUnder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
 
 const group = (pins: boolean[]) => pins.map(pinnedInGroup => ({ pinnedInGroup }))
 
@@ -33,21 +33,24 @@ test('a pinned last item tops the deck', () => {
   assert.deepEqual(previewSlots(group([false, false, false, false, true])), [4, 0])
 })
 
-test('swiping walks the deck order and wraps around', () => {
-  const g = group([false, true, false, false, false])
+test('swiping walks the deck order and stops at its last item (no wraparound)', () => {
+  const g = group([false, true, false, false, false]) // order: 1, 0, 2, 3, 4
   assert.deepEqual(previewSlots(g, 1), [0, 2])
   assert.deepEqual(previewSlots(g, 3), [3, 4])
-  assert.deepEqual(previewSlots(g, 4), [4, 1])
-  assert.deepEqual(previewSlots(g, 5), [1, 0])
-  assert.deepEqual(previewSlots(g, -1), [4, 1])
+  // The last item tops the deck with nothing behind it; further swipes change nothing.
+  assert.deepEqual(previewSlots(g, 4), [4])
+  assert.deepEqual(previewSlots(g, 5), [4])
+  assert.deepEqual(previewSlots(g, -1), [1, 0])
+  assert.equal(clampSwiped(9, 5), 4)
+  assert.equal(clampSwiped(-2, 5), 0)
 })
 
 test('deckUnder: the tile under the top pile (after a swipe) and the one under the back tile', () => {
   const g = group([false, true, false, false, false]) // order: 1, 0, 2, 3, 4
   assert.deepEqual(deckUnder(g, 0), { pile: undefined, next: 2 })
   assert.deepEqual(deckUnder(g, 1), { pile: 1, next: 3 })
-  assert.deepEqual(deckUnder(g, 4), { pile: 3, next: 0 })
-  assert.deepEqual(deckUnder(g, 5), { pile: 4, next: 2 })
+  assert.deepEqual(deckUnder(g, 3), { pile: 2, next: undefined })
+  assert.deepEqual(deckUnder(g, 4), { pile: 3, next: undefined })
   assert.deepEqual(deckUnder(group([false, false, false])), {})
   assert.deepEqual(deckUnder(group([false, false, false, false]), 0, false), {})
 })

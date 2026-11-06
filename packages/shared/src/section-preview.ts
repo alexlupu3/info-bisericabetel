@@ -18,8 +18,8 @@ export function isCollapsibleGroup(visibleCount: number, enabled = true): boolea
 
 /**
  * The deck order (FR-097): indexes into the group's visible items, pinned items first in
- * group order, then unpinned items in group order. Swiping walks this order and wraps
- * around. A missing `pinnedInGroup` (responses cached before the column existed) reads
+ * group order, then unpinned items in group order. Swiping walks this order and stops at
+ * its last item. A missing `pinnedInGroup` (responses cached before the column existed) reads
  * as `false`.
  */
 export function deckOrder(items: ReadonlyArray<{ pinnedInGroup?: boolean | null }>): number[] {
@@ -33,8 +33,9 @@ export function deckOrder(items: ReadonlyArray<{ pinnedInGroup?: boolean | null 
 
 /**
  * Indexes of the deck cards, top card first, after `swiped` swipes: the next
- * SECTION_PREVIEW_SIZE entries of deckOrder() from position `swiped` (wrapping).
- * `[]` when the group is not collapsible.
+ * SECTION_PREVIEW_SIZE entries of deckOrder() from position `swiped`. The deck does not wrap
+ * around: on the last item there is no card behind it (one entry). `swiped` is clamped to
+ * 0 … count - 1. `[]` when the group is not collapsible.
  */
 export function previewSlots(
   items: ReadonlyArray<{ pinnedInGroup?: boolean | null }>,
@@ -43,15 +44,20 @@ export function previewSlots(
 ): number[] {
   if (!isCollapsibleGroup(items.length, enabled)) return []
   const order = deckOrder(items)
-  const start = ((swiped % order.length) + order.length) % order.length
-  return Array.from({ length: SECTION_PREVIEW_SIZE }, (_, k) => order[(start + k) % order.length])
+  const start = clampSwiped(swiped, order.length)
+  return order.slice(start, start + SECTION_PREVIEW_SIZE)
+}
+
+/** The furthest a deck can be swiped: until the last item is the top card. */
+export function clampSwiped(swiped: number, count: number): number {
+  return Math.max(0, Math.min(Math.trunc(swiped) || 0, count - 1))
 }
 
 /**
  * The tiles lying under the deck's two piles after `swiped` swipes, already in place so a
  * swipe only moves one tile: `pile` under the top tile (the one swiped past last; none before
- * the first swipe) and `next` under the back tile (the one after it). Empty when the group
- * is not collapsible.
+ * the first swipe) and `next` under the back tile (none once the back tile is the last item).
+ * Empty when the group is not collapsible.
  */
 export function deckUnder(
   items: ReadonlyArray<{ pinnedInGroup?: boolean | null }>,
@@ -60,8 +66,8 @@ export function deckUnder(
 ): { pile?: number; next?: number } {
   if (!isCollapsibleGroup(items.length, enabled)) return {}
   const order = deckOrder(items)
-  const at = (k: number) => order[((k % order.length) + order.length) % order.length]
-  return { pile: swiped > 0 ? at(swiped - 1) : undefined, next: at(swiped + 2) }
+  const at = clampSwiped(swiped, order.length)
+  return { pile: at > 0 ? order[at - 1] : undefined, next: order[at + 2] }
 }
 
 /** Anchor id of a group section (`/centru#evenimente`): the title, lower-case, ASCII, dashed. */
