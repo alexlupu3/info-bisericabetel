@@ -1,5 +1,5 @@
 /**
- * Spec 08 — FR-104: pin toggle on group item rows ("Fixează pe mobil" / "Fixat"), with a
+ * Spec 08 — FR-104: icon-only pin toggle on group item rows (outline pin / filled pin), with a
  * hint beyond the third pin; FR-103 / BR-057 regression: saving a pinned item without
  * changing its group keeps the pin.
  */
@@ -34,12 +34,16 @@ describe('Admin — pin a group item to the phone preview', () => {
     }).as('patch')
     cy.get('[data-testid="pin-toggle-a"]')
       .should('have.attr', 'aria-pressed', 'false')
-      .and('contain', 'Fixează pe mobil')
+      .and('have.attr', 'aria-label', 'Fixează pe mobil')
+      .and('not.contain.text', 'Fixat')
+    cy.get('[data-testid="pin-toggle-a"] svg').should('have.attr', 'fill', 'none')
+    cy.get('[data-testid="pin-toggle-a"]')
       .and('have.attr', 'title', 'Apare primul în previzualizarea grupului pe telefon')
     cy.intercept('GET', '/api/admin/content', { items: [item('a', { pinnedInGroup: true }), item('b'), { ...item('root'), groupId: null }] })
     cy.get('[data-testid="pin-toggle-a"]').click()
     cy.wait('@patch').its('request.body').should('deep.equal', { pinnedInGroup: true })
-    cy.get('[data-testid="pin-toggle-a"]').should('have.attr', 'aria-pressed', 'true').and('contain', 'Fixat')
+    cy.get('[data-testid="pin-toggle-a"]').should('have.attr', 'aria-pressed', 'true').and('not.contain.text', 'Fixat')
+    cy.get('[data-testid="pin-toggle-a"] svg').should('have.attr', 'fill', 'currentColor')
     // Root-level rows have no toggle.
     cy.get('[data-testid="content-row-root"]').should('exist')
     cy.get('[data-testid="pin-toggle-root"]').should('not.exist')
@@ -63,6 +67,7 @@ describe('Admin — pin a group item to the phone preview', () => {
       expect(body.groupId).to.equal('g1')
       expect(body).not.to.have.property('pinnedInGroup')
     })
-    cy.get('[data-testid="pin-toggle-a"]').should('have.attr', 'aria-pressed', 'true').and('contain', 'Fixat')
+    cy.get('[data-testid="pin-toggle-a"]').should('have.attr', 'aria-pressed', 'true')
+    cy.get('[data-testid="pin-toggle-a"] svg').should('have.attr', 'fill', 'currentColor')
   })
 })

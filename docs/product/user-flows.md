@@ -252,7 +252,7 @@ Member-facing flows come first, followed by admin flows.
 ### Flow 21 (Admin) — Pinning an item to the front of a group's phone preview
 - Trigger: an admin wants a specific item to lead a long group's deck on phones without changing the group's order
 - Steps:
-  - On the Content page, each item row inside a group has a pin toggle ("Fixează pe mobil"; pressed: "Fixat")
+  - On the Content page, each item row inside a group has an icon-only pin toggle (outline pin; filled once pinned)
   - The admin pins "Tabăra de iarnă" (ninth in the chronological group order): on phones it leads the deck; in the expanded list it stays ninth
   - Pinning four items: all four lead the deck in group order, then the unpinned items follow
 - Success state: the pin is saved on the item (`pinnedInGroup`, audit-logged in `content.update`) and the row updates immediately

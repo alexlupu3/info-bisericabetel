@@ -37,20 +37,19 @@ export default function GroupPinToggle({ item }: { item: ContentItem }) {
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
+      {/* Icon only: an outline pin, filled once pinned. The name stays constant for screen
+          readers; aria-pressed says whether it is on. */}
       <button
         type="button"
         aria-pressed={pinned}
+        aria-label="Fixează pe mobil"
         data-testid={`pin-toggle-${item.id}`}
         onClick={() => mutation.mutate(!pinned)}
         title="Apare primul în previzualizarea grupului pe telefon"
-        className={`inline-flex items-center gap-1 px-2 py-1 border text-[11px] font-content uppercase tracking-widest transition-colors
-          ${pinned
-            ? 'border-[var(--accent)] text-[var(--accent)]'
-            : 'border-transparent text-[var(--muted)] hover:text-[var(--text)]'}`}
+        className={`inline-flex items-center justify-center w-7 h-7 transition-colors
+          ${pinned ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
       >
-        <Pin size={13} aria-hidden="true" fill={pinned ? 'currentColor' : 'none'} />
-        <span className="hidden sm:inline">{pinned ? 'Fixat' : 'Fixează pe mobil'}</span>
-        <span className="sr-only sm:hidden">{pinned ? 'Fixat' : 'Fixează pe mobil'}</span>
+        <Pin size={15} aria-hidden="true" fill={pinned ? 'currentColor' : 'none'} />
       </button>
     </div>
   )
