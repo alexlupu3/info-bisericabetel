@@ -452,13 +452,16 @@ body {
     overflow: hidden;
     transform-origin: 50% 140%;
     background: var(--surface);
-  }
-  /* The four tiles on screen keep their own compositing layer: a tile dropped back into the
-     page when a swipe ends can flash one frame drawn unrotated (seen on phones). */
-  [data-preview="hand"] > [data-preview-list] > li:is([data-slot], [data-under]) {
+    /* Every item is parked in the top tile's pose, under everything, on its own compositing
+       layer: a tile entering or leaving the deck changes neither transform nor layer as it
+       shows or hides, so a frame painted before visibility catches up is covered by the top
+       tile (seen on phones: one frame drawn unrotated). The pile sheets fade instead of popping. */
+    transform: translate(0%, 16px) rotate(-4deg);
+    z-index: 0;
     will-change: transform;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    transition: box-shadow 200ms ease-out;
   }
   [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) {
     visibility: hidden;
@@ -604,6 +607,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .betel-hand-button { transition: none; }
+  [data-preview="hand"] > [data-preview-list] > li { transition: none; }
   [data-preview] li[data-slot] > a { transition: none; }
   [data-preview] li[data-slot] > a:hover { transform: none; }
 }

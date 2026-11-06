@@ -122,6 +122,15 @@ describe('Section preview — phone pair of tiles', () => {
     li('C').should('have.attr', 'data-slot', '0')
     li('D').should('have.attr', 'data-slot', '1')
     section('evenimente').find('li[data-under="next"]').should('not.exist')
+    // A tile that left the deck stays parked in the top tile's pose, under it, on its own
+    // layer (regression: one frame drawn unrotated as it went hidden).
+    li('E').should('have.css', 'visibility', 'hidden').then($e => li('C').then($c => {
+      const [e, c] = [getComputedStyle($e[0]), getComputedStyle($c[0])]
+      expect(e.transform).to.not.equal('none')
+      expect(e.transform).to.equal(c.transform)
+      expect(e.willChange).to.equal('transform')
+      expect(Number(e.zIndex)).to.be.lessThan(Number(c.zIndex))
+    }))
     // The last card goes onto the left pile: nothing is left on the right and the walk ends.
     drag('evenimente', -200)
     li('D').should('have.attr', 'data-slot', '0')
@@ -171,21 +180,29 @@ describe('Section preview — phone pair of tiles', () => {
       const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 11, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width / 3 + dx, clientY: r.top + 60, force: true })
       cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(20)).trigger('pointermove', at(150)).trigger('pointerup', at(150))
     })
-    // Past the right pile, still above everything (the deck has not changed yet)…
-    li('A').should($li => {
-      expect($li[0].style.transform).to.contain('translate(104%')
-      expect($li[0].style.zIndex).to.equal('10')
-    })
-    // …then the back tile, under the new top tile, sliding into its slot.
+    // The deck changes at once; one continuous keyframe path carries the tile past the right
+    // pile, above everything, then (its stacking stepped down to the back tile's) back under
+    // the new top tile into its slot.
     li('A').should($li => {
       expect($li[0].dataset.slot).to.equal('1')
       expect($li[0].style.zIndex).to.equal('')
-      expect($li[0].style.transform).to.contain('translate(68%')
+      const [animation] = $li[0].getAnimations()
+      expect(animation, 'tuck animation').to.exist
+      const frames = (animation.effect as KeyframeEffect).getKeyframes()
+      const out = frames.find(f => String(f.transform).includes('translate(96%'))
+      expect(out, 'overshoot keyframe').to.exist
+      expect(Number(out!.zIndex)).to.be.greaterThan(4)
+      const last = frames[frames.length - 1]
+      expect(String(last.transform)).to.contain('translate(68%')
+      expect(Number(last.zIndex)).to.be.lessThan(4)
     })
-    li('E').should('have.attr', 'data-slot', '0').then($e => li('A').then($a => {
-      expect(Number(getComputedStyle($e[0]).zIndex)).to.be.greaterThan(Number(getComputedStyle($a[0]).zIndex))
-    }))
+    li('E').should('have.attr', 'data-slot', '0')
+    section('evenimente').should($s => {
+      const z = (id: string) => Number(getComputedStyle($s.find(`[data-item-id="${id}"]`).closest('li')[0]).zIndex)
+      expect(z('E'), 'top tile over the tucked tile').to.be.greaterThan(z('A'))
+    })
     section('evenimente').find('li[style*="transform"]').should('not.exist')
+    li('A').should($li => expect($li[0].getAnimations()).to.be.empty)
     li('A').should('have.css', 'will-change', 'transform')
   })
 

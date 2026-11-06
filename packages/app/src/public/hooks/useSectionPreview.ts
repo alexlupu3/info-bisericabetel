@@ -25,13 +25,14 @@ const SWIPE_COMMIT_SHARE = 0.28
 const SWIPE_COMMIT_SPEED = 0.45 // px / ms
 const SWIPE_LAND_MS = 300
 /**
- * Swipe right: the tile first slides a little past the right pile (clear of the top tile),
- * then tucks back under the top tile's edge onto the right pile, like a sheet slid into a
- * folder. Overshoot in % of the tile width, as the slot translate.
+ * Swipe right: one continuous path, a little past the right pile (clear of the top tile) and
+ * back under the top tile's edge onto the right pile, like a sheet slid into a folder. The
+ * turnaround as a share of the duration; the overshoot in % of the tile width, as the slot
+ * translate.
  */
-const SWIPE_TUCK_OUT_MS = 170
-const SWIPE_TUCK_IN_MS = 300
-const SWIPE_TUCK_CLEAR = 36
+const SWIPE_TUCK_MS = 300
+const SWIPE_TUCK_TURN = 0.4
+const SWIPE_TUCK_CLEAR = 28
 const SWIPE_SETTLE_MS = 240
 /** How far past the other pile a dragged tile may go (share of the gap), and its arc height. */
 const SWIPE_OVERSHOOT = 1.12
@@ -267,19 +268,24 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         await wait(SWIPE_LAND_MS + 10)
         step()
       } else {
-        // Back onto the right pile, but under the left pile: first a little past the right pile,
-        // clear of the tile now on top of the left pile, still above everything…
-        const [, r] = SLOTS
-        moving.style.transition = `transform ${SWIPE_TUCK_OUT_MS}ms ease-out`
-        moving.style.transform = swipeTransform(0, 4, r.tx + SWIPE_TUCK_CLEAR, r.ty, r.rotate + 3)
-        await wait(SWIPE_TUCK_OUT_MS + 10)
-        // …then it takes its new role (back tile: under the top tile, over the right pile) and
-        // slides back under the top tile's edge into place.
+        // Back onto the right pile, under the top tile. The deck changes at once (the tile is
+        // the back tile from here on) and one keyframe animation carries it from the finger a
+        // little past the right pile, clear of the new top tile and still above everything,
+        // then back under the top tile's edge into its slot: no stop at the turnaround, where
+        // its stacking steps down to the back tile's.
+        const [f, r] = SLOTS
+        const from = moving.style.transform || swipeTransform(0, 0, f.tx, f.ty, f.rotate)
         step()
         moving.style.zIndex = ''
-        moving.style.transition = `transform ${SWIPE_TUCK_IN_MS}ms ${EASING}`
-        moving.style.transform = swipeTransform(0, 0, r.tx, r.ty, r.rotate)
-        await wait(SWIPE_TUCK_IN_MS + 10)
+        const under = getComputedStyle(moving).zIndex
+        const animation = moving.animate([
+          { offset: 0, transform: from, zIndex: 10, easing: 'ease-out' },
+          { offset: SWIPE_TUCK_TURN, transform: swipeTransform(0, 4, r.tx + SWIPE_TUCK_CLEAR, r.ty, r.rotate + 3), zIndex: 10, easing: EASING },
+          { offset: SWIPE_TUCK_TURN + 0.01, zIndex: under },
+          { offset: 1, transform: swipeTransform(0, 0, r.tx, r.ty, r.rotate), zIndex: under },
+        ], { duration: SWIPE_TUCK_MS, fill: 'forwards' })
+        await animation.finished.catch(() => { /* cancelled: the deck is gone */ })
+        animation.cancel()
       }
       // The tile is drawn exactly in its slot: dropping the inline styles moves nothing.
       clearInline(moving)
