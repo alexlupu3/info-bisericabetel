@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SECTION_PREVIEW_SIZE, clampSwiped, deckOrder, deckUnder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
+import { SECTION_PREVIEW_DEPTH, SECTION_PREVIEW_SIZE, clampSwiped, deckLayer, deckOrder, deckUnder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
 
 const group = (pins: boolean[]) => pins.map(pinnedInGroup => ({ pinnedInGroup }))
 
@@ -45,14 +45,29 @@ test('swiping walks the deck order and stops at its last item (no wraparound)', 
   assert.equal(clampSwiped(-2, 5), 0)
 })
 
-test('deckUnder: the tile under the top pile (after a swipe) and the one under the back tile', () => {
+test('deckUnder: the tiles under the top pile (swiped past, latest first) and under the back tile', () => {
   const g = group([false, true, false, false, false]) // order: 1, 0, 2, 3, 4
-  assert.deepEqual(deckUnder(g, 0), { pile: undefined, next: 2 })
-  assert.deepEqual(deckUnder(g, 1), { pile: 1, next: 3 })
-  assert.deepEqual(deckUnder(g, 3), { pile: 2, next: undefined })
-  assert.deepEqual(deckUnder(g, 4), { pile: 3, next: undefined })
-  assert.deepEqual(deckUnder(group([false, false, false])), {})
-  assert.deepEqual(deckUnder(group([false, false, false, false]), 0, false), {})
+  assert.deepEqual(deckUnder(g, 0), { pile: [], next: [2, 3, 4] })
+  assert.deepEqual(deckUnder(g, 1), { pile: [1], next: [3, 4] })
+  assert.deepEqual(deckUnder(g, 2), { pile: [0, 1], next: [4] })
+  assert.deepEqual(deckUnder(g, 3), { pile: [2, 0, 1], next: [] })
+  assert.deepEqual(deckUnder(g, 4), { pile: [3, 2, 0, 1], next: [] })
+  assert.deepEqual(deckUnder(group([false, false, false])), { pile: [], next: [] })
+  assert.deepEqual(deckUnder(group([false, false, false, false]), 0, false), { pile: [], next: [] })
+})
+
+test('deckLayer: the pile a tile lies under, with a depth for the two whose edge shows', () => {
+  assert.equal(SECTION_PREVIEW_DEPTH, 2)
+  const g = group([false, true, false, false, false]) // order: 1, 0, 2, 3, 4
+  const start = deckUnder(g, 0)
+  assert.deepEqual(deckLayer(start, 2), { under: 'next', depth: 1 })
+  assert.deepEqual(deckLayer(start, 3), { under: 'next', depth: 2 })
+  assert.deepEqual(deckLayer(start, 4), { under: 'next', depth: undefined })
+  assert.equal(deckLayer(start, 1), undefined) // the top tile
+  const end = deckUnder(g, 4)
+  assert.deepEqual(deckLayer(end, 3), { under: 'pile', depth: 1 })
+  assert.deepEqual(deckLayer(end, 2), { under: 'pile', depth: 2 })
+  assert.deepEqual(deckLayer(end, 1), { under: 'pile', depth: undefined })
 })
 
 test('missing pinnedInGroup is treated as false', () => {

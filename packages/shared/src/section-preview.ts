@@ -53,21 +53,41 @@ export function clampSwiped(swiped: number, count: number): number {
   return Math.max(0, Math.min(Math.trunc(swiped) || 0, count - 1))
 }
 
+/** Tiles under each pile whose edge peeks out (the real next cards, not drawn sheets). */
+export const SECTION_PREVIEW_DEPTH = 2
+
 /**
- * The tiles lying under the deck's two piles after `swiped` swipes, already in place so a
- * swipe only moves one tile: `pile` under the top tile (the one swiped past last; none before
- * the first swipe) and `next` under the back tile (none once the back tile is the last item).
- * Empty when the group is not collapsible.
+ * The tiles lying under the deck's two piles after `swiped` swipes, nearest the pile's top
+ * tile first: `pile` under the top tile (the ones swiped past, most recent first; none before
+ * the first swipe) and `next` under the back tile (the rest of the deck order). The first
+ * SECTION_PREVIEW_DEPTH of each show their edge; the others are hidden, parked under the same
+ * pile. Both empty when the group is not collapsible.
  */
 export function deckUnder(
   items: ReadonlyArray<{ pinnedInGroup?: boolean | null }>,
   swiped = 0,
   enabled = true,
-): { pile?: number; next?: number } {
-  if (!isCollapsibleGroup(items.length, enabled)) return {}
+): { pile: number[]; next: number[] } {
+  if (!isCollapsibleGroup(items.length, enabled)) return { pile: [], next: [] }
   const order = deckOrder(items)
   const at = clampSwiped(swiped, order.length)
-  return { pile: at > 0 ? order[at - 1] : undefined, next: order[at + 2] }
+  return { pile: order.slice(0, at).reverse(), next: order.slice(at + SECTION_PREVIEW_SIZE) }
+}
+
+/**
+ * Where tile `index` lies when it is not one of the two deck tiles: the pile it is under
+ * (`data-under`) and, while its edge shows, its depth (`data-depth`: 1 = right under the
+ * pile's top tile … SECTION_PREVIEW_DEPTH). Undefined for a deck tile.
+ */
+export function deckLayer(
+  under: { pile: readonly number[]; next: readonly number[] },
+  index: number,
+): { under: 'pile' | 'next'; depth?: number } | undefined {
+  for (const pile of ['pile', 'next'] as const) {
+    const at = under[pile].indexOf(index)
+    if (at >= 0) return { under: pile, depth: at < SECTION_PREVIEW_DEPTH ? at + 1 : undefined }
+  }
+  return undefined
 }
 
 /** Anchor id of a group section (`/centru#evenimente`): the title, lower-case, ASCII, dashed. */

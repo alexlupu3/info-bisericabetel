@@ -5,7 +5,8 @@ import { flushSync } from 'react-dom'
 //
 // The deck itself is CSS (index.css, `[data-preview="hand"]`): two small preview tiles, the top
 // one in front on the left, the next one fanned out behind it on the right, each lying on a
-// pile (data-under: the previous tile under the top one, the next-but-one under the back one). This hook keeps the per-group state
+// pile (data-under / data-depth: the tiles swiped past under the top one, the rest of the deck
+// under the back one, the first two of each peeking out). This hook keeps the per-group state
 // (collapsed / open and how far the deck has been swiped), hides the back tile from keyboard
 // and screen readers, handles the swipe and the taps that open the group, moves focus,
 // announces the change and runs the FLIP animations (transform / opacity only), cross-fading
@@ -156,13 +157,22 @@ function buildDeckGhost(list: HTMLElement, items: HTMLElement[]) {
   return { wrap, tiles }
 }
 
-function clearInline(el: HTMLElement) {
-  el.style.transition = ''
-  el.style.transform = ''
-  el.style.transformOrigin = ''
-  el.style.opacity = ''
-  el.style.boxShadow = ''
-  el.style.zIndex = ''
+/**
+ * Drops the inline swipe / flight styles. The resting pose is committed with transitions off
+ * (one forced style flush), so the CSS transition of the tile's new role does not replay the
+ * move it just made.
+ */
+function clearInline(...els: HTMLElement[]) {
+  for (const el of els) {
+    el.style.transition = 'none'
+    el.style.transform = ''
+    el.style.transformOrigin = ''
+    el.style.opacity = ''
+    el.style.boxShadow = ''
+    el.style.zIndex = ''
+  }
+  if (els[0]) void els[0].offsetWidth
+  for (const el of els) el.style.transition = ''
 }
 
 interface Options {
@@ -197,13 +207,13 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     listRef.current?.querySelector<HTMLElement>(`:scope > li[data-slot="${slot}"]`) ?? null
 
   // The back card stays tappable (no `inert`) but gets no tab stop (FR-102); nor do the tiles
-  // lying under the two piles.
+  // showing their edge under the two piles.
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) return
     Array.from(list.children).forEach(li => {
       const el = li as HTMLElement
-      const back = handVisible && (Number(el.dataset.slot ?? 0) > 0 || el.dataset.under !== undefined)
+      const back = handVisible && (Number(el.dataset.slot ?? 0) > 0 || el.dataset.depth !== undefined)
       li.querySelectorAll<HTMLElement>(FOCUSABLE).forEach(el => {
         if (el.hasAttribute('data-hand-expand')) return
         if (back && !el.hasAttribute('tabindex')) {
@@ -381,6 +391,9 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     // Expand: copies of the deck tiles, made while they still look like tiles.
     const ghost = to === 'open' ? buildDeckGhost(list, items) : null
 
+    // The deck CSS eases tiles between roles; the flight below drives every tile itself, and
+    // on collapse the tiles under the piles take their place at once.
+    for (const el of items) el.style.transition = 'none'
     flushSync(() => setState(to))
 
     const after = items.map(layoutBox)
@@ -426,7 +439,7 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         }
       })
     } else {
-      // From the list back to the deck; the other items are already display: none.
+      // From the list back to the deck; the other items are already under the piles or hidden.
       items.forEach((el, index) => {
         const slot = slotOfEl(el)
         if (slot === undefined) return
@@ -459,7 +472,7 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     const longest = animated.reduce((max, a) => Math.max(max, a.delay), 0) + DURATION_MS
     await wait(longest + 20)
     ghost?.wrap.remove()
-    for (const { el } of animated) clearInline(el)
+    clearInline(...items)
   }, [])
 
   const focusItem = useCallback((index: number) => {

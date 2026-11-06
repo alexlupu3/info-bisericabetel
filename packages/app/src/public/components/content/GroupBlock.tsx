@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { clampSwiped, deckUnder, groupDomIds, groupSlug, isCollapsibleGroup, previewSlots, SECTION_PREVIEW_SIZE } from '@betel/shared'
+import { clampSwiped, deckLayer, deckUnder, groupDomIds, groupSlug, isCollapsibleGroup, previewSlots, SECTION_PREVIEW_SIZE } from '@betel/shared'
 import type { ContentItem } from '../../api/client'
 import ContentRenderer from './ContentRenderer'
 import { useLanguage } from '../../context/LanguageContext'
@@ -44,7 +44,8 @@ export default function GroupBlock({ groupId, title, items, accent, activeSite =
     previewSlots(items, deck.swiped, preview).forEach((itemIndex, slot) => map.set(itemIndex, slot))
     return map
   }, [items, deck.swiped, preview])
-  // Tiles already lying under the two piles, so a swipe moves one tile only.
+  // Tiles already lying under the two piles (the first two of each with their edge showing),
+  // so a swipe moves one tile only.
   const under = useMemo(() => deckUnder(items, deck.swiped, preview), [items, deck.swiped, preview])
   const collapsed = collapsible && deck.state === 'hand'
   const position = clampSwiped(deck.swiped, count) + 1
@@ -72,13 +73,14 @@ export default function GroupBlock({ groupId, title, items, accent, activeSite =
         {items.map((item, index) => {
           const slot = slots.get(index)
           const back = slot !== undefined && slot > 0
-          const lying = slot === undefined ? (index === under.pile ? 'pile' : index === under.next ? 'next' : undefined) : undefined
+          const lying = slot === undefined ? deckLayer(under, index) : undefined
           return (
             <li
               key={item.id}
               data-slot={slot}
-              data-under={lying}
-              aria-hidden={(back || lying) && deck.handVisible ? true : undefined}
+              data-under={lying?.under}
+              data-depth={lying?.depth}
+              aria-hidden={(back || lying?.depth !== undefined) && deck.handVisible ? true : undefined}
             >
               <ContentRenderer
                 item={item}

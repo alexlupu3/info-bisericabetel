@@ -66,10 +66,15 @@ describe('Section preview — phone pair of tiles', () => {
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5').and('have.attr', 'aria-hidden', 'true')
     li('E').should('have.attr', 'data-slot', '0').and('be.visible').and('not.have.attr', 'aria-hidden')
     li('A').should('have.attr', 'data-slot', '1').and('be.visible').and('have.attr', 'aria-hidden', 'true')
-    // B lies under the back tile (next in the deck); the rest wait hidden.
-    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'aria-hidden', 'true').and('not.have.attr', 'data-slot')
+    // B and C lie under the back tile (next in the deck) with their edge showing; D waits
+    // hidden under the same pile.
+    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '1').and('have.attr', 'aria-hidden', 'true').and('not.have.attr', 'data-slot')
     li('B').find('a').should('have.attr', 'tabindex', '-1')
-    ;['C', 'D'].forEach(id => li(id).should('not.be.visible').and('not.have.attr', 'data-slot'))
+    li('C').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '2')
+    li('C').should('have.css', 'visibility', 'visible')
+    li('D').should('have.attr', 'data-under', 'next').and('not.have.attr', 'data-depth')
+    li('D').should('not.have.attr', 'data-slot')
+    li('D').should('not.be.visible')
     // One tab stop for the top tile, then the button: the back tile's link is out of the tab order.
     li('A').find('a').should('have.attr', 'tabindex', '-1')
     section('evenimente').then($s => {
@@ -90,38 +95,51 @@ describe('Section preview — phone pair of tiles', () => {
       const heights = $lis.map((_, el) => el.offsetHeight).get()
       expect(new Set(heights).size).to.equal(1)
     })
-    li('C').should('have.css', 'visibility', 'hidden')
+    li('D').should('have.css', 'visibility', 'hidden')
     drag('evenimente', -200)
     drag('evenimente', -200)
-    li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
+    drag('evenimente', -200)
+    li('D').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
   })
 
   it('a swipe left lays the back tile on the top pile; right takes it back; the deck ends at the last card', () => {
     visitWith(feed())
-    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'aria-hidden', 'true')
+    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '1').and('have.attr', 'aria-hidden', 'true')
     section('evenimente').find('li[data-under="pile"]').should('not.exist')
     drag('evenimente', -200)
     li('A').should('have.attr', 'data-slot', '0').and('not.have.attr', 'aria-hidden')
     li('B').should('have.attr', 'data-slot', '1').and('have.attr', 'aria-hidden', 'true')
     // The old top tile now lies under the new one; the next-but-one under the back tile.
-    li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'aria-hidden', 'true')
+    li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1').and('have.attr', 'aria-hidden', 'true')
     li('E').find('a').should('have.attr', 'tabindex', '-1')
-    li('C').should('have.attr', 'data-under', 'next')
+    li('C').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '1')
+    li('D').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '2')
     li('A').find('a').should('not.have.attr', 'tabindex')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '2 / 5')
     drag('evenimente', 200)
     li('E').should('have.attr', 'data-slot', '0').and('not.have.attr', 'data-under')
     li('A').should('have.attr', 'data-slot', '1')
-    li('B').should('have.attr', 'data-under', 'next')
+    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '1')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
     // Nothing under the first tile: a drag right springs back.
     drag('evenimente', 200)
     li('E').should('have.attr', 'data-slot', '0')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
-    ;[0, 1, 2].forEach(() => drag('evenimente', -200))
+    ;[0, 1].forEach(() => drag('evenimente', -200))
+    // One card left after the back tile: the right pile shows exactly one layer under it…
+    li('B').should('have.attr', 'data-slot', '0')
+    li('C').should('have.attr', 'data-slot', '1')
+    section('evenimente').find('li[data-under="next"][data-depth]').should('have.length', 1)
+    li('D').should('have.attr', 'data-depth', '1')
+    // …and the left pile two (B's predecessors A and E), the rest parked hidden under it.
+    li('A').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
+    li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '2')
+    drag('evenimente', -200)
     li('C').should('have.attr', 'data-slot', '0')
     li('D').should('have.attr', 'data-slot', '1')
+    // The back tile is the last card: nothing peeks out under it.
     section('evenimente').find('li[data-under="next"]').should('not.exist')
+    li('E').should('have.attr', 'data-under', 'pile').and('not.have.attr', 'data-depth')
     // A tile that left the deck stays parked in the top tile's pose, under it, on its own
     // layer (regression: one frame drawn unrotated as it went hidden).
     li('E').should('have.css', 'visibility', 'hidden').then($e => li('C').then($c => {
@@ -134,7 +152,7 @@ describe('Section preview — phone pair of tiles', () => {
     // The last card goes onto the left pile: nothing is left on the right and the walk ends.
     drag('evenimente', -200)
     li('D').should('have.attr', 'data-slot', '0')
-    li('C').should('have.attr', 'data-under', 'pile')
+    li('C').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
     section('evenimente').find('li[data-slot="1"], li[data-under="next"]').should('not.exist')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
     drag('evenimente', -200)
@@ -178,7 +196,16 @@ describe('Section preview — phone pair of tiles', () => {
     section('evenimente').find('ul[data-preview-list]').then($ul => {
       const r = $ul[0].getBoundingClientRect()
       const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 11, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width / 3 + dx, clientY: r.top + 60, force: true })
-      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(20)).trigger('pointermove', at(150)).trigger('pointerup', at(150))
+      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(20)).trigger('pointermove', at(150))
+      // Mid-drag the revealed left-pile tile (E) stays over the right pile's back tile (B);
+      // only the tile under the finger is above it.
+      section('evenimente').should($s => {
+        const z = (id: string) => Number(getComputedStyle($s.find(`[data-item-id="${id}"]`).closest('li')[0]).zIndex)
+        expect(z('A'), 'dragged tile above all').to.be.greaterThan(z('E'))
+        expect(z('E'), 'left pile over the right pile').to.be.greaterThan(z('B'))
+        expect(z('B'), 'back tile over its own layers').to.be.greaterThan(z('C'))
+      })
+      cy.wrap($ul).trigger('pointerup', at(150))
     })
     // The deck changes at once; one continuous keyframe path carries the tile past the right
     // pile, above everything, then (its stacking stepped down to the back tile's) back under
@@ -245,14 +272,14 @@ describe('Section preview — phone pair of tiles', () => {
     })
     cy.contains('button', 'Arată mai puțin').click()
     section('evenimente').should('have.attr', 'data-preview', 'hand')
-    li('C').should('not.be.visible')
+    li('D').should('not.be.visible')
     cy.focused().should('have.text', 'Vezi toate · 5')
     cy.get('[data-testid="section-live"]').should('have.text', 'Evenimente: se afișează 2 din 5')
   })
 
   it('the deck never makes the page scroll sideways (regression)', () => {
     visitWith(feed())
-    section('evenimente').find('li[data-slot], li[data-under]').each($li => {
+    section('evenimente').find('li[data-slot], li[data-depth]').each($li => {
       const rect = $li[0].getBoundingClientRect()
       expect(rect.left).to.be.at.least(0)
       expect(rect.right).to.be.at.most(375)
@@ -260,9 +287,15 @@ describe('Section preview — phone pair of tiles', () => {
     cy.document().should(doc => {
       expect(doc.documentElement.scrollWidth).to.be.at.most(375)
     })
-    // The tile under the back tile carries the "more cards" stack; the button has no dash.
-    li('B').should('have.attr', 'data-under', 'next').and('have.css', 'box-shadow').and('match', /10px 8px/)
-    li('A').should('have.css', 'box-shadow').and('not.match', /10px 8px/)
+    // The cards peeking out under the back tile are real tiles, each a little further out
+    // than the one above it, with the plain drop shadow (no drawn sheets); the button has no dash.
+    const soft = /^rgba?\([^)]*\) 0px 6px 18px -10px$/
+    ;['A', 'B', 'C'].forEach(id => li(id).should('have.css', 'box-shadow').and('match', soft))
+    li('A').then($a => li('B').then($b => li('C').then($c => {
+      const right = ($li: JQuery<HTMLElement>) => $li[0].getBoundingClientRect().right
+      expect(right($b)).to.be.greaterThan(right($a))
+      expect(right($c)).to.be.greaterThan(right($b))
+    })))
     cy.contains('button', 'Vezi toate · 5').then($b => {
       expect(getComputedStyle($b[0], '::before').content).to.be.oneOf(['none', 'normal'])
     })
@@ -452,12 +485,12 @@ describe('Section preview — phone pair of tiles', () => {
 
   it('switches layouts when crossing 640 px while collapsed (regression)', () => {
     visitWith(feed())
-    li('C').should('not.be.visible')
+    li('D').should('not.be.visible')
     cy.viewport(1000, 800)
     ;['A', 'B', 'C', 'D', 'E'].forEach(id => li(id).should('be.visible'))
     li('A').should('not.have.attr', 'aria-hidden')
     cy.viewport(375, 812)
-    li('C').should('not.be.visible')
+    li('D').should('not.be.visible')
     li('A').should('have.attr', 'aria-hidden', 'true')
     section('evenimente').should('have.attr', 'data-preview', 'hand')
   })
