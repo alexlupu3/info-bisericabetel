@@ -453,6 +453,13 @@ body {
     transform-origin: 50% 140%;
     background: var(--surface);
   }
+  /* The four tiles on screen keep their own compositing layer: a tile dropped back into the
+     page when a swipe ends can flash one frame drawn unrotated (seen on phones). */
+  [data-preview="hand"] > [data-preview-list] > li:is([data-slot], [data-under]) {
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
   [data-preview="hand"] > [data-preview-list] > li:not([data-slot]) {
     visibility: hidden;
     pointer-events: none;

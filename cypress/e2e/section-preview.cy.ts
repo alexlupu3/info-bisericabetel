@@ -162,6 +162,33 @@ describe('Section preview — phone pair of tiles', () => {
     section('evenimente').find('li[style*="transform"]').should('not.exist')
   })
 
+  it('a swipe right slides the tile past the right pile, then tucks it under the top tile', () => {
+    visitWith(feed())
+    drag('evenimente', -200)
+    li('A').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('ul[data-preview-list]').then($ul => {
+      const r = $ul[0].getBoundingClientRect()
+      const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 11, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width / 3 + dx, clientY: r.top + 60, force: true })
+      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(20)).trigger('pointermove', at(150)).trigger('pointerup', at(150))
+    })
+    // Past the right pile, still above everything (the deck has not changed yet)…
+    li('A').should($li => {
+      expect($li[0].style.transform).to.contain('translate(104%')
+      expect($li[0].style.zIndex).to.equal('10')
+    })
+    // …then the back tile, under the new top tile, sliding into its slot.
+    li('A').should($li => {
+      expect($li[0].dataset.slot).to.equal('1')
+      expect($li[0].style.zIndex).to.equal('')
+      expect($li[0].style.transform).to.contain('translate(68%')
+    })
+    li('E').should('have.attr', 'data-slot', '0').then($e => li('A').then($a => {
+      expect(Number(getComputedStyle($e[0]).zIndex)).to.be.greaterThan(Number(getComputedStyle($a[0]).zIndex))
+    }))
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+    li('A').should('have.css', 'will-change', 'transform')
+  })
+
   it('a short or vertical drag leaves the deck as it was', () => {
     visitWith(feed())
     // Short of the commit distance, and too short to count as a fling.

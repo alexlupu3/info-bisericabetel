@@ -24,6 +24,14 @@ const SWIPE_SLOP_PX = 8
 const SWIPE_COMMIT_SHARE = 0.28
 const SWIPE_COMMIT_SPEED = 0.45 // px / ms
 const SWIPE_LAND_MS = 300
+/**
+ * Swipe right: the tile first slides a little past the right pile (clear of the top tile),
+ * then tucks back under the top tile's edge onto the right pile, like a sheet slid into a
+ * folder. Overshoot in % of the tile width, as the slot translate.
+ */
+const SWIPE_TUCK_OUT_MS = 170
+const SWIPE_TUCK_IN_MS = 300
+const SWIPE_TUCK_CLEAR = 36
 const SWIPE_SETTLE_MS = 240
 /** How far past the other pile a dragged tile may go (share of the gap), and its arc height. */
 const SWIPE_OVERSHOOT = 1.12
@@ -38,6 +46,12 @@ const SLOTS = [
   { tx: 68, ty: 10, rotate: 4 },
 ] as const
 const slotTransform = (tx: number, ty: number, rotate: number) => `translate(${tx}%, ${ty}px) rotate(${rotate}deg)`
+/**
+ * A swipe pose: an offset in px on top of a slot pose. Drag, landing and tuck all use this one
+ * function list, so transitions between them interpolate function by function.
+ */
+const swipeTransform = (dx: number, dy: number, tx: number, ty: number, rotate: number) =>
+  `translate(${dx}px, ${dy}px) ${slotTransform(tx, ty, rotate)}`
 /** Share of the expand flight over which a tile cross-fades into its open card. */
 const CROSSFADE_SHARE = 0.35
 /** Marks a tabindex this hook added, so it only removes its own. */
@@ -221,13 +235,13 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     const mix = (a: number, b: number) => a + (b - a) * p
     // A small arc while the tile crosses over to the other pile.
     const lift = Math.sin(p * Math.PI) * SWIPE_LIFT_PX
-    moving.style.transform = `translate(${x}px, ${-lift}px) ` + slotTransform(from.tx, mix(from.ty, to.ty), mix(from.rotate, to.rotate))
+    moving.style.transform = swipeTransform(x, -lift, from.tx, mix(from.ty, to.ty), mix(from.rotate, to.rotate))
   }
 
   /** A drag with nowhere to go (start or end of the deck): the top tile gives a little and springs back. */
   const paintResist = (top: HTMLElement, dx: number) => {
     const [f] = SLOTS
-    top.style.transform = `translate(${Math.sign(dx) * Math.min(Math.abs(dx) * 0.25, 24)}px, 0px) ` + slotTransform(f.tx, f.ty, f.rotate)
+    top.style.transform = swipeTransform(Math.sign(dx) * Math.min(Math.abs(dx) * 0.25, 24), 0, f.tx, f.ty, f.rotate)
   }
 
   /** Snaps a cancelled drag back to the resting deck. */
@@ -241,16 +255,33 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   /** Lands the moving tile on the other pile (-1: back tile onto the left, 1: top tile back right). */
   const advance = useCallback(async (moving: HTMLElement, dir: number) => {
     busy.current = true
+    const step = () => flushSync(() => setSwiped(s => Math.max(0, Math.min(s - dir, count - 1))))
     try {
-      if (!matches(REDUCED_MOTION_QUERY)) {
-        const to = dir < 0 ? SLOTS[0] : SLOTS[1]
+      if (matches(REDUCED_MOTION_QUERY)) {
+        step()
+      } else if (dir < 0) {
+        // Onto the left pile, on top: it is the new top tile.
+        const [f] = SLOTS
         moving.style.transition = `transform ${SWIPE_LAND_MS}ms ${EASING}`
-        moving.style.transform = slotTransform(to.tx, to.ty, to.rotate)
+        moving.style.transform = swipeTransform(0, 0, f.tx, f.ty, f.rotate)
         await wait(SWIPE_LAND_MS + 10)
+        step()
+      } else {
+        // Back onto the right pile, but under the left pile: first a little past the right pile,
+        // clear of the tile now on top of the left pile, still above everything…
+        const [, r] = SLOTS
+        moving.style.transition = `transform ${SWIPE_TUCK_OUT_MS}ms ease-out`
+        moving.style.transform = swipeTransform(0, 4, r.tx + SWIPE_TUCK_CLEAR, r.ty, r.rotate + 3)
+        await wait(SWIPE_TUCK_OUT_MS + 10)
+        // …then it takes its new role (back tile: under the top tile, over the right pile) and
+        // slides back under the top tile's edge into place.
+        step()
+        moving.style.zIndex = ''
+        moving.style.transition = `transform ${SWIPE_TUCK_IN_MS}ms ${EASING}`
+        moving.style.transform = swipeTransform(0, 0, r.tx, r.ty, r.rotate)
+        await wait(SWIPE_TUCK_IN_MS + 10)
       }
-      // The landed tile takes the slot it is drawn in; the tiles under both piles move up a
-      // role in place, so dropping the inline styles moves nothing.
-      flushSync(() => setSwiped(s => Math.max(0, Math.min(s - dir, count - 1))))
+      // The tile is drawn exactly in its slot: dropping the inline styles moves nothing.
       clearInline(moving)
     } finally {
       busy.current = false
