@@ -26,6 +26,13 @@ const SWIPE_COMMIT_SHARE = 0.28
 const SWIPE_COMMIT_SPEED = 0.45 // px / ms
 const SWIPE_LAND_MS = 300
 /**
+ * A decisive swipe left (a long drag, in tile widths, or a fast fling, in px / ms) also deals
+ * the following card onto the left pile, this long after the first.
+ */
+const SWIPE_DOUBLE_SHARE = 1.1
+const SWIPE_DOUBLE_SPEED = 1.3
+const SWIPE_DOUBLE_GAP_MS = 110
+/**
  * Swipe right: one continuous path, a little past the right pile (clear of the top tile) and
  * back under the top tile's edge onto the right pile, like a sheet slid into a folder. The
  * turnaround as a share of the duration; the overshoot in % of the tile width, as the slot
@@ -197,6 +204,8 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   const headingRef = useRef<HTMLHeadingElement>(null)
   const showAllRef = useRef<HTMLButtonElement>(null)
   const busy = useRef(false)
+  /** While a card is in flight: finishes the flight at once (a new touch does not wait for it). */
+  const flight = useRef<(() => void) | null>(null)
   /** Set by a drag; swallows the click the browser fires after it. */
   const suppressClick = useRef(false)
 
@@ -265,23 +274,57 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
     clearInline(moving)
   }, [])
 
+  /** Waits `ms`, or less if a new touch cuts the flight short; resolves `true` when cut. */
+  const flightWait = (ms: number) => new Promise<boolean>(resolve => {
+    const timer = setTimeout(() => { flight.current = null; resolve(false) }, ms + 10)
+    flight.current = () => { clearTimeout(timer); flight.current = null; resolve(true) }
+  })
+
   /**
    * Lands the moving tile on the other pile. -1: the picked-up tile onto the left pile (the deck
    * already took its new roles at pick-up). 1: the top tile back onto the right pile with the
    * tuck, one step back (also how a picked-up tile goes back when the swipe left is dropped).
+   * `double` (a decisive swipe left): the following card is dealt onto the left pile too.
    */
-  const advance = useCallback(async (moving: HTMLElement, dir: number) => {
+  const advance = useCallback(async (moving: HTMLElement, dir: number, double = false) => {
     busy.current = true
     const step = () => flushSync(() => setSwiped(s => Math.max(0, Math.min(s - dir, count - 1))))
     try {
       if (matches(REDUCED_MOTION_QUERY)) {
-        if (dir > 0) step()
+        if (dir > 0 || double) step()
       } else if (dir < 0) {
         // Onto the left pile, on top: it is already the top tile, the rest is in place.
-        const [f] = SLOTS
-        moving.style.transition = `transform ${SWIPE_LAND_MS}ms ${EASING}`
-        moving.style.transform = swipeTransform(0, 0, f.tx, f.ty, f.rotate)
-        await wait(SWIPE_LAND_MS + 10)
+        const [f, r] = SLOTS
+        const land = (el: HTMLElement) => {
+          el.style.transition = `transform ${SWIPE_LAND_MS}ms ${EASING}`
+          el.style.transform = swipeTransform(0, 0, f.tx, f.ty, f.rotate)
+        }
+        land(moving)
+        let second: HTMLElement | null = null
+        let cut = false
+        if (double) {
+          cut = await flightWait(SWIPE_DOUBLE_GAP_MS)
+          second = cut ? null : slotEl(1)
+          if (second) {
+            // The next back tile follows: held in its pose while the deck takes one more step,
+            // then flown onto the left pile above the first one.
+            second.style.transition = 'none'
+            second.style.transform = swipeTransform(0, 0, r.tx, r.ty, r.rotate)
+            second.style.zIndex = '11'
+            step()
+            void second.offsetWidth
+            land(second)
+          }
+        }
+        if (!cut) await flightWait(SWIPE_LAND_MS)
+        if (second) {
+          // The first tile is now under the second: it eases into its pile layer by its role's
+          // own transition (no snap), the second lands exactly in its slot.
+          moving.style.transition = ''
+          moving.style.transform = ''
+          moving.style.zIndex = ''
+          clearInline(second)
+        }
       } else {
         // Back onto the right pile, under the top tile. The deck changes at once (the tile is
         // the back tile from here on) and one keyframe animation carries it from the finger a
@@ -299,7 +342,9 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
           { offset: SWIPE_TUCK_TURN + 0.01, zIndex: under },
           { offset: 1, transform: swipeTransform(0, 0, r.tx, r.ty, r.rotate), zIndex: under },
         ], { duration: SWIPE_TUCK_MS, fill: 'forwards' })
+        flight.current = () => animation.finish()
         await animation.finished.catch(() => { /* cancelled: the deck is gone */ })
+        flight.current = null
         animation.cancel()
       }
       // The tile is drawn exactly in its slot: dropping the inline styles moves nothing.
@@ -319,7 +364,12 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
 
     const onDown = (e: PointerEvent) => {
       suppressClick.current = false
-      if (busy.current || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
+      if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
+      // A card still in flight finishes at once, so quick swipes in a row are never dropped.
+      if (busy.current) {
+        if (!flight.current) return
+        flight.current()
+      }
       if (!slotEl(0)) return
       drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, dx: 0, dir: 0, moving: null, resist: false }
     }
@@ -366,7 +416,9 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
         && (along > d.moving.offsetWidth * SWIPE_COMMIT_SHARE || (speed > SWIPE_COMMIT_SPEED && along > 30))
       // A swipe left already took the deck forward at pick-up: dropped short, the tile goes back
       // to the right pile with the swipe-right tuck (one step back).
-      if (commit) void advance(d.moving, d.dir)
+      const decisive = d.dir < 0
+        && (along > d.moving.offsetWidth * SWIPE_DOUBLE_SHARE || speed > SWIPE_DOUBLE_SPEED)
+      if (commit) void advance(d.moving, d.dir, decisive)
       else if (d.dir < 0 && !d.resist) void advance(d.moving, 1)
       else void settle(d.moving)
     }

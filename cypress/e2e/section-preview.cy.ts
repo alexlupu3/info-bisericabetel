@@ -29,7 +29,10 @@ function feed(pins: Record<string, boolean> = { E: true }) {
 const li = (id: string) => cy.get(`[data-item-id="${id}"]`).closest('li')
 const section = (slug: string) => cy.get(`section#${slug}`)
 
-/** A horizontal (or, with `dy`, diagonal) touch drag across the deck. */
+/**
+ * A horizontal (or, with `dy`, diagonal) touch drag across the deck: an ordinary swipe, held a
+ * moment before release so it does not count as a decisive fling (which deals two cards).
+ */
 function drag(slug: string, dx: number, dy = 0) {
   section(slug).find('ul[data-preview-list]').then($ul => {
     const r = $ul[0].getBoundingClientRect()
@@ -41,6 +44,7 @@ function drag(slug: string, dx: number, dy = 0) {
       .trigger('pointermove', at(0.1))
       .trigger('pointermove', at(0.6))
       .trigger('pointermove', at(1))
+      .wait(150)
       .trigger('pointerup', at(1))
   })
   // Settled: no swipe styles left on any card.
@@ -96,9 +100,9 @@ describe('Section preview — phone pair of tiles', () => {
       expect(new Set(heights).size).to.equal(1)
     })
     li('D').should('have.css', 'visibility', 'hidden')
-    drag('evenimente', -200)
-    drag('evenimente', -200)
-    drag('evenimente', -200)
+    drag('evenimente', -100)
+    drag('evenimente', -100)
+    drag('evenimente', -100)
     li('D').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
   })
 
@@ -106,7 +110,7 @@ describe('Section preview — phone pair of tiles', () => {
     visitWith(feed())
     li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'data-depth', '1').and('have.attr', 'aria-hidden', 'true')
     section('evenimente').find('li[data-under="pile"]').should('not.exist')
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('A').should('have.attr', 'data-slot', '0').and('not.have.attr', 'aria-hidden')
     li('B').should('have.attr', 'data-slot', '1').and('have.attr', 'aria-hidden', 'true')
     // The old top tile now lies under the new one; the next-but-one under the back tile.
@@ -125,7 +129,7 @@ describe('Section preview — phone pair of tiles', () => {
     drag('evenimente', 200)
     li('E').should('have.attr', 'data-slot', '0')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
-    ;[0, 1].forEach(() => drag('evenimente', -200))
+    ;[0, 1].forEach(() => drag('evenimente', -100))
     // One card left after the back tile: the right pile shows exactly one layer under it…
     li('B').should('have.attr', 'data-slot', '0')
     li('C').should('have.attr', 'data-slot', '1')
@@ -134,7 +138,7 @@ describe('Section preview — phone pair of tiles', () => {
     // …and the left pile two (B's predecessors A and E), the rest parked hidden under it.
     li('A').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
     li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '2')
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('C').should('have.attr', 'data-slot', '0')
     li('D').should('have.attr', 'data-slot', '1')
     // The back tile is the last card: nothing peeks out under it.
@@ -150,12 +154,12 @@ describe('Section preview — phone pair of tiles', () => {
       expect(Number(e.zIndex)).to.be.lessThan(Number(c.zIndex))
     }))
     // The last card goes onto the left pile: nothing is left on the right and the walk ends.
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('D').should('have.attr', 'data-slot', '0')
     li('C').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
     section('evenimente').find('li[data-slot="1"], li[data-under="next"]').should('not.exist')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('D').should('have.attr', 'data-slot', '0')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
     // …and a swipe right still walks back.
@@ -188,9 +192,39 @@ describe('Section preview — phone pair of tiles', () => {
       li('B').should('have.attr', 'data-slot', '1')
       li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
       section('evenimente').find('[data-testid="deck-count"]').should('have.text', '2 / 5')
+      cy.wait(150)
       cy.wrap($ul).trigger('pointerup', at(-90))
     })
     li('A').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+  })
+
+  it('a decisive fling deals two cards onto the left pile', () => {
+    visitWith(feed())
+    section('evenimente').find('ul[data-preview-list]').then($ul => {
+      const r = $ul[0].getBoundingClientRect()
+      const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 13, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width * 0.75 + dx, clientY: r.top + 60, force: true })
+      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(-20)).trigger('pointermove', at(-120)).trigger('pointerup', at(-120))
+    })
+    li('B').should('have.attr', 'data-slot', '0')
+    li('A').should('have.attr', 'data-under', 'pile').and('have.attr', 'data-depth', '1')
+    li('C').should('have.attr', 'data-slot', '1')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '3 / 5')
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
+  })
+
+  it('a new swipe during a landing finishes it at once: quick swipes in a row all count', () => {
+    visitWith(feed())
+    section('evenimente').find('ul[data-preview-list]').then($ul => {
+      const r = $ul[0].getBoundingClientRect()
+      const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 14, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width * 0.75 + dx, clientY: r.top + 60, force: true })
+      ;[0, 1, 2].forEach(() => {
+        cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(-20)).trigger('pointermove', at(-80)).wait(100).trigger('pointerup', at(-80))
+      })
+    })
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '4 / 5')
+    li('C').should('have.attr', 'data-slot', '0')
+    li('D').should('have.attr', 'data-slot', '1')
     section('evenimente').find('li[style*="transform"]').should('not.exist')
   })
 
@@ -218,7 +252,7 @@ describe('Section preview — phone pair of tiles', () => {
 
   it('a swipe right slides the tile past the right pile, then tucks it under the top tile', () => {
     visitWith(feed())
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('A').should('have.attr', 'data-slot', '0')
     section('evenimente').find('ul[data-preview-list]').then($ul => {
       const r = $ul[0].getBoundingClientRect()
@@ -371,7 +405,7 @@ describe('Section preview — phone pair of tiles', () => {
   it('a date cover shows the day over the full month, tinted by the card\'s own site', () => {
     const items = feed().map(i => (i.id === 'B' ? { ...i, sites: ['vest'] } : i))
     visitWith(items)
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('B').should('have.attr', 'data-slot', '1')
     li('B').find('[data-tile="cover"]').should('be.visible').and('have.attr', 'style').and('contain', '--tile-tint: #a0384b')
     li('B').find('[data-tile="cover"] > span').then($s => {
@@ -409,10 +443,10 @@ describe('Section preview — phone pair of tiles', () => {
       title: `Implicare ${n}`, link: undefined,
       description: 'Completează acest formular, iar cineva te va contacta. '.repeat(n === '5' ? 6 : 1),
     })))
-    drag('implicare', -200)
-    drag('implicare', -200)
-    drag('implicare', -200)
-    drag('implicare', -200)
+    drag('implicare', -100)
+    drag('implicare', -100)
+    drag('implicare', -100)
+    drag('implicare', -100)
     li('N5').should('have.attr', 'data-slot', '0').find('h3').click()
     section('implicare').should('have.attr', 'data-preview', 'open')
     section('implicare').find('li[style*="transform"]').should('not.exist')
@@ -526,11 +560,11 @@ describe('Section preview — phone pair of tiles', () => {
     visitWith(feed({ B: true, C: true, D: true, E: true }))
     li('B').should('have.attr', 'data-slot', '0')
     li('C').should('have.attr', 'data-slot', '1')
-    drag('evenimente', -200)
-    drag('evenimente', -200)
+    drag('evenimente', -100)
+    drag('evenimente', -100)
     li('D').should('have.attr', 'data-slot', '0')
     li('E').should('have.attr', 'data-slot', '1')
-    drag('evenimente', -200)
+    drag('evenimente', -100)
     li('A').should('have.attr', 'data-slot', '1')
   })
 
