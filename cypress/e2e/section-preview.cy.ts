@@ -66,7 +66,10 @@ describe('Section preview — phone pair of tiles', () => {
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5').and('have.attr', 'aria-hidden', 'true')
     li('E').should('have.attr', 'data-slot', '0').and('be.visible').and('not.have.attr', 'aria-hidden')
     li('A').should('have.attr', 'data-slot', '1').and('be.visible').and('have.attr', 'aria-hidden', 'true')
-    ;['B', 'C', 'D'].forEach(id => li(id).should('not.be.visible').and('not.have.attr', 'data-slot'))
+    // B lies under the back tile (next in the deck); the rest wait hidden.
+    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'aria-hidden', 'true').and('not.have.attr', 'data-slot')
+    li('B').find('a').should('have.attr', 'tabindex', '-1')
+    ;['C', 'D'].forEach(id => li(id).should('not.be.visible').and('not.have.attr', 'data-slot'))
     // One tab stop for the top tile, then the button: the back tile's link is out of the tab order.
     li('A').find('a').should('have.attr', 'tabindex', '-1')
     section('evenimente').then($s => {
@@ -93,23 +96,35 @@ describe('Section preview — phone pair of tiles', () => {
     li('C').should('have.attr', 'data-slot', '1').and('have.css', 'visibility', 'visible')
   })
 
-  it('a swipe either way deals the next card; the deck wraps around', () => {
+  it('a swipe left lays the back tile on the top pile; right takes it back; the deck wraps around', () => {
     visitWith(feed())
+    li('B').should('have.attr', 'data-under', 'next').and('have.attr', 'aria-hidden', 'true')
+    section('evenimente').find('li[data-under="pile"]').should('not.exist')
     drag('evenimente', -200)
     li('A').should('have.attr', 'data-slot', '0').and('not.have.attr', 'aria-hidden')
     li('B').should('have.attr', 'data-slot', '1').and('have.attr', 'aria-hidden', 'true')
-    li('E').should('not.be.visible')
+    // The old top tile now lies under the new one; the next-but-one under the back tile.
+    li('E').should('have.attr', 'data-under', 'pile').and('have.attr', 'aria-hidden', 'true')
+    li('E').find('a').should('have.attr', 'tabindex', '-1')
+    li('C').should('have.attr', 'data-under', 'next')
     li('A').find('a').should('not.have.attr', 'tabindex')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '2 / 5')
     drag('evenimente', 200)
-    li('B').should('have.attr', 'data-slot', '0')
-    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '3 / 5')
-    drag('evenimente', -200)
-    drag('evenimente', -200)
+    li('E').should('have.attr', 'data-slot', '0').and('not.have.attr', 'data-under')
+    li('A').should('have.attr', 'data-slot', '1')
+    li('B').should('have.attr', 'data-under', 'next')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
+    // Nothing under the first tile: a drag right springs back.
+    drag('evenimente', 200)
+    li('E').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
+    ;[0, 1, 2, 3].forEach(() => drag('evenimente', -200))
     li('D').should('have.attr', 'data-slot', '0')
     li('E').should('have.attr', 'data-slot', '1')
+    section('evenimente').find('[data-testid="deck-count"]').should('have.text', '5 / 5')
     drag('evenimente', -200)
     li('E').should('have.attr', 'data-slot', '0')
+    li('D').should('have.attr', 'data-under', 'pile')
     section('evenimente').find('[data-testid="deck-count"]').should('have.text', '1 / 5')
     // Swiping never opens a card's link.
     cy.get('@events.all').then(calls => {
@@ -117,6 +132,24 @@ describe('Section preview — phone pair of tiles', () => {
       expect(clicks).to.have.length(0)
     })
     section('evenimente').should('have.attr', 'data-preview', 'hand')
+  })
+
+  it('during a swipe only the moving tile moves: the tile under it is already in place', () => {
+    visitWith(feed())
+    section('evenimente').find('ul[data-preview-list]').then($ul => {
+      const r = $ul[0].getBoundingClientRect()
+      const at = (dx: number) => ({ eventConstructor: 'PointerEvent', pointerId: 9, isPrimary: true, pointerType: 'touch', clientX: r.left + r.width / 2 + dx, clientY: r.top + 60, force: true })
+      cy.wrap($ul).trigger('pointerdown', at(0)).trigger('pointermove', at(-20)).trigger('pointermove', at(-90))
+      li('A').should($li => {
+        expect($li[0].style.transform).to.contain('translate(-90px')
+        expect($li[0].style.zIndex).to.equal('10')
+      })
+      ;['E', 'B'].forEach(id => li(id).should($li => expect($li[0].style.transform).to.equal('')))
+      li('B').should('have.css', 'visibility', 'visible')
+      cy.wrap($ul).trigger('pointerup', at(-90))
+    })
+    li('A').should('have.attr', 'data-slot', '0')
+    section('evenimente').find('li[style*="transform"]').should('not.exist')
   })
 
   it('a short or vertical drag leaves the deck as it was', () => {
@@ -165,7 +198,7 @@ describe('Section preview — phone pair of tiles', () => {
 
   it('the deck never makes the page scroll sideways (regression)', () => {
     visitWith(feed())
-    section('evenimente').find('li[data-slot]').each($li => {
+    section('evenimente').find('li[data-slot], li[data-under]').each($li => {
       const rect = $li[0].getBoundingClientRect()
       expect(rect.left).to.be.at.least(0)
       expect(rect.right).to.be.at.most(375)
@@ -173,8 +206,9 @@ describe('Section preview — phone pair of tiles', () => {
     cy.document().should(doc => {
       expect(doc.documentElement.scrollWidth).to.be.at.most(375)
     })
-    // The back tile carries the "more cards" stack; the button has no dash.
-    li('A').should('have.css', 'box-shadow').and('match', /10px 8px/)
+    // The tile under the back tile carries the "more cards" stack; the button has no dash.
+    li('B').should('have.attr', 'data-under', 'next').and('have.css', 'box-shadow').and('match', /10px 8px/)
+    li('A').should('have.css', 'box-shadow').and('not.match', /10px 8px/)
     cy.contains('button', 'Vezi toate · 5').then($b => {
       expect(getComputedStyle($b[0], '::before').content).to.be.oneOf(['none', 'normal'])
     })

@@ -240,6 +240,9 @@ test('snapshot: a group of 4+ prints the collapsed hand (spec 08, FR-096 – FR-
   assert.match(html, /<li data-slot="1" aria-hidden="true"><a href="https:\/\/a\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
   assert.match(html, /<li data-slot="0"><a href="https:\/\/d\.example" target="_blank" rel="noopener noreferrer" class=/)
   assert.equal(html.match(/<span data-hand-expand aria-hidden="true"><\/span>/g)?.length, 1)
+  // B (next in the deck order) lies under the back tile, hidden from keyboard and screen readers.
+  assert.match(html, /<li data-under="next" aria-hidden="true"><a href="https:\/\/b\.example" target="_blank" rel="noopener noreferrer" tabindex="-1"/)
+  assert.equal(html.match(/data-under=/g)?.length, 1)
   // Every item of the group is printed as a tile: B has no thumbnail, so it gets the date
   // cover (shown only in the deck); A has one, so no date mark on its image.
   assert.match(html, /<div data-tile="cover" aria-hidden="true" hidden(?: style="--tile-tint:#[0-9a-fA-F]+")?><span class="betel-title-bold">2<\/span><span class="betel-title-condensed">[^<.]+<\/span><\/div>/)

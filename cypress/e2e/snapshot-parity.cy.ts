@@ -2,7 +2,7 @@
  * Spec 03 §9.2 — the server-rendered HTML snapshot (packages/api/src/services/seo/
  * render-snapshot.ts) and the SPA must show the same items: same (title, date, link)
  * (+ location row, spec 07) per item, in the same order, for the same data. Guards the two renderers from drifting.
- * Spec 08: both also print the same group heading counts and deck slots (data-slot).
+ * Spec 08: both also print the same group heading counts and deck slots (data-slot, data-under).
  */
 import { SITES_FIXTURE, LANGUAGES_FIXTURE, baseItem, stubPublicBasics } from '../support/helpers/public'
 
@@ -43,7 +43,7 @@ function tuples(root: ParentNode): Tuple[] {
 function groupMarkup(root: ParentNode) {
   return {
     headings: Array.from(root.querySelectorAll('section h2')).map(h => (h.textContent ?? '').replace(/\s+/g, ' ').trim()),
-    slots: Array.from(root.querySelectorAll('li[data-slot]')).map(li => `${li.querySelector('article')?.getAttribute('data-item-id')}=${li.getAttribute('data-slot')}`),
+    slots: Array.from(root.querySelectorAll('li[data-slot], li[data-under]')).map(li => `${li.querySelector('article')?.getAttribute('data-item-id')}=${li.getAttribute('data-slot') ?? li.getAttribute('data-under')}`),
     preview: Array.from(root.querySelectorAll('section[data-preview]')).map(s => s.id),
   }
 }
@@ -58,7 +58,7 @@ function compare(path: string, siteSlug: string | null) {
     expect(snapshot.map(t => t.id)).to.deep.equal(items.map(i => i.id))
     const snapshotGroups = groupMarkup(parsed)
     expect(snapshotGroups.headings).to.deep.equal(['Grupuri · 2', 'Evenimente · 4'])
-    expect(snapshotGroups.slots).to.deep.equal(['p-ev-1=1', 'p-ev-3=0'])
+    expect(snapshotGroups.slots).to.deep.equal(['p-ev-1=1', 'p-ev-2=next', 'p-ev-3=0'])
 
     cy.visit(path)
     cy.get('[data-testid="content-list"]').should('exist')

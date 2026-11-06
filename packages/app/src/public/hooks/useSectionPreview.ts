@@ -4,7 +4,8 @@ import { flushSync } from 'react-dom'
 // Section preview (swipeable pair of tiles) on phones — spec 08, FR-096 – FR-102, ADR-026.
 //
 // The deck itself is CSS (index.css, `[data-preview="hand"]`): two small preview tiles, the top
-// one in front, the next one fanned out behind it. This hook keeps the per-group state
+// one in front on the left, the next one fanned out behind it on the right, each lying on a
+// pile (data-under: the previous tile under the top one, the next-but-one under the back one). This hook keeps the per-group state
 // (collapsed / open and how far the deck has been swiped), hides the back tile from keyboard
 // and screen readers, handles the swipe and the taps that open the group, moves focus,
 // announces the change and runs the FLIP animations (transform / opacity only), cross-fading
@@ -22,12 +23,15 @@ const COLLAPSE_STAGGER_MS = 20
 const SWIPE_SLOP_PX = 8
 const SWIPE_COMMIT_SHARE = 0.28
 const SWIPE_COMMIT_SPEED = 0.45 // px / ms
-const SWIPE_OUT_MS = 280
+const SWIPE_LAND_MS = 300
 const SWIPE_SETTLE_MS = 240
+/** How far past the other pile a dragged tile may go (share of the gap), and its arc height. */
+const SWIPE_OVERSHOOT = 1.12
+const SWIPE_LIFT_PX = 10
 /**
  * Slot geometry, mirroring index.css (`li[data-slot="0|1"]`, transform origin 50 % 140 %):
  * translate x in % of the tile width, y in px, rotation in degrees. The back tile moves to
- * the top tile's place while the top tile is dragged away.
+ * the other pile's place while it is dragged.
  */
 const SLOTS = [
   { tx: 0, ty: 16, rotate: -4 },
@@ -159,8 +163,10 @@ interface Options {
 
 export function useSectionPreview({ collapsible, count, onAnnounce, expandedText, collapsedText }: Options) {
   const [state, setState] = useState<PreviewState>('hand')
-  /** Swipes so far; the deck shows previewSlots(items, swiped). */
+  /** Net swipes to the left (never below 0); the deck shows previewSlots / deckUnder(items, swiped). */
   const [swiped, setSwiped] = useState(0)
+  const swipedRef = useRef(0)
+  swipedRef.current = swiped
   const isPhone = useMediaQuery(PHONE_QUERY)
   const listRef = useRef<HTMLUListElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -175,12 +181,14 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   const slotEl = (slot: number) =>
     listRef.current?.querySelector<HTMLElement>(`:scope > li[data-slot="${slot}"]`) ?? null
 
-  // The back card stays tappable (no `inert`) but gets no tab stop (FR-102).
+  // The back card stays tappable (no `inert`) but gets no tab stop (FR-102); nor do the tiles
+  // lying under the two piles.
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list) return
     Array.from(list.children).forEach(li => {
-      const back = handVisible && Number((li as HTMLElement).dataset.slot ?? 0) > 0
+      const el = li as HTMLElement
+      const back = handVisible && (Number(el.dataset.slot ?? 0) > 0 || el.dataset.under !== undefined)
       li.querySelectorAll<HTMLElement>(FOCUSABLE).forEach(el => {
         if (el.hasAttribute('data-hand-expand')) return
         if (back && !el.hasAttribute('tabindex')) {
@@ -195,122 +203,107 @@ export function useSectionPreview({ collapsible, count, onAnnounce, expandedText
   })
 
   // ── Swipe ────────────────────────────────────────────────────────────
-  // Either direction sends the top card off that side; the back card rises to the top and the
-  // next card of the deck order slides in behind it. Vertical drags stay native page scrolls
-  // (`touch-action: pan-y` on the deck).
+  // The deck is two piles: the top tile on the left (with the tiles already swiped through
+  // under it) and the back tile on the right (with the next one already under it). A swipe to
+  // the left lays the back tile onto the left pile, revealing the next tile in its place; a
+  // swipe to the right takes the top tile back onto the right pile. Only the moving tile
+  // animates: the tiles underneath are already in place. Vertical drags stay native page
+  // scrolls (`touch-action: pan-y` on the deck).
 
-  /** Draws the drag: the top tile follows the finger, the back tile moves up in proportion. */
-  const paintDrag = (top: HTMLElement, back: HTMLElement | null, dx: number) => {
-    const w = top.offsetWidth || 1
-    const [front, rear] = SLOTS
-    top.style.transform = `translate(${dx}px, ${Math.abs(dx) * 0.04}px) `
-      + slotTransform(front.tx, front.ty, front.rotate + (dx / w) * 10)
-    if (back) {
-      const p = Math.min(1, Math.abs(dx) / w)
-      const mix = (a: number, b: number) => a + (b - a) * p
-      back.style.transform = slotTransform(mix(rear.tx, front.tx), mix(rear.ty, front.ty), mix(rear.rotate, front.rotate))
-    }
+  /** Draws the drag: the moving tile follows the finger from its pile towards the other one. */
+  const paintDrag = (moving: HTMLElement, dir: number, dx: number) => {
+    const w = moving.offsetWidth || 1
+    const dist = ((SLOTS[1].tx - SLOTS[0].tx) / 100) * w
+    const [from, to] = dir < 0 ? [SLOTS[1], SLOTS[0]] : [SLOTS[0], SLOTS[1]]
+    const x = dir < 0 ? Math.max(dx, -dist * SWIPE_OVERSHOOT) : Math.min(dx, dist * SWIPE_OVERSHOOT)
+    const p = Math.min(1, Math.abs(x) / dist)
+    const mix = (a: number, b: number) => a + (b - a) * p
+    // A small arc while the tile crosses over to the other pile.
+    const lift = Math.sin(p * Math.PI) * SWIPE_LIFT_PX
+    moving.style.transform = `translate(${x}px, ${-lift}px) ` + slotTransform(from.tx, mix(from.ty, to.ty), mix(from.rotate, to.rotate))
+  }
+
+  /** A drag right with nothing on the left pile: the top tile gives a little and springs back. */
+  const paintResist = (top: HTMLElement, dx: number) => {
+    const [f] = SLOTS
+    top.style.transform = `translate(${Math.sign(dx) * Math.min(Math.abs(dx) * 0.25, 24)}px, 0px) ` + slotTransform(f.tx, f.ty, f.rotate)
   }
 
   /** Snaps a cancelled drag back to the resting deck. */
-  const settle = useCallback(async (top: HTMLElement, back: HTMLElement | null) => {
-    for (const el of [top, back]) {
-      if (!el) continue
-      el.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}`
-      el.style.transform = ''
-    }
+  const settle = useCallback(async (moving: HTMLElement) => {
+    moving.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}`
+    moving.style.transform = ''
     await wait(SWIPE_SETTLE_MS + 20)
-    for (const el of [top, back]) if (el) el.style.transition = ''
+    clearInline(moving)
   }, [])
 
-  /** Sends the top card off to side `dir` (-1 left, 1 right) and deals the next card. */
-  const advance = useCallback(async (top: HTMLElement, back: HTMLElement | null, dir: number) => {
-    const list = listRef.current
-    if (!list) return
+  /** Lands the moving tile on the other pile (-1: back tile onto the left, 1: top tile back right). */
+  const advance = useCallback(async (moving: HTMLElement, dir: number) => {
     busy.current = true
     try {
-      if (matches(REDUCED_MOTION_QUERY)) {
-        flushSync(() => setSwiped(s => s + 1))
-        clearInline(top)
-        if (back) clearInline(back)
-        return
+      if (!matches(REDUCED_MOTION_QUERY)) {
+        const to = dir < 0 ? SLOTS[0] : SLOTS[1]
+        moving.style.transition = `transform ${SWIPE_LAND_MS}ms ${EASING}`
+        moving.style.transform = slotTransform(to.tx, to.ty, to.rotate)
+        await wait(SWIPE_LAND_MS + 10)
       }
-      const w = top.offsetWidth
-      top.style.transition = `transform ${SWIPE_OUT_MS}ms ease-in, opacity ${SWIPE_OUT_MS}ms ease-in`
-      top.style.transform = `translate(${dir * w * 1.6}px, ${w * 0.06}px) `
-        + slotTransform(SLOTS[0].tx, SLOTS[0].ty, SLOTS[0].rotate + dir * 16)
-      top.style.opacity = '0'
-      if (back) {
-        back.style.transition = `transform ${SWIPE_OUT_MS}ms ${EASING}`
-        back.style.transform = slotTransform(SLOTS[0].tx, SLOTS[0].ty, SLOTS[0].rotate)
-      }
-      await wait(SWIPE_OUT_MS + 10)
-
-      flushSync(() => setSwiped(s => s + 1))
-      // The old top tile is now hidden and the old back tile is the top tile, already drawn at
-      // the top slot, so dropping the inline styles moves nothing. The new back tile fades in.
-      clearInline(top)
-      if (back) clearInline(back)
-      const next = slotEl(1)
-      if (next) {
-        next.style.transition = 'none'
-        next.style.opacity = '0'
-        next.style.transform = `${slotTransform(SLOTS[1].tx, SLOTS[1].ty, SLOTS[1].rotate)} scale(0.96)`
-      }
-      void list.offsetHeight
-      if (next) {
-        next.style.transition = `transform ${SWIPE_SETTLE_MS}ms ${EASING}, opacity ${SWIPE_SETTLE_MS}ms ease-out`
-        next.style.opacity = ''
-        next.style.transform = ''
-      }
-      await wait(SWIPE_SETTLE_MS + 20)
-      if (next) next.style.transition = ''
+      // The landed tile takes the slot it is drawn in; the tiles under both piles move up a
+      // role in place, so dropping the inline styles moves nothing.
+      flushSync(() => setSwiped(s => s - dir))
+      clearInline(moving)
     } finally {
       busy.current = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     const list = listRef.current
     if (!list || !handVisible || count < 2) return
-    let drag: { id: number; x0: number; y0: number; t0: number; dx: number; active: boolean; top: HTMLElement; back: HTMLElement | null } | null = null
+    let drag: {
+      id: number; x0: number; y0: number; t0: number; dx: number
+      dir: number; moving: HTMLElement | null; resist: boolean
+    } | null = null
 
     const onDown = (e: PointerEvent) => {
       suppressClick.current = false
       if (busy.current || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return
-      const top = slotEl(0)
-      if (!top) return
-      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, dx: 0, active: false, top, back: slotEl(1) }
+      if (!slotEl(0)) return
+      drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, dx: 0, dir: 0, moving: null, resist: false }
     }
     const onMove = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
       const dx = e.clientX - drag.x0
       const dy = e.clientY - drag.y0
-      if (!drag.active) {
+      if (!drag.dir) {
         if (Math.abs(dx) < SWIPE_SLOP_PX && Math.abs(dy) < SWIPE_SLOP_PX) return
         if (Math.abs(dy) >= Math.abs(dx)) { drag = null; return } // a page scroll
-        drag.active = true
+        drag.dir = Math.sign(dx)
+        // Left: the back tile crosses over. Right: the top tile goes back, if anything is under it.
+        drag.resist = drag.dir > 0 && swipedRef.current <= 0
+        drag.moving = drag.dir < 0 ? slotEl(1) : slotEl(0)
+        if (!drag.moving) { drag = null; return }
         try { list.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
-        drag.top.style.transition = 'none'
-        if (drag.back) drag.back.style.transition = 'none'
+        drag.moving.style.transition = 'none'
+        drag.moving.style.zIndex = '10'
       }
       e.preventDefault()
       drag.dx = dx
-      paintDrag(drag.top, drag.back, dx)
+      if (drag.resist) paintResist(drag.moving!, dx)
+      else paintDrag(drag.moving!, drag.dir, dx)
     }
     const onEnd = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return
       const d = drag
       drag = null
-      if (!d.active) return
+      if (!d.dir || !d.moving) return
       suppressClick.current = true
       // Touch drags fire no click afterwards: do not swallow a later, unrelated one.
       setTimeout(() => { suppressClick.current = false }, 400)
-      const speed = Math.abs(d.dx) / Math.max(1, e.timeStamp - d.t0)
-      const commit = e.type === 'pointerup'
-        && (Math.abs(d.dx) > d.top.offsetWidth * SWIPE_COMMIT_SHARE || (speed > SWIPE_COMMIT_SPEED && Math.abs(d.dx) > 30))
-      void (commit ? advance(d.top, d.back, Math.sign(d.dx) || -1) : settle(d.top, d.back))
+      const along = d.dx * d.dir // distance travelled in the drag's own direction
+      const speed = along / Math.max(1, e.timeStamp - d.t0)
+      const commit = e.type === 'pointerup' && !d.resist
+        && (along > d.moving.offsetWidth * SWIPE_COMMIT_SHARE || (speed > SWIPE_COMMIT_SPEED && along > 30))
+      void (commit ? advance(d.moving, d.dir) : settle(d.moving))
     }
     // A native drag of a link or image would swallow the pointer stream.
     const onDragStart = (e: DragEvent) => e.preventDefault()

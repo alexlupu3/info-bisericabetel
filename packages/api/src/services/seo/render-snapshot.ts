@@ -10,7 +10,7 @@
 // Classes are the SPA's Tailwind classes (this file is in the app's Tailwind content).
 
 import {
-  UI_DEFAULTS, groupDomIds, groupSlug, itemDisplayTitle, itemPlainText, itemWhen, previewSlots, readLocation,
+  UI_DEFAULTS, groupDomIds, groupSlug, itemDisplayTitle, itemPlainText, itemWhen, previewSlots, deckUnder, readLocation,
   siteAddressLine, tileDate, tileTint,
 } from '@betel/shared'
 import { escapeHtml, safeUrl } from './escape.js'
@@ -181,7 +181,7 @@ function renderItem(item: FeedItem, level: 2 | 3, ctx: RenderContext, opts: Tile
 /**
  * Mirror of GroupBlock.tsx in its initial (collapsed) state: heading count (FR-101), and for
  * groups of 4+ that did not opt out the deck markup (data-preview / data-slot, every item as a
- * tile, the back tile hidden from keyboard and screen readers with the pointer-only overlay),
+ * tile, the tile lying under the back tile (data-under="next"), the back tile hidden from keyboard and screen readers with the pointer-only overlay),
  * the deck counter and the "Vezi toate · N" button (FR-096 – FR-102). The collapse itself is
  * CSS, so phones paint the deck from the first byte.
  */
@@ -191,10 +191,13 @@ function renderGroup(groupId: string, title: string, items: FeedItem[], preview:
   const slots = new Map<number, number>()
   previewSlots(items, 0, preview).forEach((itemIndex, slot) => slots.set(itemIndex, slot))
   const collapsible = slots.size > 0
+  const { next } = deckUnder(items, 0, preview)
   const lis = items.map((item, index) => {
     const slot = slots.get(index)
-    const back = slot !== undefined && slot > 0
+    const lying = slot === undefined && index === next
+    const back = (slot !== undefined && slot > 0) || lying
     const html = renderItem(item, 3, ctx, { tile: collapsible, back })
+    if (lying) return `<li data-under="next" aria-hidden="true">${html}</li>`
     return slot === undefined
       ? `<li>${html}</li>`
       : `<li data-slot="${slot}"${back ? ' aria-hidden="true"' : ''}>${html}${back ? '<span data-hand-expand aria-hidden="true"></span>' : ''}</li>`

@@ -47,6 +47,23 @@ export function previewSlots(
   return Array.from({ length: SECTION_PREVIEW_SIZE }, (_, k) => order[(start + k) % order.length])
 }
 
+/**
+ * The tiles lying under the deck's two piles after `swiped` swipes, already in place so a
+ * swipe only moves one tile: `pile` under the top tile (the one swiped past last; none before
+ * the first swipe) and `next` under the back tile (the one after it). Empty when the group
+ * is not collapsible.
+ */
+export function deckUnder(
+  items: ReadonlyArray<{ pinnedInGroup?: boolean | null }>,
+  swiped = 0,
+  enabled = true,
+): { pile?: number; next?: number } {
+  if (!isCollapsibleGroup(items.length, enabled)) return {}
+  const order = deckOrder(items)
+  const at = (k: number) => order[((k % order.length) + order.length) % order.length]
+  return { pile: swiped > 0 ? at(swiped - 1) : undefined, next: at(swiped + 2) }
+}
+
 /** Anchor id of a group section (`/centru#evenimente`): the title, lower-case, ASCII, dashed. */
 export function groupSlug(title: string): string {
   return title

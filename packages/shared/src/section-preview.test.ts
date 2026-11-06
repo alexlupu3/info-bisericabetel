@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SECTION_PREVIEW_SIZE, deckOrder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
+import { SECTION_PREVIEW_SIZE, deckOrder, deckUnder, groupSlug, isCollapsibleGroup, previewSlots, tileDate, tileTint } from './section-preview.js'
 
 const group = (pins: boolean[]) => pins.map(pinnedInGroup => ({ pinnedInGroup }))
 
@@ -40,6 +40,16 @@ test('swiping walks the deck order and wraps around', () => {
   assert.deepEqual(previewSlots(g, 4), [4, 1])
   assert.deepEqual(previewSlots(g, 5), [1, 0])
   assert.deepEqual(previewSlots(g, -1), [4, 1])
+})
+
+test('deckUnder: the tile under the top pile (after a swipe) and the one under the back tile', () => {
+  const g = group([false, true, false, false, false]) // order: 1, 0, 2, 3, 4
+  assert.deepEqual(deckUnder(g, 0), { pile: undefined, next: 2 })
+  assert.deepEqual(deckUnder(g, 1), { pile: 1, next: 3 })
+  assert.deepEqual(deckUnder(g, 4), { pile: 3, next: 0 })
+  assert.deepEqual(deckUnder(g, 5), { pile: 4, next: 2 })
+  assert.deepEqual(deckUnder(group([false, false, false])), {})
+  assert.deepEqual(deckUnder(group([false, false, false, false]), 0, false), {})
 })
 
 test('missing pinnedInGroup is treated as false', () => {

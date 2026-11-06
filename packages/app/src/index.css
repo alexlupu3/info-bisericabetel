@@ -463,11 +463,24 @@ body {
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0%, 16px) rotate(-4deg); z-index: 3; cursor: pointer; }
-  [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] {
-    transform: translate(68%, 10px) rotate(4deg);
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="0"] { transform: translate(0%, 16px) rotate(-4deg); z-index: 4; cursor: pointer; }
+  [data-preview="hand"] > [data-preview-list] > li[data-slot="1"] { transform: translate(68%, 10px) rotate(4deg); z-index: 3; }
+  /* The tiles lying under the two piles, already in place: a swipe moves only the top tile of
+     one pile onto the other. Their sheets show there is more to swipe through. */
+  [data-preview="hand"] > [data-preview-list] > li[data-under] {
+    visibility: visible;
+    pointer-events: none;
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="pile"] {
+    transform: translate(0%, 16px) rotate(-4deg);
     z-index: 2;
-    /* Two sheets peeking out under the back tile: there is more in this group. */
+    box-shadow:
+      -5px 4px 0 -1px var(--surface), -5px 4px 0 0 var(--border),
+      0 6px 18px -10px var(--hand-shadow);
+  }
+  [data-preview="hand"] > [data-preview-list] > li[data-under="next"] {
+    transform: translate(68%, 10px) rotate(4deg);
+    z-index: 1;
     box-shadow:
       5px 4px 0 -1px var(--surface), 5px 4px 0 0 var(--border),
       10px 8px 0 -1px var(--surface), 10px 8px 0 0 var(--border),
