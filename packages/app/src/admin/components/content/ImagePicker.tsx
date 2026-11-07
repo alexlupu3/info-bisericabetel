@@ -55,14 +55,14 @@ export default function ImagePicker({ label, value, onChange, testId }: {
         <div className="space-y-2">
           <img src={value} alt="" data-testid={testId} className="max-h-32 object-cover opacity-80" />
           <div className="flex gap-2">
-            <label className="px-3 py-1.5 border border-[var(--border)] text-xs tracking-widest uppercase font-content cursor-pointer hover:border-[var(--accent)] transition-colors"
+            <label className="px-3 py-1.5 theme-secondary text-xs tracking-widest uppercase font-content cursor-pointer hover:bg-[var(--surface-3)] transition-colors"
                    data-testid="upload-btn">
               {uploading ? '…' : 'Înlocuiește'}
               <input type="file" accept="image/*" className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }} />
             </label>
             <button type="button" onClick={() => setShowLibrary(true)}
-              className="px-3 py-1.5 border border-[var(--border)] text-xs tracking-widest uppercase font-content hover:border-[var(--accent)] transition-colors">
+              className="px-3 py-1.5 theme-secondary text-xs tracking-widest uppercase font-content hover:bg-[var(--surface-3)] transition-colors">
               Librărie
             </button>
             <button type="button" onClick={() => onChange('')}
@@ -74,8 +74,8 @@ export default function ImagePicker({ label, value, onChange, testId }: {
       ) : (
         <div className="space-y-2">
           <label
-            className={`flex flex-col items-center justify-center gap-1 border-2 border-dashed h-28 cursor-pointer transition-colors ${
-              dragging ? 'border-[var(--accent)] bg-[var(--surface)]' : 'border-[var(--border)] hover:border-[var(--accent)]'
+            className={`flex flex-col items-center justify-center gap-1 h-28 cursor-pointer transition-colors ${
+              dragging ? 'theme-selected' : 'theme-secondary hover:bg-[var(--surface-3)]'
             }`}
             onDragOver={e => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
@@ -93,7 +93,7 @@ export default function ImagePicker({ label, value, onChange, testId }: {
               onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }} />
           </label>
           <button type="button" onClick={() => setShowLibrary(true)}
-            className="w-full px-3 py-1.5 border border-[var(--border)] text-xs tracking-widest uppercase font-content hover:border-[var(--accent)] transition-colors">
+            className="w-full px-3 py-1.5 theme-secondary text-xs tracking-widest uppercase font-content hover:bg-[var(--surface-3)] transition-colors">
             Alege din librărie
           </button>
         </div>

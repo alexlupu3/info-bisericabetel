@@ -48,7 +48,7 @@ function CustomTooltip({
   if (!active || !payload?.length) return null
   const total = payload.reduce((sum, e) => sum + (e.value ?? 0), 0)
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-xs font-content">
+    <div className="theme-overlay px-3 py-2 text-xs font-content">
       <p className="text-[var(--text)] mb-1">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
@@ -56,7 +56,7 @@ function CustomTooltip({
         </p>
       ))}
       {payload.length > 1 && (
-        <p className="text-[var(--muted)] mt-1 border-t border-[var(--border)] pt-1">
+        <p className="text-[var(--muted)] mt-1 theme-divider pt-1">
           Total: {total.toLocaleString('ro-RO')}
         </p>
       )}
@@ -72,12 +72,12 @@ export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Pro
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-[var(--scrim)] z-50 flex items-center justify-center p-4"
       onClick={onClose}
       data-testid="item-daily-modal"
     >
       <div
-        className="bg-[var(--bg)] border border-[var(--border)] p-6 w-full max-w-3xl max-h-[80vh] flex flex-col"
+        className="theme-overlay p-6 w-full max-w-3xl max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -113,7 +113,7 @@ export default function ItemDailyModal({ itemId, itemTitle, site, onClose }: Pro
                     </linearGradient>
                   ))}
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                 <XAxis
                   dataKey="date"
                   stroke="var(--muted)"

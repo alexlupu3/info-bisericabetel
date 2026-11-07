@@ -12,7 +12,7 @@ export default function PublicHero({ site, accent }: { site: Site | null; accent
   const website = seoNames().orgWebsite ?? 'https://bisericabetel.com'
 
   return (
-    <header className="border-b border-[var(--border)]">
+    <header className="theme-divider">
       <div className="max-w-4xl mx-auto w-full px-5 pt-10 pb-8 text-center">
         {/* Decorative: the brand name is the <h1> right below. */}
         <img

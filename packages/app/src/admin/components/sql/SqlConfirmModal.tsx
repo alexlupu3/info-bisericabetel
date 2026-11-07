@@ -51,14 +51,14 @@ export default function SqlConfirmModal({ query, readOnly, onConfirm, onCancel }
   const secondsLeft = armedAt === null ? 0 : Math.max(0, Math.ceil((CONFIRM_WINDOW_MS - (now - armedAt)) / 1000))
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+    <div className="fixed inset-0 bg-[var(--scrim)] z-50 flex items-center justify-center p-4" onClick={onCancel}>
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="sql-confirm-title"
         aria-describedby="sql-confirm-body"
         data-testid="sql-confirm-modal"
-        className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-lg"
+        className="theme-overlay w-full max-w-lg"
         onClick={e => e.stopPropagation()}>
         <div className="h-px bg-[var(--accent)]" />
         <div className="p-6">
@@ -85,7 +85,7 @@ export default function SqlConfirmModal({ query, readOnly, onConfirm, onCancel }
             </p>
           </div>
 
-          <pre className="font-mono text-xs bg-[var(--surface)] border border-[var(--border)] p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all mb-6">
+          <pre className="font-mono text-xs bg-[var(--surface)] theme-card p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all mb-6">
             {query}
           </pre>
 
@@ -101,10 +101,10 @@ export default function SqlConfirmModal({ query, readOnly, onConfirm, onCancel }
               data-testid="sql-confirm-run"
               data-armed={armedAt !== null}
               onClick={handleConfirm}
-              className={`px-5 py-2 rounded-full border text-xs tracking-widest uppercase font-content transition-colors
+              className={`px-5 py-2 text-xs tracking-widest uppercase font-content transition-colors
                 ${armedAt !== null
-                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
-                  : 'border-[var(--border)] text-[var(--text)] hover:border-[var(--accent)]'}`}>
+                  ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+                  : 'theme-secondary text-[var(--text)] hover:bg-[var(--surface-3)]'}`}>
               {armedAt !== null ? `Apasă din nou · ${secondsLeft}s` : 'Confirmă rularea'}
             </button>
           </div>

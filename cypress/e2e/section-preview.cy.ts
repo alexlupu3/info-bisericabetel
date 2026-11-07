@@ -362,7 +362,7 @@ describe('Section preview — phone pair of tiles', () => {
     })
     // The cards peeking out under the back tile are real tiles, each a little further out
     // than the one above it, with the plain drop shadow (no drawn sheets); the button has no dash.
-    const soft = /^rgba?\([^)]*\) 0px 6px 18px -10px$/
+    const soft = /0px 1px 2px.*(?:0px 4px 14px -2px|0px 6px 18px -4px)/
     ;['A', 'B', 'C'].forEach(id => li(id).should('have.css', 'box-shadow').and('match', soft))
     li('A').then($a => li('B').then($b => li('C').then($c => {
       const right = ($li: JQuery<HTMLElement>) => $li[0].getBoundingClientRect().right

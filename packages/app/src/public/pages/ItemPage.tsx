@@ -56,7 +56,7 @@ export default function ItemPage() {
     <div className="min-h-full flex flex-col">
       <PublicHero site={site} accent={accent} />
 
-      <nav className="border-b border-[var(--border)]" aria-label={t(UI_KEYS.NAV_SITES, UI_DEFAULTS[UI_KEYS.NAV_SITES])}>
+      <nav className="theme-divider" aria-label={t(UI_KEYS.NAV_SITES, UI_DEFAULTS[UI_KEYS.NAV_SITES])}>
         <div className="max-w-4xl mx-auto w-full px-5 py-3">
           <BackLink href={backHref} label={t(UI_KEYS.ITEM_BACK_TO_HUB, UI_DEFAULTS[UI_KEYS.ITEM_BACK_TO_HUB])} testId="item-back-link" />
         </div>

@@ -39,7 +39,7 @@ export default function SiteSwitcher({ activeSite, accent, onSelect }: Props) {
       <button
         data-testid="site-switcher-trigger"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 text-xs tracking-widest uppercase text-[var(--muted)] hover:text-[var(--text)] transition-colors duration-150 focus:outline-none focus-visible:ring-2"
+        className="flex items-center gap-2 text-xs tracking-widest uppercase text-[var(--muted)] hover:text-[var(--text)] transition-colors duration-150 focus:outline-none"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -51,7 +51,7 @@ export default function SiteSwitcher({ activeSite, accent, onSelect }: Props) {
         <div
           role="listbox"
           aria-label={t(UI_KEYS.SITES_SELECT_LABEL, UI_DEFAULTS[UI_KEYS.SITES_SELECT_LABEL])}
-          className="absolute top-full left-5 mt-1 z-50 bg-[var(--surface)] border border-[var(--border)] rounded shadow-lg py-1 min-w-[11rem]"
+          className="absolute top-full left-5 mt-1 z-50 theme-overlay py-1 min-w-[11rem]"
         >
           <SiteOption
             label={t(UI_KEYS.SITES_ALL, UI_DEFAULTS[UI_KEYS.SITES_ALL])}
@@ -111,14 +111,14 @@ function SiteOption({
       aria-pressed={active}
       className={[
         'w-full text-left px-4 py-2 text-xs tracking-widest uppercase',
-        'transition-colors duration-150 focus:outline-none focus-visible:ring-2',
-        active ? 'text-[var(--text)]' : 'text-[var(--muted)] hover:text-[var(--text)]',
+        'transition-colors duration-150 focus:outline-none ',
+        active ? 'theme-selected text-[var(--text)]' : 'text-[var(--muted)] hover:text-[var(--text)]',
       ].join(' ')}
     >
       <span className="flex items-center gap-2">
         <span
           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: active ? accent : 'transparent', border: `1px solid ${accent}` }}
+          style={{ backgroundColor: active ? accent : 'transparent', boxShadow: active ? `inset 3px 0 0 ${accent}` : undefined }}
         />
         {label}
       </span>

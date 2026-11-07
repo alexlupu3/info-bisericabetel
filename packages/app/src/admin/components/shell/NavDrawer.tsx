@@ -52,7 +52,7 @@ export default function NavDrawer({ user, fabRef, onLogout }: {
         </button>
       }
     >
-      <div className="flex items-center h-14 px-5 flex-shrink-0 border-b border-[var(--border)]">
+      <div className="flex items-center h-14 px-5 flex-shrink-0 theme-divider">
         <span className="text-sm whitespace-nowrap">
           <span className="betel-title-bold">BETEL</span>
           {' '}

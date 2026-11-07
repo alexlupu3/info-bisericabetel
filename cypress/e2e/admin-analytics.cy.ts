@@ -110,8 +110,8 @@ describe('Admin — Analytics dashboard', () => {
     cy.wait('@overview')
     // Click the Clickuri card to switch metric
     cy.get('[data-testid="stat-card-clickuri"]').click()
-    // The clicks card should now be active (has accent border)
-    cy.get('[data-testid="stat-card-clickuri"]').should('have.class', 'border-l-2')
+    // The clicks card should now be active (has an inset accent bar)
+    cy.get('[data-testid="stat-card-clickuri"]').should('have.class', 'theme-selected')
   })
 
   it('shows items table and opens item detail modal', () => {

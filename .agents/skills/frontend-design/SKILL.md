@@ -75,7 +75,7 @@ Use these patterns across hero, section headers, and key modules:
 Each site (location) has its accent colour stored in the database — column `sites.accent`, seeded in `packages/api/src/db/migrations/0000_initial.sql` and editable by the super-admin on the Locations page (`packages/app/src/admin/pages/LocationsPage.tsx`, `PATCH /api/admin/sites/:slug`). Existing sites can be renamed or recoloured at runtime; adding a new site currently needs a migration or a direct DB change (FR-019 is partially implemented). Either way, components must treat the site list as data.
 
 * **Never hard-code site hex values or site slugs** in components or CSS. Read `site.accent` from the sites data (`useSite()` in `packages/app/src/public/hooks/useSite.ts`, `SitesContext` in `packages/app/src/public/context/`), as `packages/app/src/public/components/content/SiteLabel.tsx` does.
-* Theme-level colours are CSS custom properties in `packages/app/src/index.css` (`--accent`, `--bg`, `--surface`, `--border`, `--text`, `--muted`, with light/dark variants and an `.admin-theme` override). Use those tokens (e.g. `text-[var(--accent)]`) rather than literal colours.
+* Theme-level colours are CSS custom properties in `packages/app/src/index.css` (`--accent`, `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--field`, `--text`, `--muted`, `--scrim`, `--sheen`, `--shadow-1`, `--shadow-2`, `--shadow-3`, with light/dark variants and an `.admin-theme` override). Use those tokens (e.g. `text-[var(--accent)]`) rather than literal colours.
 * In the all-sites view there is no single site accent — stay monochrome or use each item's own site accent only on its small label.
 
 **Accent usage rule (strict):**
@@ -114,7 +114,7 @@ Default spacing feel:
 Betel motion is **subtle and editorial**, not playful-app UI.
 
 * Use **one strong moment**: hero load reveal (fade + slight translate + stagger).
-* Hover states: tiny lift, underline, accent border, or image zoom (very subtle).
+* Hover states: tiny lift, underline, surface step, or image zoom (very subtle).
 * Avoid excessive parallax, bouncy easings, glowing neon, or “startup gradients”.
 
 ---
@@ -124,12 +124,12 @@ Betel motion is **subtle and editorial**, not playful-app UI.
 ### Buttons
 
 * High-contrast (white on black / black on white)
-* Rounded (pill or soft radius)
-* Hover: small accent hint (underline, border, icon, hairline)
+* Sharp corners; preserve existing circles such as avatars and the phone FAB
+* Hover: small accent hint (underline, surface step, icon)
 
 ### Cards
 
-* Clean blocks, minimal shadow
+* Borderless blocks: `--surface` + `--sheen`, `--shadow-1`; hover uses `--surface-2` + `--shadow-2`
 * One accent element max (badge/line/icon)
 * Strong typography hierarchy inside
 
@@ -140,7 +140,11 @@ Betel motion is **subtle and editorial**, not playful-app UI.
 
 ### Forms (donate / signup)
 
-* Simple, centered, tall inputs, clear focus state
+* Sunken `--field` fill without borders, visible labels/placeholders, and a 2px accent inset bottom line on text-input focus
+* Every interactive element keeps a 2px accent `:focus-visible` outline with 2px offset
+* Dialogs, menus, popovers, toasts and drawers use `--surface-3` + `--sheen`, `--shadow-3`; backdrops use `--scrim`
+* Replace dividers with spacing or alternating `--surface-2` bands; secondary buttons use `--surface-2` (hover `--surface-3`), selected states use a surface step or 3px inset accent bar
+* Forced colors restores 1px `CanvasText` borders; this is the only visible-border exception. See [ADR-028](../../../docs/decisions/ADR-028-borderless-surfaces-and-shadows.md) for the input contrast trade-off
 * Don’t use harsh error red as the primary aesthetic—keep it readable and calm
 
 ---

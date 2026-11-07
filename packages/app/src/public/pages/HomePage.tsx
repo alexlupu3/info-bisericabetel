@@ -48,7 +48,7 @@ export default function HomePage() {
       <PublicHero site={site} accent={accent} />
 
       {/* ── Site switcher ─────────────────────────────────────── */}
-      <nav className="border-b border-[var(--border)]" aria-label={t(UI_KEYS.NAV_SITES, UI_DEFAULTS[UI_KEYS.NAV_SITES])}>
+      <nav className="theme-divider" aria-label={t(UI_KEYS.NAV_SITES, UI_DEFAULTS[UI_KEYS.NAV_SITES])}>
         <div className="max-w-4xl mx-auto w-full">
           <SiteSwitcher activeSite={activeSite} accent={accent} onSelect={selectSite} />
         </div>
@@ -138,7 +138,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col gap-3 animate-pulse" data-testid="content-loading">
       {[1, 2, 3].map(i => (
-        <div key={i} className="h-20 rounded bg-[var(--surface)]" />
+        <div key={i} className="h-20 bg-[var(--surface)]" />
       ))}
     </div>
   )

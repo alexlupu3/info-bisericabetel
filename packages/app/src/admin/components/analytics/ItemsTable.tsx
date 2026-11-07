@@ -26,7 +26,7 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm font-content border-collapse" data-testid="items-table">
             <thead>
-              <tr className="border-b border-[var(--border)]">
+              <tr className="theme-divider">
                 <th className="text-left text-xs uppercase tracking-widest text-[var(--muted)] font-normal px-3 py-2">
                   Titlu
                 </th>
@@ -50,7 +50,7 @@ export default function ItemsTable({ items, site, onSelectItem }: Props) {
                 <tr
                   key={item.itemId}
                   onClick={() => onSelectItem(item.itemId!, item.title)}
-                  className="border-b border-[var(--border)] hover:bg-[var(--surface)] cursor-pointer transition-colors"
+                  className="theme-divider hover:bg-[var(--surface)] cursor-pointer transition-colors"
                 >
                   <td className="px-3 py-2">{item.title}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">

@@ -52,25 +52,25 @@ describe('Admin — light / dark theme', () => {
   it('uses the light admin palette when the light theme is stored', () => {
     visitAdmin('light')
     cy.get('html').should('have.class', 'admin-theme').and('have.attr', 'data-theme', 'light')
-    bodyBackground().should('eq', 'rgb(244, 244, 244)')
+    bodyBackground().should('eq', 'rgb(230, 230, 234)')
   })
 
   it('uses the dark admin palette when the dark theme is stored', () => {
     visitAdmin('dark')
     cy.get('html').should('have.attr', 'data-theme', 'dark')
-    bodyBackground().should('eq', 'rgb(10, 10, 10)')
+    bodyBackground().should('eq', 'rgb(7, 7, 8)')
   })
 
   it('follows a light system preference when no theme is saved', () => {
     visitAdmin(null, false)
     cy.get('html').should('have.attr', 'data-theme', 'light')
-    bodyBackground().should('eq', 'rgb(244, 244, 244)')
+    bodyBackground().should('eq', 'rgb(230, 230, 234)')
   })
 
   it('follows a dark system preference when no theme is saved', () => {
     visitAdmin(null, true)
     cy.get('html').should('have.attr', 'data-theme', 'dark')
-    bodyBackground().should('eq', 'rgb(10, 10, 10)')
+    bodyBackground().should('eq', 'rgb(7, 7, 8)')
   })
 
   it('toggles between light and dark and remembers the choice', () => {
@@ -78,7 +78,7 @@ describe('Admin — light / dark theme', () => {
     cy.get('[data-testid="admin-theme-toggle"]').click()
     cy.get('html').should('have.attr', 'data-theme', 'dark')
     cy.window().then(win => expect(win.localStorage.getItem('theme')).to.eq('dark'))
-    bodyBackground().should('eq', 'rgb(10, 10, 10)')
+    bodyBackground().should('eq', 'rgb(7, 7, 8)')
   })
 
   it('grows the admin shell with content that scrolls past the first viewport', () => {
@@ -92,7 +92,7 @@ describe('Admin — light / dark theme', () => {
       const shell = doc.querySelector('[data-testid="admin-shell"]')!
       expect(shell.getBoundingClientRect().height).to.be.at.least(root.scrollHeight - 1)
     })
-    bodyBackground().should('eq', 'rgb(244, 244, 244)')
+    bodyBackground().should('eq', 'rgb(230, 230, 234)')
   })
 
   describe('before login', () => {
@@ -121,13 +121,13 @@ describe('Admin — light / dark theme', () => {
     it('applies a saved dark theme on the login page under a light system preference', () => {
       visitLogin('dark', false)
       cy.get('html').should('have.attr', 'data-theme', 'dark')
-      bodyBackground().should('eq', 'rgb(10, 10, 10)')
+      bodyBackground().should('eq', 'rgb(7, 7, 8)')
     })
 
     it('applies a saved light theme on the login page under a dark system preference', () => {
       visitLogin('light', true)
       cy.get('html').should('have.attr', 'data-theme', 'light')
-      bodyBackground().should('eq', 'rgb(244, 244, 244)')
+      bodyBackground().should('eq', 'rgb(230, 230, 234)')
     })
   })
 })

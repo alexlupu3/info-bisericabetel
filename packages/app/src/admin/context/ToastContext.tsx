@@ -38,10 +38,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           key={t.id}
           data-testid="toast"
           role={t.type === 'error' ? 'alert' : 'status'}
-          className={`pointer-events-auto max-w-full px-4 py-3 text-xs font-content tracking-wide border animate-fade-in
+          className={`pointer-events-auto max-w-full px-4 py-3 text-xs font-content tracking-wide theme-overlay animate-fade-in
             ${t.type === 'error'
-              ? 'bg-[var(--bg)] border-[var(--danger)] text-[var(--danger)]'
-              : 'bg-[var(--text)] border-[var(--text)] text-[var(--bg)]'
+              ? 'text-[var(--danger)]'
+              : 'text-[var(--text)]'
             }`}>
           {t.message}
         </div>

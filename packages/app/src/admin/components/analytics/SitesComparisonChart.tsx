@@ -42,7 +42,7 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-xs font-content">
+    <div className="theme-overlay px-3 py-2 text-xs font-content">
       <p className="text-[var(--text)] mb-1">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
@@ -70,7 +70,7 @@ export default function SitesComparisonChart({ data, metric, period }: Props) {
       </p>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
           <XAxis
             dataKey="label"
             stroke="var(--muted)"

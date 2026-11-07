@@ -186,13 +186,13 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
          data-testid={isEdit ? 'edit-form' : 'create-form'}>
       {/* Tab bar — only shown when editing an existing item */}
       {isEdit && (
-        <div className="flex border-b border-[var(--border)] px-2 flex-shrink-0">
+        <div className="flex theme-divider px-2 flex-shrink-0">
           <button
             onClick={() => setActiveTab('edit')}
             data-testid="tab-edit"
             className={`px-4 py-2.5 text-xs tracking-widest uppercase font-content transition-colors
               ${activeTab === 'edit'
-                ? 'border-b-2 border-[var(--accent)] text-[var(--accent)] -mb-px'
+                ? 'theme-selected text-[var(--accent)]'
                 : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
           >
             Editează
@@ -202,7 +202,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             data-testid="tab-short-links"
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs tracking-widest uppercase font-content transition-colors
               ${activeTab === 'short-links'
-                ? 'border-b-2 border-[var(--accent)] text-[var(--accent)] -mb-px'
+                ? 'theme-selected text-[var(--accent)]'
                 : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
           >
             <Link2 size={12} />
@@ -243,7 +243,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
               value={transLocale}
               onChange={e => setTransLocale(e.target.value)}
               data-testid="translation-locale-select"
-              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
+              className="bg-[var(--field)] px-3 py-2 text-base font-content">
               <option value="">Română (original)</option>
               {nonDefaultLanguages.map(l => (
                 <option key={l.code} value={l.code}>{l.name}</option>
@@ -257,10 +257,10 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
               {existingTranslations.translations.map(t => (
                 <span
                   key={t.locale}
-                  className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-content rounded ${
+                  className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-content ${
                     t.locale === transLocale
                       ? 'bg-[var(--accent)] text-[var(--on-accent)]'
-                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]'
+                      : 'bg-[var(--surface)] theme-card text-[var(--muted)]'
                   }`}>
                   {t.locale.toUpperCase()}
                 </span>
@@ -287,7 +287,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
                   placeholder={getOriginalValue(field.key)}
                   rows={field.key === 'body' ? 5 : 3}
                   data-testid={`trans-${field.key}-input`}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
+                  className="w-full bg-[var(--field)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
               ) : (
                 <input
                   value={transForm[field.key] ?? ''}
@@ -295,7 +295,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
                   placeholder={getOriginalValue(field.key)}
                   maxLength={field.maxLength}
                   data-testid={`trans-${field.key}-input`}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
+                  className="w-full bg-[var(--field)] px-3 py-2 text-base font-content placeholder:text-[var(--muted)]/40" />
               )}
               {field.maxLength && <LocationCounter value={transForm[field.key] ?? ''} testId={`trans-${field.key}-counter`} />}
             </div>
@@ -317,7 +317,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Tip</label>
             <select value={form.type} onChange={e => set({ type: e.target.value })}
               data-testid="create-type-select"
-              className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content">
+              className="bg-[var(--field)] px-3 py-2 text-base font-content">
               {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -330,7 +330,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             </label>
             <input value={form.title} onChange={e => set({ title: e.target.value })}
               data-testid="create-title-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
         )}
 
@@ -339,7 +339,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Conținut Markdown *</label>
             <textarea value={form.body} onChange={e => set({ body: e.target.value })}
               data-testid="create-body-input" rows={5}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
         )}
 
@@ -354,20 +354,20 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Descriere</label>
             <textarea value={form.description} onChange={e => set({ description: e.target.value })}
               data-testid="create-description-input" rows={3}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link CTA</label>
               <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
                 data-testid="create-link-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+                className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
             </div>
             <div className="flex-1">
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Text buton (opțional)</label>
               <input value={form.cta} onChange={e => set({ cta: e.target.value })} placeholder="ex: Înregistrează-te"
                 data-testid="create-cta-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+                className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
             </div>
           </div>
           <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
@@ -379,7 +379,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <input value={form.name} onChange={e => set({ name: e.target.value })}
               placeholder="ex: Poster Paște 2025"
               data-testid="create-poster-name-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
           <ImagePicker
             label="Imagine *"
@@ -390,7 +390,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Link (opțional)</label>
             <input value={form.link} onChange={e => set({ link: e.target.value })} placeholder="https://..."
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
           <SiteLinkOverrides form={form} set={set} availableSites={availableSites} />
         </>)}
@@ -401,12 +401,12 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <input value={form.url} onChange={e => set({ url: e.target.value })}
               placeholder="https://youtu.be/... sau ID"
               data-testid="create-url-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
           <div>
             <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu (opțional)</label>
             <input value={form.title} onChange={e => set({ title: e.target.value })}
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
         </>)}
 
@@ -427,7 +427,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
                 })
               }}
               data-testid="create-date-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
           </div>
           {form.date && (
             <div className="flex-1 min-w-[10rem]">
@@ -438,7 +438,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
                   set({ endDate: v, startTime: !v || v === form.date ? form.startTime : '' })
                 }}
                 data-testid="create-end-date-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+                className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
               {form.endDate && form.endDate !== form.date && (
                 <p data-testid="start-time-multiday-hint" className="mt-1 text-xs text-[var(--muted)] font-content">
                   Ora de început se poate seta doar pentru evenimente de o singură zi.
@@ -451,7 +451,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
               <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Ora de început (opțional)</label>
               <input type="time" step="60" value={form.startTime} onChange={e => set({ startTime: e.target.value })}
                 data-testid="create-start-time-input"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+                className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
               <p className="mt-1 text-xs text-[var(--muted)] font-content">Ora României, doar pentru evenimente de o singură zi.</p>
             </div>
           )}
@@ -464,7 +464,7 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
             <input value={form.location} onChange={e => set({ location: e.target.value })}
               maxLength={LOCATION_MAX_LENGTH} placeholder="ex: Sala mare, etaj 1"
               data-testid="create-location-input"
-              className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+              className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
             <LocationCounter value={form.location} testId="create-location-counter" />
           </div>
         )}
@@ -546,8 +546,8 @@ export default function ContentForm({ item, groups, availableSites, defaultGroup
           <button type="button" onClick={submit}
             disabled={busy || (form.exclusiveSite !== null && !availableSites.find(s => s.slug === form.exclusiveSite))}
             data-testid="create-submit-btn"
-            className="px-5 py-2 border border-[var(--text)] bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
-                       hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent)] transition-colors disabled:opacity-40 disabled:pointer-events-none">
+            className="px-5 py-2 bg-[var(--text)] text-[var(--bg)] text-xs tracking-widest uppercase font-content
+                        hover:bg-[var(--accent)] hover:text-[var(--on-accent)] transition-colors disabled:opacity-40 disabled:pointer-events-none">
             {busy ? 'Se salvează…' : isTranslating ? 'Salvează traducerea' : isEdit ? 'Salvează' : 'Creează'}
           </button>
         </div>

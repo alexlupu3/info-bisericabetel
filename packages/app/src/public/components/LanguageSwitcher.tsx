@@ -27,7 +27,7 @@ export default function LanguageSwitcher() {
       value={locale}
       onChange={e => setLocale(e.target.value)}
       data-testid="language-switcher"
-      className="bg-transparent text-[var(--muted)] opacity-40 hover:opacity-70 transition-opacity duration-200 focus:outline-none text-[10px] tracking-widest uppercase font-content cursor-pointer border-none"
+      className="bg-[var(--field)] text-[var(--muted)] focus:outline-none text-[10px] tracking-widest uppercase font-content cursor-pointer"
       aria-label="Select language"
     >
       {languages.map(l => (

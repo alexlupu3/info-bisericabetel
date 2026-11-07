@@ -22,7 +22,7 @@ export default function RailTooltip({ anchor, label }: { anchor: RefObject<HTMLE
       style={{ top: pos.top, left: pos.left }}
       className="fixed -translate-y-1/2 z-[calc(var(--z-sidebar)+1)] pointer-events-none whitespace-nowrap
                  px-2.5 py-1.5 text-[11px] tracking-widest uppercase font-content
-                 bg-[var(--text)] text-[var(--bg)] shadow-lg animate-fade-in"
+                 text-[var(--text)] theme-overlay animate-fade-in"
     >
       {label}
     </span>,

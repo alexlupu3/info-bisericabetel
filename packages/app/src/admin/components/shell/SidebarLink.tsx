@@ -8,7 +8,7 @@ export function rowClass(collapsed: boolean, active = false) {
   return `group relative flex items-center gap-3 h-10 w-full text-xs tracking-widest uppercase font-content transition-colors
     ${collapsed ? 'justify-center px-0' : 'px-5'}
     ${active
-      ? 'font-bold text-[var(--text)] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:bg-[var(--accent)]'
+      ? 'font-bold text-[var(--text)] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:bg-[var(--accent)]'
       : 'text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]'}
     focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]`
 }

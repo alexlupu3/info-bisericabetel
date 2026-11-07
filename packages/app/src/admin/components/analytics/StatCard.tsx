@@ -19,10 +19,19 @@ export default function StatCard({ label, value, change, active, onClick }: Prop
   return (
     <div
       data-testid={`stat-card-${toKebab(label)}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
       onClick={onClick}
       className={[
-        'border border-[var(--border)] bg-[var(--surface)] px-6 py-4 min-w-[140px] cursor-pointer transition-colors hover:bg-[var(--surface-2)]',
-        active ? 'border-l-2 border-l-[var(--accent)]' : '',
+        'theme-card bg-[var(--surface)] px-6 py-4 min-w-[140px] cursor-pointer transition-colors hover:bg-[var(--surface-2)]',
+        active ? 'theme-selected' : '',
       ].join(' ')}
     >
       <p className="text-xs uppercase tracking-widest font-content text-[var(--muted)] mb-1">

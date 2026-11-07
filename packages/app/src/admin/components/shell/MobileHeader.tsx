@@ -6,7 +6,7 @@ export default function MobileHeader() {
   const { pathname } = useLocation()
   const current = navItemForPath(pathname)
   return (
-    <header className="flex items-center justify-between gap-4 px-4 py-3 border-b border-[var(--border)]">
+    <header className="flex items-center justify-between gap-4 px-4 py-3 theme-divider">
       <span className="text-sm whitespace-nowrap">
         <span className="betel-title-bold">BETEL</span>
         {' '}

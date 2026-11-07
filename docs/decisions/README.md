@@ -72,3 +72,4 @@ Metadata is a bullet list directly under the title. Do not use YAML front matter
 | [ADR-025](ADR-025-short-link-preview-by-user-agent.md) | Short-link previews served to link-preview crawlers by User-Agent; humans keep the 302 | Accepted |
 | [ADR-026](ADR-026-phone-section-preview.md) | Phone-only collapsed group preview (swipeable two-tile deck, per-group opt-out): CSS geometry in both renderers, full DOM kept, pin as a column | Accepted |
 | [ADR-027](ADR-027-admin-dialogs-native-dialog-and-modal-content-form.md) | Admin dialogs use one native-`<dialog>` primitive; content items and groups are created and edited in a modal | Accepted |
+| [ADR-028](ADR-028-borderless-surfaces-and-shadows.md) | Borderless shared surfaces, soft shadows and forced-colors fallback | Accepted |

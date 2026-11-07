@@ -30,8 +30,8 @@ export default function GroupsPage() {
         <button
           onClick={() => setCreating(true)}
           data-testid="create-group-btn"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+          className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] hover:text-[var(--accent)] transition-colors">
           + Adaugă
         </button>
       </div>
@@ -72,7 +72,7 @@ export default function GroupsPage() {
 
 function GroupRow({ group, onDelete }: { group: Group; onDelete: () => void }) {
   return (
-    <li className="flex items-center gap-4 border border-[var(--border)] px-4 py-3"
+    <li className="flex items-center gap-4 theme-card px-4 py-3"
         data-testid={`group-row-${group.id}`}>
       <span className="flex-1 text-sm font-content">{group.title}</span>
       {group.sites.length > 0 && (
@@ -113,14 +113,14 @@ function CreateGroupForm({ availableSites, onClose, onCreated }: { availableSite
   }
 
   return (
-    <div className="border border-[var(--border)] p-4 mb-6 space-y-3" data-testid="create-group-form">
+    <div className="theme-card p-4 mb-6 space-y-3" data-testid="create-group-form">
       {error && <p className="text-[var(--danger)] text-sm font-content">{error}</p>}
       <div>
         <label className="block text-xs tracking-widest uppercase text-[var(--muted)] font-content mb-1">Titlu *</label>
         <input value={title} onChange={e => setTitle(e.target.value)}
           placeholder="ex. Anunțuri duminică"
           data-testid="create-group-title"
-          className="w-full bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-base font-content" />
+          className="w-full bg-[var(--field)] px-3 py-2 text-base font-content" />
       </div>
       {availableSites.length > 0 && (
         <div>
@@ -143,8 +143,8 @@ function CreateGroupForm({ availableSites, onClose, onCreated }: { availableSite
       <div className="flex gap-3">
         <button onClick={submit} disabled={busy || !title}
           data-testid="create-group-submit"
-          className="px-4 py-2 border border-[var(--text)] text-xs tracking-widest uppercase font-content
-                     hover:border-[var(--accent)] transition-colors disabled:opacity-40">
+          className="px-4 py-2 theme-secondary text-xs tracking-widest uppercase font-content
+                     hover:bg-[var(--surface-3)] transition-colors disabled:opacity-40">
           {busy ? 'Se creează…' : 'Creează'}
         </button>
         <button onClick={onClose}

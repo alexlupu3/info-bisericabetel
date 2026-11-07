@@ -22,8 +22,8 @@ export default function PeriodSelector({ value, onChange }: Props) {
           className={[
             'px-3 py-1.5 text-xs uppercase tracking-widest font-content transition-colors',
             value === period
-              ? 'bg-[var(--accent)] text-[var(--on-accent)] border border-[var(--accent)]'
-              : 'border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] bg-transparent',
+              ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+              : 'theme-secondary text-[var(--muted)] hover:text-[var(--text)]',
           ].join(' ')}
         >
           {label}

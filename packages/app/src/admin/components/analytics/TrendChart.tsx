@@ -58,7 +58,7 @@ function CustomTooltip({
   const otherClicks = currentEntry?.payload.otherClicks ?? 0
   const showBreakdown = metric === 'clicks' && breakdown && breakdown.length > 0
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-xs font-content">
+    <div className="theme-overlay px-3 py-2 text-xs font-content">
       <p className="text-[var(--text)] mb-1">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
@@ -66,7 +66,7 @@ function CustomTooltip({
         </p>
       ))}
       {showBreakdown && (
-        <div data-testid="click-breakdown" className="mt-2 pt-2 border-t border-[var(--border)] space-y-0.5">
+        <div data-testid="click-breakdown" className="mt-2 pt-2 theme-divider space-y-0.5">
           {breakdown.map((item, i) => (
             <div
               key={item.itemId ?? `unknown-${i}`}
@@ -102,7 +102,7 @@ export default function TrendChart({ currentSeries, previousSeries, metric, peri
     <div data-testid="trend-chart">
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
           <XAxis
             dataKey="label"
             stroke="var(--muted)"

@@ -36,7 +36,7 @@ export default function SiteLinkOverrides({ form, set, availableSites }: {
         Link-uri per locație
       </button>
       {expanded && (
-        <div className="mt-2 space-y-2 pl-4 border-l-2 border-[var(--border)]">
+        <div className="mt-2 space-y-2 pl-4 theme-divider">
           {relevantSites.map(s => (
             <div key={s.slug} className="flex items-center gap-2">
               <span
@@ -49,7 +49,7 @@ export default function SiteLinkOverrides({ form, set, availableSites }: {
                 value={form.siteLinks[s.slug] ?? ''}
                 onChange={e => setSiteLink(s.slug, e.target.value)}
                 placeholder="Folosește link-ul implicit"
-                className="flex-1 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-base font-content"
+                className="flex-1 bg-[var(--field)] px-3 py-1.5 text-base font-content"
               />
             </div>
           ))}

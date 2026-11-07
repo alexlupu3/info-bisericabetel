@@ -70,3 +70,5 @@ All admin test files updated from `ADMIN_URL = 'http://localhost:5174/admin/'` t
 ## Update History
 - 2026-10-17: the rsync/Nginx deploy model and the `deploy:app` script described above were later replaced by the single-container CapRover deployment ([ADR-006](ADR-006-single-container-deployment.md)); no `pnpm deploy*` scripts remain. The service worker denylist now also excludes `/s/*` (short links). The package merge itself is unchanged.
 - 2026-10-29: the `.admin-theme` class moved from a wrapper `<div>` to `<html>` (added by `AdminApp` while mounted, removed on unmount), because a wrapper cannot paint the page background behind content that scrolls past the first viewport. The admin tokens now have light and dark variants that follow the shared `data-theme` preference (FR-095). Isolation from the public tokens is unchanged: the class is present only while an admin route is mounted.
+
+- 2026-11-06: [ADR-028](ADR-028-borderless-surfaces-and-shadows.md) makes public/admin surface and shadow values identical. The admin scope continues to own its accent, status colours, colour scheme and overlay stacking tokens.

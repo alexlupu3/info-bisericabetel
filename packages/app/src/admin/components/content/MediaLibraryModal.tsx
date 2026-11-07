@@ -33,7 +33,7 @@ export default function MediaLibraryModal({ onSelect, onClose }: {
           {data?.media.map(m => (
             <button key={m.id} type="button" onClick={() => onSelect(m.url)}
               data-testid={`media-library-item-${m.id}`}
-              className="border border-[var(--border)] hover:border-[var(--accent)] transition-colors group flex flex-col text-left">
+              className="theme-secondary hover:bg-[var(--surface-3)] transition-colors group flex flex-col text-left">
               <div className="aspect-square overflow-hidden bg-[var(--surface)]">
                 <img src={m.url} alt={m.originalName} className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" loading="lazy" />
               </div>

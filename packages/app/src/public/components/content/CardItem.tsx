@@ -75,7 +75,7 @@ export default function CardItem({
   )
 
   const cta = resolvedLink && d.cta && (
-    <span data-tile="hide" className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content border border-[var(--text)] text-[var(--text)]">
+    <span data-tile="hide" className="self-start inline-block px-4 py-2 text-xs tracking-widest uppercase font-content theme-secondary text-[var(--text)]">
       {d.cta}
     </span>
   )
@@ -84,9 +84,9 @@ export default function CardItem({
     <article
       data-item-id={item.id}
       className={[
-        'relative border border-[var(--border)] bg-[var(--surface)] overflow-hidden',
+        'relative theme-card bg-[var(--surface)] overflow-hidden',
         horizontal ? 'flex flex-col sm:flex-row sm:items-start' : '',
-        resolvedLink ? 'transition-colors duration-200 group-hover:bg-[var(--accent)]/5' : '',
+        resolvedLink ? 'transition-colors duration-200 group-hover:bg-[var(--surface-2)]' : '',
       ].filter(Boolean).join(' ')}
     >
       {d.thumbnail && (
