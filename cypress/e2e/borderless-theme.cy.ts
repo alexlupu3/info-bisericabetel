@@ -89,4 +89,40 @@ describe('Borderless theme — touch screens', () => {
   })
 })
 
+describe('Borderless theme — review regressions', () => {
+  it('the language dropdown stays at full opacity', () => {
+    cy.intercept('GET', '/api/sites', { sites: [] })
+    cy.intercept('GET', '/api/content*', { site: null, items: [] })
+    cy.intercept('GET', '/api/languages', { languages: [
+      { code: 'ro', name: 'Română', isDefault: true, enabled: true },
+      { code: 'en', name: 'English', isDefault: false, enabled: true },
+      { code: 'hu', name: 'Magyar', isDefault: false, enabled: true },
+    ] })
+    cy.intercept('GET', '/api/translations*', { locale: 'ro', translations: {} })
+    cy.visit('/')
+    cy.get('select[data-testid="language-switcher"]').should($s => {
+      expect(getComputedStyle($s[0]).opacity).to.eq('1')
+    })
+  })
+
+  it('the generic hand-button hover never recolours the solid variant', () => {
+    cy.intercept('GET', '/api/sites', { sites: [] })
+    cy.intercept('GET', '/api/content*', { site: null, items: [] })
+    cy.visit('/')
+    cy.document().then(doc => {
+      const offenders: string[] = []
+      const visit = (rules: CSSRuleList) => {
+        for (const rule of Array.from(rules)) {
+          if (rule instanceof CSSStyleRule) {
+            const sel = rule.selectorText
+            if (sel.includes('.betel-hand-button') && sel.includes(':hover') && !sel.includes('--solid') && !sel.includes(':not(.betel-hand-button--solid)') && /background/.test(rule.style.cssText)) offenders.push(sel)
+          } else if ('cssRules' in rule) visit((rule as CSSGroupingRule).cssRules)
+        }
+      }
+      for (const sheet of Array.from(doc.styleSheets)) { try { visit(sheet.cssRules) } catch { /* cross-origin */ } }
+      expect(offenders).to.deep.equal([])
+    })
+  })
+})
+
 export {}

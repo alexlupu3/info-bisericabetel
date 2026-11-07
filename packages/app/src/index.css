@@ -674,7 +674,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):focus, text
 tbody tr:nth-child(odd), .prose-betel tbody tr:nth-child(odd) { background: var(--surface-2); }
 /* Hover feedback only where a pointer can really hover: on touch screens :hover sticks to the last tapped element. */
 @media (hover: hover) {
-  .theme-secondary:hover, .betel-hand-button:hover { background: var(--surface-3); }
+  .theme-secondary:hover, .betel-hand-button:not(.betel-hand-button--solid):hover { background: var(--surface-3); }
+  .betel-hand-button--solid:hover { box-shadow: var(--sheen), var(--shadow-3); }
   .theme-card.theme-selected:where(a:hover *, button:hover, [role="button"]:hover, [tabindex]:hover) {
     box-shadow: inset 3px 0 0 var(--accent), var(--sheen), var(--shadow-2);
   }
@@ -686,6 +687,8 @@ tbody tr:nth-child(odd), .prose-betel tbody tr:nth-child(odd) { background: var(
 
 /* System colours remain visible when forced-colors removes fills and shadows. */
 @media (forced-colors: active) {
+  /* Row fills disappear: keep rows of tables apart. */
+  thead tr, tbody tr { border-bottom: 1px solid CanvasText; }
   :is(.theme-card, .theme-raised, .theme-overlay, article, input, select, textarea, button, dialog, [role="dialog"], [role="menu"], [role="listbox"], [data-dialog-panel], .betel-hand-button) {
     border: 1px solid CanvasText;
   }
